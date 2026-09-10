@@ -59,6 +59,36 @@ public static class DeviceCatalog
     }
 
     /// <summary>
+    /// The microphone the sending role reads. An explicit selector matches an endpoint id or
+    /// part of a name; nothing at all means the system's communications default, which is
+    /// the endpoint Windows itself hands to a voice application.
+    ///
+    /// <para>
+    /// Deliberately without the preference list <see cref="Pick"/> carries. On the receiving
+    /// side there is one right answer — the virtual cable games read from — and picking it
+    /// saves the user a decision. On this side the right answer is a physical microphone
+    /// nothing here can rank, and guessing is how somebody ends up broadcasting the wrong
+    /// room.
+    /// </para>
+    /// </summary>
+    public static MMDevice? PickCapture(string? selector)
+    {
+        var devices = CaptureDevices();
+
+        if (!string.IsNullOrWhiteSpace(selector))
+        {
+            return devices.FirstOrDefault(d =>
+                d.ID.Equals(selector, StringComparison.OrdinalIgnoreCase) ||
+                d.FriendlyName.Contains(selector, StringComparison.OrdinalIgnoreCase));
+        }
+
+        using var enumerator = new MMDeviceEnumerator();
+        return enumerator.TryGetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications, out var preferred)
+            ? preferred
+            : devices.FirstOrDefault();
+    }
+
+    /// <summary>
     /// Resolves an explicit selector (substring or endpoint id), or falls back to the
     /// first preferred virtual cable that is present.
     /// </summary>

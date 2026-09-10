@@ -16,6 +16,10 @@ Moonlight and Sunshine are **not patched at all**. HexBridge runs beside them ov
 its own encrypted channel, so any stock client and any host will do — Sunshine,
 Apollo, Vibepollo. Updating your streaming software does not break it.
 
+The machine you sit at can be **a Mac or another Windows PC**. Windows to Windows
+carries the microphone and the clipboard; forwarding gamepads needs a Mac on the
+sending side, for a reason spelled out under [Limitations](#limitations).
+
 ```
         Mac                       network                  Windows
 ┌──────────────────┐         ┌──────────────┐      ┌────────────────────┐
@@ -139,6 +143,15 @@ only the header and cannot decrypt either the audio or the input. Deployment:
   off the audio function is absent from the configuration descriptor entirely, so
   Windows never loads the driver that carries the bug. Turn it on the first time
   with the receiver's autostart disabled. See [docs/DUALSENSE.md](docs/DUALSENSE.md).
+* **Gamepad forwarding needs a Mac on the sending side.** The receiver builds a
+  virtual USB device out of the real descriptors — device, configuration, HID
+  report — and macOS hands all of those over through IOKit for free. Windows does
+  not: the HID class driver never exposes the report descriptor at all, only
+  preparsed data, and the device and configuration descriptors are reachable only
+  by opening the parent hub for write access, which needs administrator rights and
+  the port number. Reconstructing a descriptor would produce different bytes than
+  the ones the receiver has to replay. The microphone and the clipboard work in
+  both directions.
 * Connecting the controller over Bluetooth is not supported, USB only.
 * Discovery works within a single subnet: mDNS is not routed, and it will not cross
   a guest network or client isolation on the router. The link and the short code

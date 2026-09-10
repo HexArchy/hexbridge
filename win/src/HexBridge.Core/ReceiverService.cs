@@ -13,6 +13,13 @@ namespace HexBridge;
 /// The host knows nothing about audio or gamepads. Both front ends (console and desktop
 /// app) drive this and differ only in how they render <see cref="Updated"/> and
 /// <see cref="Log"/>.
+///
+/// <para>
+/// It runs in either <see cref="BridgeRole"/>. The difference is small and entirely here:
+/// which direction packets are sealed with, whether the socket waits on a known port or
+/// dials an address on an ephemeral one, and who answers HELLO with PONG. Everything above
+/// this class — the features, the pages, the wizard — is written once and works both ways.
+/// </para>
 /// </summary>
 public sealed class ReceiverService : IAsyncDisposable
 {
@@ -32,6 +39,7 @@ public sealed class ReceiverService : IAsyncDisposable
     private readonly IFeature[] _features;
     private Run? _run;
     private ReceiverSnapshot _snapshot = new();
+    private int _muted;
 
     /// <summary>Fires from background threads; front ends marshal as they need.</summary>
     public event Action<LogEntry>? Log;
@@ -43,6 +51,22 @@ public sealed class ReceiverService : IAsyncDisposable
     public IReadOnlyList<IFeature> Features => _features;
 
     public ReceiverSnapshot Snapshot => Volatile.Read(ref _snapshot);
+
+    /// <summary>
+    /// Mute, as the wire sees it: the flag on every outgoing AUDIO and HELLO packet.
+    ///
+    /// <para>
+    /// It lives on the transport rather than inside the microphone because HELLO has to
+    /// carry it as well, and HELLO keeps going during exactly the silence mute produces.
+    /// That is what makes the far end say «микрофон заглушен» instead of «Mac замолчал».
+    /// Survives a stop and start, so muting and then restarting does not unmute.
+    /// </para>
+    /// </summary>
+    public bool Muted
+    {
+        get => Volatile.Read(ref _muted) != 0;
+        set => Volatile.Write(ref _muted, value ? 1 : 0);
+    }
 
     public bool IsRunning
     {
@@ -86,6 +110,10 @@ public sealed class ReceiverService : IAsyncDisposable
             throw new InvalidOperationException(keyError);
         }
 
+        // A config that asks to come up muted does so on every start, not only the first:
+        // «включать заглушённым» is a setting about launches, and a restart is one.
+        if (config.StartMuted) Muted = true;
+
         Run? run = null;
         try
         {
@@ -100,7 +128,9 @@ public sealed class ReceiverService : IAsyncDisposable
 
         lock (_gate) _run = run;
 
-        Emit(LogLevel.Info, $"hexbridge: слушаю {run.Listen}");
+        Emit(LogLevel.Info, config.Role == BridgeRole.Sender
+            ? $"hexbridge: отдаю звук на {run.Peer}, локальный порт {run.Listen}"
+            : $"hexbridge: слушаю {run.Listen}");
         if (run.Relay is not null) Emit(LogLevel.Info, $"hexbridge: регистрируюсь на релее {run.Relay}");
 
         run.Begin();
@@ -166,6 +196,19 @@ public sealed class ReceiverService : IAsyncDisposable
         private readonly List<Task> _tasks = [];
         private readonly DateTime _startedAt = DateTime.UtcNow;
 
+        private readonly BridgeRole _role;
+
+        /// <summary>The direction we seal with; the peer opens with the other one.</summary>
+        private readonly Direction _outgoing;
+        private readonly Direction _incoming;
+
+        /// <summary>
+        /// Where HELLO goes once a second, or null when nothing needs announcing. The
+        /// sending role always has one — that is how the far end learns we exist — and the
+        /// receiving role only has one behind a relay.
+        /// </summary>
+        private readonly IPEndPoint? _helloTarget;
+
         private readonly Dictionary<PacketType, IFeature> _routes = [];
         private readonly List<IFeature> _started = [];
 
@@ -189,6 +232,11 @@ public sealed class ReceiverService : IAsyncDisposable
         private long _rejected;
         private double _oneWayDelayMs = double.NaN;
 
+        // Filled in from PONG, so only ever in the sending role.
+        private double _measuredRttMs = double.NaN;
+        private long _remoteReceived;
+        private long _remoteLost;
+
         private readonly uint _ownSession = (uint)Random.Shared.Next(1, int.MaxValue);
         private int _ownSeq;
 
@@ -198,14 +246,35 @@ public sealed class ReceiverService : IAsyncDisposable
         public IPEndPoint Listen { get; }
         public IPEndPoint? Relay { get; }
 
-        private Run(ReceiverService owner, byte[] key, Socket socket, IPEndPoint listen, IPEndPoint? relay)
+        /// <summary>The address the sending role dials. Null in the receiving role.</summary>
+        public IPEndPoint? Peer { get; }
+
+        private Run(
+            ReceiverService owner,
+            BridgeRole role,
+            byte[] key,
+            Socket socket,
+            IPEndPoint listen,
+            IPEndPoint? relay,
+            IPEndPoint? peer)
         {
             _owner = owner;
+            _role = role;
+            _outgoing = role == BridgeRole.Sender ? Direction.SenderToReceiver : Direction.ReceiverToSender;
+            _incoming = role == BridgeRole.Sender ? Direction.ReceiverToSender : Direction.SenderToReceiver;
             _aes = new AesGcm(key, Wire.TagSize);
             _room = Wire.RoomId(key);
             _socket = socket;
             Listen = listen;
             Relay = relay;
+            Peer = peer;
+
+            // The sending role knows where to send from the first frame, before anything has
+            // been heard back. Without this a feature that has something to say at start-up —
+            // the clipboard, most of all — would have to wait for a reply that only exists
+            // because we sent something first.
+            if (peer is not null) _peer = peer;
+            _helloTarget = role == BridgeRole.Sender ? peer : relay;
         }
 
         /// <summary>
@@ -218,15 +287,27 @@ public sealed class ReceiverService : IAsyncDisposable
             Run? run = null;
             try
             {
-                var listen = ReceiverConfig.ParseEndpoint(config.Listen, 47702);
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.Bind(listen);
-
                 var relay = string.IsNullOrWhiteSpace(config.Relay)
                     ? null
                     : ReceiverConfig.ParseEndpoint(config.Relay, 47702);
 
-                run = new Run(owner, key, socket, listen, relay);
+                // The sending role resolves its peer before binding: an unusable address is
+                // worth failing on before a port has been claimed, and it is the failure the
+                // user is most likely to have caused.
+                var peer = config.Role == BridgeRole.Sender ? config.ResolvePeer() : null;
+
+                // Port 0 for the sending role. It dials rather than waits, so a fixed port
+                // would buy nothing and cost the one thing that matters here: two roles being
+                // able to run on one machine at the same time.
+                var wanted = config.Role == BridgeRole.Sender
+                    ? new IPEndPoint(IPAddress.Any, 0)
+                    : ReceiverConfig.ParseEndpoint(config.Listen, 47702);
+
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                socket.Bind(wanted);
+                var listen = (IPEndPoint)socket.LocalEndPoint!;
+
+                run = new Run(owner, config.Role, key, socket, listen, relay, peer);
                 run.StartFeatures(config, features);
                 return run;
             }
@@ -246,18 +327,25 @@ public sealed class ReceiverService : IAsyncDisposable
             var context = new FeatureContext(
                 config,
                 (level, message) => _owner.Emit(level, message),
-                SendToPeer);
+                SendToPeer,
+                () => _owner.Muted,
+                muted => _owner.Muted = muted);
 
             foreach (var feature in features)
             {
                 if (!feature.IsEnabled(config))
                 {
+                    // A feature that cannot work here at all says so in its own words. The
+                    // generic line is only for a switch somebody turned off, and reporting a
+                    // platform limit as one would send the user hunting for that switch.
+                    var unavailable = feature.Unavailable(config);
                     _disabled[feature.Id] = new FeatureState
                     {
                         Id = feature.Id,
                         Title = feature.Title,
                         Status = FeatureStatus.Disabled,
-                        Headline = "Выключено в настройках",
+                        Headline = unavailable is null ? "Выключено в настройках" : "Здесь недоступно",
+                        Detail = unavailable,
                     };
                     continue;
                 }
@@ -307,7 +395,7 @@ public sealed class ReceiverService : IAsyncDisposable
         public void Begin()
         {
             _tasks.Add(ReceiveLoop(_cancel.Token));
-            if (Relay is not null) _tasks.Add(HelloLoop(Relay, _cancel.Token));
+            if (_helloTarget is not null) _tasks.Add(HelloLoop(_helloTarget, _cancel.Token));
             _ticker = new Timer(_ => _owner.Publish(), null, TickInterval, TickInterval);
         }
 
@@ -369,29 +457,38 @@ public sealed class ReceiverService : IAsyncDisposable
             var lastTicks = Interlocked.Read(ref _lastPacketTicks);
             DateTime? lastPacketAt = lastTicks == 0 ? null : new DateTime(lastTicks, DateTimeKind.Utc);
             var delay = Volatile.Read(ref _oneWayDelayMs);
+            var rtt = Volatile.Read(ref _measuredRttMs);
+
+            // Mute is our own switch when we are the one holding the microphone, and the far
+            // end's report when we are not. Same field on the wire, two different owners.
+            var muted = _role == BridgeRole.Sender ? _owner.Muted : Volatile.Read(ref _muted);
 
             var status = fault is not null ? ReceiverStatus.Failed
                 : lastPacketAt is null ? ReceiverStatus.WaitingForSender
                 : now - lastPacketAt.Value > SenderTimeout ? ReceiverStatus.SenderLost
-                : Volatile.Read(ref _muted) ? ReceiverStatus.Muted
+                : muted ? ReceiverStatus.Muted
                 : ReceiverStatus.Live;
 
             return new ReceiverSnapshot
             {
                 Status = status,
                 Detail = fault,
+                Role = _role,
                 Listen = Listen.ToString(),
                 Relay = Relay?.ToString(),
                 PeerAddress = Volatile.Read(ref _peer)?.ToString(),
                 SenderName = Volatile.Read(ref _senderName),
                 Session = _session,
-                Muted = Volatile.Read(ref _muted),
+                Muted = muted,
                 LastPacketAt = lastPacketAt,
                 Uptime = now - _startedAt,
                 PacketsPerSecond = _rate.Sample(received, now),
                 Received = received,
                 Rejected = Interlocked.Read(ref _rejected),
                 OneWayDelayMs = double.IsNaN(delay) ? null : delay,
+                MeasuredRttMs = double.IsNaN(rtt) ? null : rtt,
+                RemoteReceived = Interlocked.Read(ref _remoteReceived),
+                RemoteLost = Interlocked.Read(ref _remoteLost),
                 Features = states,
             };
         }
@@ -426,7 +523,7 @@ public sealed class ReceiverService : IAsyncDisposable
                 }
 
                 var datagram = buffer.AsSpan(0, result.ReceivedBytes);
-                var length = Wire.Open(_aes, datagram, plaintext, Direction.SenderToReceiver, out var header);
+                var length = Wire.Open(_aes, datagram, plaintext, _incoming, out var header);
                 if (length < 0 || header.Room != _room)
                 {
                     Interlocked.Increment(ref _rejected);
@@ -460,7 +557,10 @@ public sealed class ReceiverService : IAsyncDisposable
                     continue;
                 }
 
-                Volatile.Write(ref _peer, (IPEndPoint)result.RemoteEndPoint);
+                // The receiving role learns where its peer is from whoever it hears; the
+                // sending role already knows, and must not be talked into aiming somewhere
+                // else by a packet that happened to arrive from another address.
+                if (Peer is null) Volatile.Write(ref _peer, (IPEndPoint)result.RemoteEndPoint);
                 Interlocked.Exchange(ref _lastPacketTicks, DateTime.UtcNow.Ticks);
                 Volatile.Write(ref _muted, header.Flags.HasFlag(PacketFlags.Muted));
                 Interlocked.Increment(ref _received);
@@ -472,7 +572,16 @@ public sealed class ReceiverService : IAsyncDisposable
                     var nameLength = Math.Min(plaintext[9], length - 10);
                     if (nameLength > 0) Volatile.Write(ref _senderName, Encoding.UTF8.GetString(plaintext, 10, nameLength));
                     NoteDelay(stamp);
-                    SendPong(stamp);
+                    // PONG travels one way only, so only the receiving end answers. Both ends
+                    // send HELLO, and a sender answering another sender's HELLO would put a
+                    // packet type on the wire in a direction the contract does not have.
+                    if (_role == BridgeRole.Receiver) SendPong(stamp);
+                    continue;
+                }
+
+                if (header.Type == PacketType.Pong)
+                {
+                    if (_role == BridgeRole.Sender) NotePong(plaintext.AsSpan(0, length));
                     continue;
                 }
 
@@ -503,6 +612,23 @@ public sealed class ReceiverService : IAsyncDisposable
                 delta is >= 0 and <= (long)MaxPlausibleDelayMs ? delta : double.NaN);
         }
 
+        /// <summary>
+        /// The other half of the round trip: our own HELLO stamp comes back in a PONG, so
+        /// the number is a measurement rather than the clock-difference estimate
+        /// <see cref="NoteDelay"/> has to settle for.
+        /// </summary>
+        private void NotePong(ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length < 24) return;
+
+            var echo = BinaryPrimitives.ReadUInt64LittleEndian(payload);
+            Interlocked.Exchange(ref _remoteReceived, (long)BinaryPrimitives.ReadUInt64LittleEndian(payload[8..]));
+            Interlocked.Exchange(ref _remoteLost, (long)BinaryPrimitives.ReadUInt64LittleEndian(payload[16..]));
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            Volatile.Write(ref _measuredRttMs, Math.Max(0, now - (double)echo));
+        }
+
         private void SendPong(ulong echo)
         {
             var delivery = default(DeliveryStats);
@@ -513,25 +639,25 @@ public sealed class ReceiverService : IAsyncDisposable
             BinaryPrimitives.WriteUInt64LittleEndian(payload.AsSpan(8), (ulong)delivery.Received);
             BinaryPrimitives.WriteUInt64LittleEndian(payload.AsSpan(16), (ulong)delivery.Lost);
 
-            SendToPeer(PacketType.Pong, payload);
+            SendToPeer(PacketType.Pong, payload, PacketFlags.None);
         }
 
         /// <summary>
         /// Seals a payload and sends it back to whoever we last heard from. Called by
         /// features from their own threads, so it takes the socket as it finds it.
         /// </summary>
-        private void SendToPeer(PacketType type, ReadOnlyMemory<byte> payload)
+        private void SendToPeer(PacketType type, ReadOnlyMemory<byte> payload, PacketFlags flags)
         {
             var peer = Volatile.Read(ref _peer);
             if (peer is null) return;
 
-            var header = new Header(type, PacketFlags.None, _room, _ownSession, NextOwnSeq());
+            var header = new Header(type, flags, _room, _ownSession, NextOwnSeq());
 
             byte[] datagram;
             lock (_aes)
             {
                 // AesGcm is not thread safe and features send from their own threads.
-                datagram = Wire.Seal(_aes, header, payload.Span, Direction.ReceiverToSender);
+                datagram = Wire.Seal(_aes, header, payload.Span, _outgoing);
             }
 
             try
@@ -548,26 +674,35 @@ public sealed class ReceiverService : IAsyncDisposable
             }
         }
 
-        // In relay mode nobody can reach us directly, so we announce ourselves and the
-        // relay learns our address from the source of these packets.
-        private async Task HelloLoop(IPEndPoint relay, CancellationToken token)
+        /// <summary>
+        /// Once a second, as the contract asks. The sending role always runs it: it is how
+        /// the far end learns we exist, how it measures the round trip, and how it tells
+        /// «заглушен» from «пропал». The receiving role only runs it behind a relay, where
+        /// nobody can reach us until the relay has seen a packet from us.
+        /// </summary>
+        private async Task HelloLoop(IPEndPoint target, CancellationToken token)
         {
             var name = Encoding.UTF8.GetBytes(Environment.MachineName);
+            var role = _role == BridgeRole.Sender ? (byte)0 : (byte)1;
 
             while (!token.IsCancellationRequested)
             {
                 var payload = new byte[10 + name.Length];
                 BinaryPrimitives.WriteUInt64LittleEndian(payload, (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                payload[8] = 1;  // role: receiver
+                payload[8] = role;
                 payload[9] = (byte)name.Length;
                 name.CopyTo(payload, 10);
 
-                var header = new Header(PacketType.Hello, PacketFlags.None, _room, _ownSession, NextOwnSeq());
+                // Mute rides the keepalive, not only the audio: during a mute there is no
+                // audio to put it on, and that silence is exactly what has to be explained.
+                var flags = _role == BridgeRole.Sender && _owner.Muted ? PacketFlags.Muted : PacketFlags.None;
+
+                var header = new Header(PacketType.Hello, flags, _room, _ownSession, NextOwnSeq());
                 try
                 {
                     byte[] datagram;
-                    lock (_aes) datagram = Wire.Seal(_aes, header, payload, Direction.ReceiverToSender);
-                    _socket.SendTo(datagram, relay);
+                    lock (_aes) datagram = Wire.Seal(_aes, header, payload, _outgoing);
+                    _socket.SendTo(datagram, target);
                 }
                 catch (SocketException)
                 {

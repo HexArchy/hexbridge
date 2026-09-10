@@ -26,8 +26,12 @@ public sealed class MicrophoneFeature : IFeature
     public bool IsOptional => false;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
-    /// <summary>Always on: the receiver exists to carry a microphone.</summary>
-    public bool IsEnabled(ReceiverConfig config) => true;
+    /// <summary>
+    /// On whenever this machine is the one playing somebody else's microphone. There is no
+    /// switch for it: a machine in that role exists to carry a microphone, and the only way
+    /// to turn this half off is to be the machine at the other end of the wire instead.
+    /// </summary>
+    public bool IsEnabled(ReceiverConfig config) => config.Role == BridgeRole.Receiver;
 
     public void Start(FeatureContext context)
     {

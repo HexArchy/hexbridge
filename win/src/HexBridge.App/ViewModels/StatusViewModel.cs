@@ -10,7 +10,17 @@ public sealed partial class StatusViewModel : ObservableObject
     public const double MeterFloorDb = -60;
 
     [ObservableProperty] private string _headline = "Приём остановлен";
-    [ObservableProperty] private string _subline = "Нажмите «Запустить», чтобы принимать звук с Mac";
+    [ObservableProperty] private string _subline = "Нажмите «Запустить», чтобы принимать звук со второй машины";
+
+    /// <summary>
+    /// This machine is the one holding the microphone. The page is the same page either
+    /// way — one meter, one connection card — but three of its labels are about a direction
+    /// and would be backwards without this.
+    /// </summary>
+    [ObservableProperty] private bool _isGiving;
+
+    [ObservableProperty] private string _endpointLabel = "Звук идёт в";
+    [ObservableProperty] private string _peerLabel = "Вторая машина";
 
     // Three mutually exclusive flags rather than a brush: the view picks colours through
     // style classes, so the card follows the light/dark theme without any work here.
@@ -23,10 +33,9 @@ public sealed partial class StatusViewModel : ObservableObject
     [ObservableProperty] private string _peakText = "—";
 
     /// <summary>
-    /// The Mac has the microphone on mute. The meter keeps moving — the audio is still
-    /// being read and sent, it is simply not going anywhere useful — but it drops the
-    /// colour scale, because «горячо» and «тихо» are not questions worth answering while
-    /// nothing is being heard on the other end.
+    /// The microphone is muted — ours, or the far end's. The meter keeps moving, because
+    /// the audio is still being read, but it drops the colour scale: «горячо» and «тихо»
+    /// are not questions worth answering while nobody is hearing any of it.
     /// </summary>
     [ObservableProperty] private bool _isMuted;
 
@@ -48,6 +57,10 @@ public sealed partial class StatusViewModel : ObservableObject
 
     public void Apply(ReceiverSnapshot s, MicrophoneState? m)
     {
+        IsGiving = s.Role == BridgeRole.Sender;
+        EndpointLabel = IsGiving ? "Звук берётся с" : "Звук идёт в";
+        PeerLabel = IsGiving ? "Принимает" : "Отдаёт микрофон";
+
         (Headline, Subline) = Describe(s, m);
         IsGood = s.Status is ReceiverStatus.Live;
         IsWaiting = s.Status is ReceiverStatus.WaitingForSender or ReceiverStatus.Muted or ReceiverStatus.SenderLost;
@@ -75,32 +88,60 @@ public sealed partial class StatusViewModel : ObservableObject
         }
         PeakMark = _holdValue;
 
-        SenderText = string.IsNullOrEmpty(s.SenderName) ? (s.PeerAddress is null ? "не подключён" : "имя неизвестно") : s.SenderName;
+        // A machine names itself in its first HELLO, so «имя неизвестно» is only ever true of
+        // one that has been heard from. One that has not is a different fact and a different
+        // thing to do about it.
+        SenderText = s.SenderName is { Length: > 0 } name ? name
+            : s.PeerAddress is null ? "не подключён"
+            : s.LastPacketAt is null ? "ещё не отвечала"
+            : "имя неизвестно";
         PeerText = s.PeerAddress ?? "—";
         OutputText = string.IsNullOrEmpty(m?.OutputDescription) ? "—" : m.OutputDescription;
 
+        // The hint is about picking a microphone in a game, which is a thing to do on the
+        // machine the games are on. Here that is the machine that receives.
         GameHint = m?.PairedCaptureName;
-        HasGameHint = m?.PairedCaptureName is not null;
+        HasGameHint = !IsGiving && m?.PairedCaptureName is not null;
     }
 
-    private static (string, string) Describe(ReceiverSnapshot s, MicrophoneState? m) => s.Status switch
+    /// <summary>
+    /// The same six states in the words of whichever end this is. Every line names the
+    /// other machine by what it does rather than by what it sends — «отправитель» is a fact
+    /// about datagrams, and nobody is standing here thinking about datagrams.
+    /// </summary>
+    private static (string, string) Describe(ReceiverSnapshot s, MicrophoneState? m)
     {
-        ReceiverStatus.Live => ("Звук идёт", $"{Who(s)} → {m?.DeviceName ?? m?.OutputDescription ?? "вывод"}"),
-        ReceiverStatus.Muted => ("Микрофон заглушен", $"{Who(s)} поставил микрофон на мут"),
-        ReceiverStatus.SenderLost => ("Mac замолчал",
-            s.LastPacketAt is { } at
-                ? $"нет пакетов уже {Duration(DateTime.UtcNow - at)}"
-                : "нет пакетов"),
-        ReceiverStatus.WaitingForSender => ("Ждём Mac", $"порт {s.Listen} открыт"),
-        ReceiverStatus.Failed => ("Ошибка", s.Detail ?? "не удалось запустить приём"),
-        _ => ("Приём остановлен", "Нажмите «Запустить», чтобы принимать звук с Mac"),
-    };
+        var giving = s.Role == BridgeRole.Sender;
+        var endpoint = m?.DeviceName ?? m?.OutputDescription ?? (giving ? "микрофон" : "вывод");
 
-    /// The machine on the other end is a Mac, and «отправитель» is what the
-    /// protocol calls it. The Mac side says «игровой ПК» about this machine for
-    /// the same reason: each end names the other by what it is.
+        return s.Status switch
+        {
+            ReceiverStatus.Live => ("Звук идёт", giving
+                ? $"{endpoint} → {Who(s)}"
+                : $"{Who(s)} → {endpoint}"),
+            ReceiverStatus.Muted => ("Микрофон заглушен", giving
+                ? "звук не отправляется, связь держится"
+                : $"{Who(s)} поставил микрофон на мут"),
+            ReceiverStatus.SenderLost => ("Связь пропала",
+                s.LastPacketAt is { } at
+                    ? $"нет пакетов уже {Duration(DateTime.UtcNow - at)}"
+                    : "нет пакетов"),
+            ReceiverStatus.WaitingForSender => ("Ждём вторую машину", giving
+                ? $"звук уходит на {s.PeerAddress ?? "второй компьютер"}, ответа пока нет"
+                : $"порт {s.Listen} открыт"),
+            ReceiverStatus.Failed => ("Ошибка", s.Detail ?? "не удалось запустить"),
+            _ => giving
+                ? ("Передача остановлена", "Нажмите «Запустить», чтобы отдавать микрофон")
+                : ("Приём остановлен", "Нажмите «Запустить», чтобы принимать звук со второй машины"),
+        };
+    }
+
+    /// <summary>
+    /// The machine at the other end, by the name it gave in its HELLO. Each end names the
+    /// other by what it is rather than by what the protocol calls it.
+    /// </summary>
     private static string Who(ReceiverSnapshot s) =>
-        string.IsNullOrEmpty(s.SenderName) ? s.PeerAddress ?? "Mac" : s.SenderName;
+        string.IsNullOrEmpty(s.SenderName) ? s.PeerAddress ?? "вторая машина" : s.SenderName;
 
     private static string Duration(TimeSpan t) => t.TotalHours >= 1
         ? $"{(int)t.TotalHours} ч {t.Minutes:00} м"

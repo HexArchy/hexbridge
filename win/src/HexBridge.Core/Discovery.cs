@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
@@ -225,6 +226,119 @@ public readonly record struct DiscoveredHost
 
     /// <summary>What goes into <c>config.target</c>. Empty until the address is known.</summary>
     public string Target => string.IsNullOrEmpty(Address) ? "" : $"{Address}:{Port}";
+}
+
+/// <summary>
+/// Everything heard on the wire so far, folded into a list of hosts. No socket anywhere near
+/// it, which is what turns «правильно ли мы читаем чужие ответы» into a question with a test
+/// rather than an opinion.
+///
+/// <para>
+/// It keeps a running total on purpose. Our own responder puts PTR, SRV, TXT and A into one
+/// packet, but nothing in mDNS promises that: a responder may answer a PTR query with a PTR
+/// alone and leave the browser to ask for the rest, and an address record can arrive seconds
+/// after the instance it belongs to. A parser that only understood whole announcements would
+/// work against this project's own advertiser and against very little else.
+/// </para>
+/// </summary>
+public sealed class DiscoveryScan
+{
+    private readonly Dictionary<string, Instance> _instances = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IPAddress> _addresses = new(StringComparer.OrdinalIgnoreCase);
+
+    private sealed class Instance
+    {
+        public string HostName = "";
+        public IReadOnlyList<string> Text = [];
+    }
+
+    /// <summary>Hosts that have said enough about themselves to be worth showing.</summary>
+    public IReadOnlyList<DiscoveredHost> Hosts { get; private set; } = [];
+
+    /// <summary>Folds one packet's records in. True when the visible list changed.</summary>
+    public bool Apply(IEnumerable<DnsAnswer> answers)
+    {
+        foreach (var answer in answers)
+        {
+            switch (answer.Type)
+            {
+                case DnsRecordType.Ptr when MulticastDns.Same(answer.Name, MulticastDns.ServiceType):
+                    if (answer.Target.Length == 0) break;
+                    // A goodbye withdraws the instance outright, rather than leaving it in
+                    // the list until a TTL nobody here is tracking runs out.
+                    if (answer.IsGoodbye) _instances.Remove(answer.Target);
+                    else if (!_instances.ContainsKey(answer.Target)) _instances[answer.Target] = new Instance();
+                    break;
+
+                case DnsRecordType.Srv:
+                    Of(answer.Name).HostName = answer.Target;
+                    break;
+
+                case DnsRecordType.Txt:
+                    Of(answer.Name).Text = answer.Text;
+                    break;
+
+                case DnsRecordType.A when answer.Address is not null:
+                    if (answer.IsGoodbye) _addresses.Remove(answer.Name);
+                    else _addresses[answer.Name] = answer.Address;
+                    break;
+            }
+        }
+
+        var next = Rebuild();
+        if (next.SequenceEqual(Hosts)) return false;
+        Hosts = next;
+        return true;
+    }
+
+    public void Clear()
+    {
+        _instances.Clear();
+        _addresses.Clear();
+        Hosts = [];
+    }
+
+    /// <summary>
+    /// An SRV or TXT for an instance we never saw a PTR for still describes a HexBridge —
+    /// a responder answering a direct query need not repeat the pointer — so the instance
+    /// is created rather than the record thrown away.
+    /// </summary>
+    private Instance Of(string name)
+    {
+        if (_instances.TryGetValue(name, out var existing)) return existing;
+        var created = new Instance();
+        _instances[name] = created;
+        return created;
+    }
+
+    private List<DiscoveredHost> Rebuild()
+    {
+        var hosts = new List<DiscoveredHost>(_instances.Count);
+
+        foreach (var (_, instance) in _instances)
+        {
+            // No readable TXT means no version, no port and no tag: nothing to dial and
+            // nothing to compare, which is exactly the state a half-heard host is in.
+            if (!DiscoveryTxt.TryParse(instance.Text, out var host)) continue;
+
+            if (instance.HostName.Length > 0 && _addresses.TryGetValue(instance.HostName, out var address))
+            {
+                host = host with { Address = address.ToString() };
+            }
+            hosts.Add(host);
+        }
+
+        // Resolved first, then by name: the list is read top down, and a row with no address
+        // yet is a row nothing can be done with.
+        hosts.Sort((left, right) =>
+        {
+            var leftResolved = !string.IsNullOrEmpty(left.Address);
+            var rightResolved = !string.IsNullOrEmpty(right.Address);
+            if (leftResolved != rightResolved) return leftResolved ? -1 : 1;
+            return string.Compare(left.Name, right.Name, StringComparison.CurrentCultureIgnoreCase);
+        });
+        return hosts;
+    }
 }
 
 /// <summary>Why the Mac did or did not dial one of the hosts it can see.</summary>

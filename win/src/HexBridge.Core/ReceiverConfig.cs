@@ -13,11 +13,53 @@ namespace HexBridge;
 /// </summary>
 public sealed class ReceiverConfig
 {
+    /// <summary>
+    /// Which end of the link this machine is. Absent from every config written before roles
+    /// existed, and <see cref="BridgeRole.Receiver"/> is the first enum value, so those
+    /// configs keep doing exactly what they were written to do.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public BridgeRole Role { get; set; } = BridgeRole.Receiver;
+
     public string Listen { get; set; } = "0.0.0.0:47702";
+
+    /// <summary>
+    /// <c>host:port</c> of the machine that receives, read only in
+    /// <see cref="BridgeRole.Sender"/>. In the receiving role the peer is whoever turns up
+    /// on <see cref="Listen"/>, so this stays empty.
+    /// </summary>
+    public string Target { get; set; } = "";
+
     public string Psk { get; set; } = "";
     public string? Device { get; set; }
     public string? Relay { get; set; }
     public string Output { get; set; } = "wasapi";
+
+    /// <summary>
+    /// Where the sending role reads audio from: <c>wasapi</c>, <c>null</c>, <c>tone</c> or
+    /// <c>wav:путь</c>. The last three exist for the same reason <see cref="Output"/> has
+    /// them — proving the whole path without a sound card anywhere in it.
+    /// </summary>
+    public string Input { get; set; } = "wasapi";
+
+    /// <summary>Part of a capture endpoint's name, or its id. Null means the system default.</summary>
+    public string? InputDevice { get; set; }
+
+    /// <summary>Opus bitrate for the voice stream. 32 kbit/s is what the Mac sends.</summary>
+    public int Bitrate { get; set; } = 32000;
+
+    /// <summary>Multiplier applied to captured audio before it is encoded.</summary>
+    public float InputGain { get; set; } = 1.0f;
+
+    /// <summary>What the encoder is told to expect, which is what inband FEC is sized for.</summary>
+    public int ExpectedLossPercent { get; set; } = 10;
+
+    /// <summary>
+    /// Come up with the microphone muted. The flag rides on every AUDIO and HELLO packet, so
+    /// the far end says «заглушен» instead of wondering where the sound went.
+    /// </summary>
+    public bool StartMuted { get; set; }
+
     public int JitterMs { get; set; } = 60;
     public int MaxJitterMs { get; set; } = 240;
     public float Gain { get; set; } = 1.0f;
@@ -115,6 +157,32 @@ public sealed class ReceiverConfig
     }
 
     public static string GenerateKey() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    /// <summary>
+    /// Where the sending role dials. A relay wins over a direct address when both are set —
+    /// that is the whole point of configuring one — and otherwise it is <see cref="Target"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Nothing to dial, worded for the user rather than for a log.
+    /// </exception>
+    public IPEndPoint ResolvePeer()
+    {
+        var address = string.IsNullOrWhiteSpace(Relay) ? Target : Relay;
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new InvalidOperationException(
+                "не задан адрес второго компьютера — свяжите машины в мастере или впишите адрес в настройках");
+        }
+
+        try
+        {
+            return ParseEndpoint(address, PairingPayload.DefaultPort);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"не удаётся разобрать адрес «{address}»: {ex.Message}", ex);
+        }
+    }
 
     /// <summary>
     /// Accepts "host:port", ":port", "*:port" and bare hosts, resolving names to IPv4 —

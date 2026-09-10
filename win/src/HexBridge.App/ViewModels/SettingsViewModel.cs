@@ -7,7 +7,13 @@ namespace HexBridge.App.ViewModels;
 
 public sealed record OutputMode(string Value, string Title);
 
+/// <summary>Where the giving role reads audio from. Same shape as <see cref="OutputMode"/>.</summary>
+public sealed record InputMode(string Value, string Title);
+
 public sealed record DeviceOption(string? Selector, string Title, string? Paired, bool Recommended);
+
+/// <summary>One Opus bitrate, with what it costs said in words rather than in bits.</summary>
+public sealed record BitrateOption(int Value, string Title);
 
 /// <summary>
 /// An editable copy of <see cref="ReceiverConfig"/>. Nothing here touches the running
@@ -28,6 +34,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     public event Action? PairRequested;
     public event Action? CheckRequested;
 
+    /// <summary>
+    /// «Сменить роль». The question is asked in the same modal a fresh install sees, so
+    /// there is one screen that explains the choice rather than two that half do.
+    /// </summary>
+    public event Action? RoleChangeRequested;
+
     public Func<string, Task>? CopyToClipboard { get; set; }
 
     /// <summary>
@@ -38,6 +50,29 @@ public sealed partial class SettingsViewModel : ObservableObject
     public UpdateViewModel? Updates { get; set; }
 
     public ObservableCollection<DeviceOption> Devices { get; } = [];
+
+    /// <summary>Capture endpoints, for the giving role. Empty in the other one.</summary>
+    public ObservableCollection<DeviceOption> InputDevices { get; } = [];
+
+    public IReadOnlyList<InputMode> InputModes { get; } =
+    [
+        new("wasapi", "Микрофон этого компьютера"),
+        new("tone", "Тон 440 Гц — проверка тракта"),
+        new("null", "Тишина — только диагностика"),
+    ];
+
+    /// <summary>
+    /// Opus at 32 kbit/s is what the Mac has always sent and what the receiver is tuned
+    /// for; the two either side of it are for a link that is worse or better than usual.
+    /// </summary>
+    public IReadOnlyList<BitrateOption> Bitrates { get; } =
+    [
+        new(16000, "16 кбит/с — узкий канал"),
+        new(24000, "24 кбит/с"),
+        new(32000, "32 кбит/с — как на Mac"),
+        new(48000, "48 кбит/с"),
+        new(64000, "64 кбит/с — запас по качеству"),
+    ];
 
     public IReadOnlyList<OutputMode> OutputModes { get; } =
     [
@@ -52,6 +87,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         new(ThemePreference.Light, "Светлая"),
         new(ThemePreference.Dark, "Тёмная"),
     ];
+
+    /// <summary>Read-only here: it is changed through the modal that explains it.</summary>
+    [ObservableProperty] private BridgeRole _role = BridgeRole.Receiver;
+
+    [ObservableProperty] private string _target = "";
+    [ObservableProperty] private InputMode? _input;
+    [ObservableProperty] private DeviceOption? _inputDevice;
+    [ObservableProperty] private double _inputGain = 1.0;
+    [ObservableProperty] private BitrateOption? _bitrate;
+    [ObservableProperty] private bool _startMuted;
+    [ObservableProperty] private string? _inputNotice;
 
     [ObservableProperty] private string _listen = "0.0.0.0:47702";
     [ObservableProperty] private string _psk = "";
@@ -89,8 +135,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _autoUpdate = true;
 
+    public bool IsGiving => Role == BridgeRole.Sender;
+    public bool IsTaking => Role == BridgeRole.Receiver;
+
+    public string RoleTitle => RoleWording.Title(Role);
+    public string RoleSummary => RoleWording.Summary(Role);
+
     /// <summary>Gain shown the way the user thinks about it, rather than as a multiplier.</summary>
     public string GainText => Gain <= 0.001 ? "тишина" : $"{20 * Math.Log10(Gain):+0.0;-0.0;0.0} дБ";
+
+    public string InputGainText => InputGain <= 0.001 ? "тишина" : $"{20 * Math.Log10(InputGain):+0.0;-0.0;0.0} дБ";
 
     public string JitterText => $"{JitterMs} мс";
     public string MaxJitterText => $"{MaxJitterMs} мс";
@@ -101,7 +155,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _loading = true;
         _saved = config.Clone();
 
+        Role = config.Role;
         Listen = config.Listen;
+        Target = config.Target;
+        InputGain = config.InputGain;
+        StartMuted = config.StartMuted;
         Psk = config.Psk;
         Relay = config.Relay ?? "";
         JitterMs = config.JitterMs;
@@ -118,8 +176,13 @@ public sealed partial class SettingsViewModel : ObservableObject
             ?? OutputModes.FirstOrDefault(m => config.Output.StartsWith("wav:", StringComparison.Ordinal) && m.Value.StartsWith("wav:", StringComparison.Ordinal))
             ?? OutputModes[0];
 
+        Input = InputModes.FirstOrDefault(m => m.Value == config.Input) ?? InputModes[0];
+        Bitrate = Bitrates.FirstOrDefault(b => b.Value == config.Bitrate)
+            ?? new BitrateOption(config.Bitrate, $"{config.Bitrate / 1000} кбит/с");
+
         RefreshDevices();
         Device = Devices.FirstOrDefault(d => d.Selector == config.Device) ?? Devices[0];
+        InputDevice = InputDevices.FirstOrDefault(d => d.Selector == config.InputDevice) ?? InputDevices[0];
 
         Theme = Themes.First(t => t.Value == ui.Theme);
         StartOnLaunch = ui.StartOnLaunch;
@@ -137,6 +200,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var config = _saved.Clone();
         config.Listen = Listen.Trim();
+        config.Target = Target.Trim();
+        config.Input = Input?.Value ?? "wasapi";
+        config.InputDevice = InputDevice?.Selector;
+        config.InputGain = (float)InputGain;
+        config.Bitrate = Bitrate?.Value ?? 32000;
+        config.StartMuted = StartMuted;
         config.Psk = Psk.Trim();
         config.Device = Device?.Selector;
         config.Relay = string.IsNullOrWhiteSpace(Relay) ? null : Relay.Trim();
@@ -164,10 +233,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         Devices.Clear();
         Devices.Add(new DeviceOption(null, "Определять автоматически", null, true));
+        InputDevices.Clear();
+        InputDevices.Add(new DeviceOption(null, "Микрофон по умолчанию", null, true));
 
         if (!OperatingSystem.IsWindows())
         {
             DeviceNotice = "Список устройств доступен только на Windows.";
+            InputNotice = DeviceNotice;
             return;
         }
 
@@ -177,10 +249,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             DeviceNotice = Devices.Count > 1
                 ? null
                 : "Виртуальный кабель не найден. Установите Steam или VB-Audio Virtual Cable.";
+            InputNotice = InputDevices.Count > 1
+                ? null
+                : "Микрофонов не найдено. Подключите микрофон или гарнитуру.";
         }
         catch (Exception ex)
         {
             DeviceNotice = $"Не удалось прочитать список устройств: {ex.Message}";
+            InputNotice = DeviceNotice;
         }
     }
 
@@ -193,6 +269,15 @@ public sealed partial class SettingsViewModel : ObservableObject
             var recommended = DeviceCatalog.PreferredPatterns.Any(p =>
                 name.Contains(p, StringComparison.OrdinalIgnoreCase));
             Devices.Add(new DeviceOption(name, name, DeviceCatalog.PairedCaptureName(device), recommended));
+        }
+
+        // No preference list on this side: which microphone is the right one is a question
+        // about the room, and guessing at it is how somebody broadcasts the wrong one.
+        var preferred = DeviceCatalog.PickCapture(null)?.ID;
+        foreach (var device in DeviceCatalog.CaptureDevices())
+        {
+            InputDevices.Add(new DeviceOption(
+                device.FriendlyName, device.FriendlyName, null, device.ID == preferred));
         }
     }
 
@@ -211,6 +296,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private void TogglePskReveal() => PskRevealed = !PskRevealed;
+
+    [RelayCommand]
+    private void ChangeRole() => RoleChangeRequested?.Invoke();
 
     [RelayCommand]
     private void Pair() => PairRequested?.Invoke();
@@ -246,14 +334,39 @@ public sealed partial class SettingsViewModel : ObservableObject
             return false;
         }
 
-        try
+        if (config.Role == BridgeRole.Sender)
         {
-            ReceiverConfig.ParseEndpoint(config.Listen, 47702);
+            // The address of the other machine is the one thing this side cannot work out on
+            // its own, so an empty one is a failure worth naming rather than a default.
+            if (string.IsNullOrWhiteSpace(config.Target) && string.IsNullOrWhiteSpace(config.Relay))
+            {
+                ValidationError =
+                    "Не задан адрес второго компьютера. Свяжите машины кнопкой «Связать заново» "
+                    + "или впишите адрес вида 192.168.1.10:47702.";
+                return false;
+            }
+
+            try
+            {
+                config.ResolvePeer();
+            }
+            catch (Exception ex)
+            {
+                ValidationError = ex.Message;
+                return false;
+            }
         }
-        catch (Exception)
+        else
         {
-            ValidationError = $"Не удаётся разобрать адрес «{config.Listen}». Пример: 0.0.0.0:47702";
-            return false;
+            try
+            {
+                ReceiverConfig.ParseEndpoint(config.Listen, 47702);
+            }
+            catch (Exception)
+            {
+                ValidationError = $"Не удаётся разобрать адрес «{config.Listen}». Пример: 0.0.0.0:47702";
+                return false;
+            }
         }
 
         if (config.Relay is not null)
@@ -269,7 +382,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         }
 
-        if (config.Gamepad)
+        if (config.Gamepad && config.Role == BridgeRole.Receiver)
         {
             try
             {
@@ -295,12 +408,20 @@ public sealed partial class SettingsViewModel : ObservableObject
         switch (e.PropertyName)
         {
             case nameof(Gain): OnPropertyChanged(nameof(GainText)); break;
+            case nameof(InputGain): OnPropertyChanged(nameof(InputGainText)); break;
+            case nameof(Role):
+                OnPropertyChanged(nameof(IsGiving));
+                OnPropertyChanged(nameof(IsTaking));
+                OnPropertyChanged(nameof(RoleTitle));
+                OnPropertyChanged(nameof(RoleSummary));
+                return;
             case nameof(JitterMs): OnPropertyChanged(nameof(JitterText)); break;
             case nameof(MaxJitterMs): OnPropertyChanged(nameof(MaxJitterText)); break;
             case nameof(LatencyMs): OnPropertyChanged(nameof(LatencyText)); break;
             case nameof(Psk): OnPropertyChanged(nameof(FingerprintText)); break;
             // Bookkeeping and the preferences that apply immediately are not "unsaved edits".
-            case nameof(IsDirty) or nameof(ValidationError) or nameof(PskRevealed) or nameof(DeviceNotice)
+            case nameof(IsDirty) or nameof(ValidationError) or nameof(PskRevealed)
+                or nameof(DeviceNotice) or nameof(InputNotice)
                 or nameof(Theme) or nameof(StartOnLaunch) or nameof(StartMinimised) or nameof(AutoUpdate):
                 return;
         }

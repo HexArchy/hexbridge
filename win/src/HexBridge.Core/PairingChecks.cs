@@ -119,17 +119,36 @@ public static class PairingChecks
             : CheckOutcome.Pass(deviceName);
 
     /// <summary>
+    /// 4, the other way round: the machine giving its microphone away found one to read.
+    ///
+    /// A method of its own rather than a flag on <see cref="Device"/>, because the failure is
+    /// the whole value of the line, and «установите VB-Audio Virtual Cable» is advice for
+    /// somebody with the opposite problem.
+    /// </summary>
+    public static CheckOutcome Input(string? deviceName) =>
+        string.IsNullOrWhiteSpace(deviceName)
+            ? CheckOutcome.Fail("микрофон не найден — подключите его и запустите передачу заново")
+            : CheckOutcome.Pass(deviceName);
+
+    /// <summary>
     /// 5. Sound goes all the way through. The only check that proves the whole path, which
     /// is why the wizard asks the user to say something out loud and shows the level
-    /// measured <b>on Windows</b>.
+    /// measured where the sound has to arrive.
     /// </summary>
-    public static CheckOutcome Sound(float peakLinear, bool windowElapsed)
+    /// <param name="capturing">
+    /// True on the machine holding the microphone, where silence means the microphone is not
+    /// being heard at all — a different problem, and a different sentence, from silence at
+    /// the far end of a link that is otherwise up.
+    /// </param>
+    public static CheckOutcome Sound(float peakLinear, bool windowElapsed, bool capturing = false)
     {
         var dbfs = MicrophoneLevel.ToDbfs(peakLinear);
         if (dbfs > SilenceDbfs) return CheckOutcome.Pass($"пик {dbfs:0} dBFS");
 
         return windowElapsed
-            ? CheckOutcome.Fail("тишина на приёмнике")
+            ? CheckOutcome.Fail(capturing
+                ? "микрофон молчит — проверьте, что выбран нужный и что доступ к нему разрешён"
+                : "тишина на этой машине")
             : new CheckOutcome(CheckState.Running, "скажите что-нибудь вслух");
     }
 

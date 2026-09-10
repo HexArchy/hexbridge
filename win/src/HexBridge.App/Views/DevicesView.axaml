@@ -41,7 +41,7 @@
       <TextBlock Classes="caption"
                  TextWrapping="Wrap"
                  IsVisible="{Binding !HasDevices}"
-                 Text="Что пробрасывать, выбирают на Mac. Каждое выбранное устройство появится здесь." />
+                 Text="Что пробрасывать, выбирают на второй машине. Каждое выбранное устройство появится здесь." />
 
       <!--
         One card per forwarded device, keyed by device number. A model the visualisation

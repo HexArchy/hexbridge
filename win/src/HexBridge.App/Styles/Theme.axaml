@@ -114,6 +114,35 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AppAccentPressed}" />
   </Style>
 
+  <!--
+    A choice card: one answer out of a small set, each needing a sentence before it can be
+    understood. A button rather than a RadioButton because the whole card is the target — a
+    twelve-pixel circle is not what anybody is aiming at — and because a sentence does not
+    fit in a combo box, which is the other thing two options usually become.
+  -->
+  <Style Selector="Button.choice">
+    <Setter Property="Padding" Value="16,14" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+  </Style>
+  <Style Selector="Button.choice /template/ Border#Root">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+  </Style>
+  <!-- The picked card carries the accent on its border as well as in its fill: §11.1
+       forbids colour as the only carrier, and the dot beside the heading is the third
+       signal that this is the one. -->
+  <Style Selector="Button.choice.picked /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppAccentSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.choice.picked:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppAccentSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+  </Style>
+
   <!-- Borderless: the ⋯ in the header, inline actions inside a card. -->
   <Style Selector="Button.ghost">
     <Setter Property="Background" Value="Transparent" />

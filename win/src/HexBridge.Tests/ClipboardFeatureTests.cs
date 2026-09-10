@@ -59,7 +59,7 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task ADisabledClipboardStillHasAPageToShow()
     {
-        await using var receiver = new ReceiverService(new ClipboardFeature(_ => new FakeSurface()));
+        await using var receiver = new ReceiverService(new ClipboardFeature(_ => new FakeClipboardSurface()));
         await receiver.StartAsync(Config(clipboard: false));
         await Task.Delay(300);
 
@@ -69,7 +69,7 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task ATextObjectCrossesTheSocketAndLandsOnTheClipboard()
     {
-        var surface = new FakeSurface();
+        var surface = new FakeClipboardSurface();
         await using var link = await Link.OpenAsync(surface);
 
         var text = "буфер обмена, проверка «ёж»";
@@ -83,7 +83,7 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task AnImageCrossesTheSocketIntactWithAQuarterOfTheChunksLost()
     {
-        var surface = new FakeSurface();
+        var surface = new FakeClipboardSurface();
         await using var link = await Link.OpenAsync(surface);
 
         var random = new Random(31);
@@ -104,7 +104,7 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task WhatIsCopiedOnThisMachineIsOfferedToThePeerAndNotBounced()
     {
-        var surface = new FakeSurface();
+        var surface = new FakeClipboardSurface();
         await using var link = await Link.OpenAsync(surface);
 
         var image = new byte[80_000];
@@ -125,7 +125,7 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task AnObjectThePeerAlreadyHoldsIsRefusedRatherThanPulled()
     {
-        var surface = new FakeSurface();
+        var surface = new FakeClipboardSurface();
         var item = new ClipboardItem(BulkFormat.Utf8Text, Encoding.UTF8.GetBytes("одно и то же"));
         surface.UserCopies(item);
 
@@ -165,7 +165,7 @@ public class ClipboardFeatureTests
         private readonly Dictionary<PacketType, int> _seen = [];
 
         public BulkChannel Channel { get; }
-        public FakeSurface Surface { get; }
+        public FakeClipboardSurface Surface { get; }
 
         public List<string> Log { get; init; } = [];
         public Func<bool> DropChunks { get; set; } = () => false;
@@ -176,7 +176,7 @@ public class ClipboardFeatureTests
             get { lock (_deliveries) return _deliveries.Count; }
         }
 
-        private Link(ReceiverService receiver, FakeSurface surface, byte[] key, IPEndPoint target)
+        private Link(ReceiverService receiver, FakeClipboardSurface surface, byte[] key, IPEndPoint target)
         {
             _receiver = receiver;
             Surface = surface;
@@ -190,7 +190,7 @@ public class ClipboardFeatureTests
             Channel.Finished += result => { lock (_results) _results.Add(result); };
         }
 
-        public static async Task<Link> OpenAsync(FakeSurface surface)
+        public static async Task<Link> OpenAsync(FakeClipboardSurface surface)
         {
             var config = Config();
             Assert.True(config.TryGetKey(out var key, out _));
@@ -374,50 +374,6 @@ public class ClipboardFeatureTests
             await _receiver.DisposeAsync();
             _aes.Dispose();
             _cancel.Dispose();
-        }
-    }
-
-    /// <summary>A clipboard with no Windows behind it, driven by the test.</summary>
-    private sealed class FakeSurface : IClipboardSurface
-    {
-        private readonly object _gate = new();
-        private ClipboardItem? _item;
-        private long _count;
-        private readonly List<ClipboardItem> _applied = [];
-
-        /// <summary>Only what the feature pasted, never what the test copied.</summary>
-        public IReadOnlyList<ClipboardItem> Applied
-        {
-            get { lock (_gate) return [.. _applied]; }
-        }
-
-        public long ChangeCount
-        {
-            get { lock (_gate) return _count; }
-        }
-
-        public ClipboardItem? Read()
-        {
-            lock (_gate) return _item;
-        }
-
-        public void Write(ClipboardItem item)
-        {
-            lock (_gate)
-            {
-                _item = item;
-                _count++;
-                _applied.Add(item);
-            }
-        }
-
-        public void UserCopies(ClipboardItem item)
-        {
-            lock (_gate)
-            {
-                _item = item;
-                _count++;
-            }
         }
     }
 }

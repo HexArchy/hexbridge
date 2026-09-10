@@ -5,27 +5,40 @@ using HexBridge.Devices;
 using HexBridge.Microphone;
 
 const string Usage = """
-hexbridge-receiver — принимает микрофон с Mac и отдаёт его как микрофон Windows.
+hexbridge-receiver — мост микрофона между двумя машинами. Умеет обе стороны:
+принимать чужой микрофон и отдавать свой.
 
 Использование:
-  hexbridge-receiver [флаги]         запустить приём
+  hexbridge-receiver [флаги]         запустить в роли из конфига (по умолчанию — приём)
   hexbridge-receiver list-devices    показать устройства вывода и их пары-микрофоны
+  hexbridge-receiver list-inputs     показать микрофоны этой машины
   hexbridge-receiver keygen          сгенерировать общий ключ (PSK)
 
-Флаги:
+Общее:
   --config PATH     путь к конфигу (по умолчанию config.json рядом с exe)
+  --role ROLE       receiver — принимать чужой микрофон, sender — отдавать свой
+  --psk BASE64      общий ключ, 32 байта в base64; одинаковый на обеих машинах
+  --relay H:P       работать через релей вместо прямой связи
+  --quiet           не печатать строку статистики раз в 5 секунд
+
+Когда этот компьютер принимает микрофон:
   --listen [A:]P    что слушать (по умолчанию 0.0.0.0:47702)
-  --psk BASE64      общий ключ, 32 байта в base64; должен совпадать с Mac
   --device SEL      часть имени устройства вывода; по умолчанию автоопределение
   --jitter MS       целевая задержка буфера, мс (по умолчанию 60)
   --max-jitter MS   при превышении буфер подрезается (по умолчанию 240)
   --gain F          усиление на выходе, 1.0 — без изменений
   --latency MS      запрошенная задержка WASAPI (по умолчанию 50)
-  --relay H:P       регистрироваться на релее вместо прямого приёма
   --output MODE     wasapi (по умолчанию), null или wav:путь — для диагностики
   --no-gamepad      не пробрасывать USB-устройства, только звук
   --usbip PATH      путь к usbip.exe, если он не в C:\Program Files\USBip
-  --quiet           не печатать строку статистики раз в 5 секунд
+
+Когда этот компьютер отдаёт свой микрофон:
+  --target H:P      адрес второй машины; обязателен, если не задан --relay
+  --input MODE      wasapi (по умолчанию), null, tone или wav:путь
+  --input-device S  часть имени микрофона; по умолчанию системный по умолчанию
+  --input-gain F    усиление на входе, 1.0 — без изменений
+  --bitrate BPS     битрейт Opus (по умолчанию 32000)
+  --muted           запуститься с заглушённым микрофоном
 """;
 
 var argv = args.ToList();
@@ -58,6 +71,15 @@ switch (subcommand)
         }
         ListDevices();
         return 0;
+
+    case "list-inputs":
+        if (!OperatingSystem.IsWindows())
+        {
+            Console.Error.WriteLine("список устройств доступен только на Windows");
+            return 1;
+        }
+        ListInputs();
+        return 0;
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -65,7 +87,23 @@ switch (subcommand)
 var configPath = Flag("config") ?? ReceiverConfig.DefaultPath;
 var config = ReceiverConfig.Load(configPath);
 
+if (Flag("role") is { } roleFlag)
+{
+    if (!Enum.TryParse<BridgeRole>(roleFlag, ignoreCase: true, out var role))
+    {
+        Console.Error.WriteLine($"hexbridge: неизвестная роль «{roleFlag}» — бывают receiver и sender");
+        return 1;
+    }
+    config.Role = role;
+}
+
 if (Flag("listen") is { } listenFlag) config.Listen = listenFlag;
+if (Flag("target") is { } targetFlag) config.Target = targetFlag;
+if (Flag("input") is { } inputFlag) config.Input = inputFlag;
+if (Flag("input-device") is { } inputDeviceFlag) config.InputDevice = inputDeviceFlag;
+if (Flag("input-gain") is { } ig && float.TryParse(ig, out var inputGain)) config.InputGain = inputGain;
+if (Flag("bitrate") is { } br && int.TryParse(br, out var bitrate)) config.Bitrate = bitrate;
+if (BoolFlag("muted")) config.StartMuted = true;
 if (Flag("psk") is { } pskFlag) config.Psk = pskFlag;
 if (Flag("device") is { } deviceFlag) config.Device = deviceFlag;
 if (Flag("relay") is { } relayFlag) config.Relay = relayFlag;
@@ -89,8 +127,13 @@ if (!config.TryGetKey(out _, out _))
 // The composition root: the one place that names the features. Everything below this line
 // — and everything inside ReceiverService — works off the IFeature contract, so a third
 // feature is a new class and one more entry here.
+//
+// Both halves of the microphone are registered and the role decides which one starts. They
+// share an id and a state record, so everything downstream — the stats line included — is
+// written once.
 await using var receiver = new ReceiverService(
     new MicrophoneFeature(),
+    new MicrophoneCaptureFeature(),
     new DevicesFeature(),
     new ClipboardFeature());
 receiver.Log += entry =>
@@ -110,16 +153,19 @@ catch (Exception ex)
 }
 
 // Autodiscovery (PROTOCOL.md, «Автопоиск хоста»). The advertisement carries a tag derived
-// from the key, never the key or the name, so only the Mac holding this same key treats
-// this PC as its own. It runs here and not only in the desktop wizard because the case it
+// from the key, never the key or the name, so only the machine holding this same key treats
+// this one as its own. It runs here and not only in the desktop wizard because the case it
 // exists for happens long after pairing: the router reboots, DHCP hands out a different
-// address, and the Mac has to find this PC again with nobody at either keyboard.
+// address, and the other side has to find this machine again with nobody at either keyboard.
+//
+// Only the listening role advertises: what is being published is an address to dial, and a
+// machine that dials has none worth publishing.
 using var discovery = new DiscoveryPublisher((level, message) =>
 {
     if (level == LogLevel.Error) Console.Error.WriteLine(message);
     else Console.WriteLine(message);
 });
-discovery.Publish(config, Environment.MachineName);
+if (config.Role == BridgeRole.Receiver) discovery.Publish(config, Environment.MachineName);
 
 using var cancel = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -167,11 +213,21 @@ static void ListDevices()
     }
 }
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static void ListInputs()
+{
+    var preferred = DeviceCatalog.PickCapture(null)?.ID;
+    foreach (var d in DeviceCatalog.CaptureDevices())
+    {
+        Console.WriteLine($"{(d.ID == preferred ? " *" : "  ")} {d.FriendlyName}");
+    }
+}
+
 // ── Stats line ────────────────────────────────────────────────────────────────
 
 static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
 {
-    long lastReceived = 0;
+    long lastCount = 0;
 
     while (!token.IsCancellationRequested)
     {
@@ -186,16 +242,32 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
 
         var s = receiver.Snapshot;
         var mic = s.Feature<MicrophoneState>("microphone");
-        var received = mic?.Received ?? 0;
-        var line =
-            $"принято {(received - lastReceived) / 5,3} пак/с  " +
-            $"пик {(mic is { Peak: > 0 } ? 20 * Math.Log10(mic.Peak) : -99),5:F1} dBFS  " +
-            $"декодировано {mic?.Decoded ?? 0}  " +
-            $"скрыто {mic?.Concealed ?? 0}  " +
-            $"буфер {mic?.Depth ?? 0}  " +
-            $"поздних {mic?.DroppedLate ?? 0}  " +
-            $"недоборов {mic?.Underruns ?? 0}";
-        lastReceived = received;
+        var peak = $"пик {(mic is { Peak: > 0 } ? 20 * Math.Log10(mic.Peak) : -99),5:F1} dBFS";
+
+        // The two roles count different things, and printing «декодировано» on a machine
+        // that only encodes would be four zeroes pretending to be telemetry.
+        string line;
+        if (mic is { IsCapture: true })
+        {
+            line =
+                $"отправлено {(mic.Sent - lastCount) / 5,3} пак/с  {peak}  " +
+                $"кадров {mic.Sent}  пакет {mic.LastPacketBytes,3} Б  " +
+                $"на той стороне: принято {s.RemoteReceived}, потеряно {s.RemoteLost}  " +
+                $"rtt {(s.RttMs is { } rtt ? $"{rtt:F0} мс" : "—")}";
+            lastCount = mic.Sent;
+        }
+        else
+        {
+            var received = mic?.Received ?? 0;
+            line =
+                $"принято {(received - lastCount) / 5,3} пак/с  {peak}  " +
+                $"декодировано {mic?.Decoded ?? 0}  " +
+                $"скрыто {mic?.Concealed ?? 0}  " +
+                $"буфер {mic?.Depth ?? 0}  " +
+                $"поздних {mic?.DroppedLate ?? 0}  " +
+                $"недоборов {mic?.Underruns ?? 0}";
+            lastCount = received;
+        }
 
         // Anything other than the microphone gets one word, whatever it turns out to be:
         // the stats line must not need editing when a feature is added.
@@ -209,7 +281,11 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
         if (s.Muted) line += "  [MUTED]";
         if (s.LastPacketAt is { } at && DateTime.UtcNow - at > TimeSpan.FromSeconds(3))
         {
-            line += $"  отправитель молчит {(DateTime.UtcNow - at).TotalSeconds:F0} с";
+            line += $"  вторая машина молчит {(DateTime.UtcNow - at).TotalSeconds:F0} с";
+        }
+        else if (s.LastPacketAt is null)
+        {
+            line += "  вторая машина ещё не отвечала";
         }
         if (s.Rejected > 0) line += $"  отброшено {s.Rejected}";
 

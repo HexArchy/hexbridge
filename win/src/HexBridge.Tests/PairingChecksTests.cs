@@ -199,7 +199,32 @@ public class PairingChecksTests
         var outcome = PairingChecks.Sound(0f, windowElapsed: true);
 
         Assert.Equal(CheckState.Failed, outcome.State);
-        Assert.Equal("тишина на приёмнике", outcome.Detail);
+        Assert.Equal("тишина на этой машине", outcome.Detail);
+    }
+
+    [Fact]
+    public void SilenceOnTheMachineHoldingTheMicrophoneIsADifferentProblem()
+    {
+        // Same measurement, different thing to do about it. On the machine that is supposed
+        // to be hearing a voice, silence means the microphone — not the link — and sending
+        // somebody to check the network is sending them the wrong way.
+        var outcome = PairingChecks.Sound(0f, windowElapsed: true, capturing: true);
+
+        Assert.Equal(CheckState.Failed, outcome.State);
+        Assert.Contains("микрофон", outcome.Detail, StringComparison.Ordinal);
+        Assert.Contains("доступ", outcome.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AMicrophoneIsReportedByNameOrMissedByName()
+    {
+        Assert.Equal(CheckState.Passed, PairingChecks.Input("Микрофон (Yeti)").State);
+        Assert.Equal("Микрофон (Yeti)", PairingChecks.Input("Микрофон (Yeti)").Detail);
+
+        var missing = PairingChecks.Input(null);
+        Assert.Equal(CheckState.Failed, missing.State);
+        // Not the virtual-cable advice: that is for somebody with the opposite problem.
+        Assert.DoesNotContain("VB-Audio", missing.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

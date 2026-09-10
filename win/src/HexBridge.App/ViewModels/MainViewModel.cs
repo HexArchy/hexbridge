@@ -22,8 +22,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     // The composition root: the one place in the app that names a feature. Everything
     // below works off IFeature and IFeatureUiModule, so a third feature adds a class and
     // one entry here and in FeatureUiCatalog, and changes nothing else.
+    // Both halves of the microphone are registered; the role decides which one starts.
+    // They share an id, so the pages below are built once and serve either.
     private readonly ReceiverService _receiver = new(
         new MicrophoneFeature(),
+        new MicrophoneCaptureFeature(),
         new DevicesFeature(),
         new ClipboardFeature());
 
@@ -49,6 +52,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public SettingsViewModel Settings { get; } = new();
     public LogViewModel Log { get; } = new();
+
+    /// <summary>
+    /// «Что делает этот компьютер». Owned by the shell because the answer decides which
+    /// features start, which wizard opens and whether this machine advertises itself — and
+    /// because it is asked before there is a page to put it on.
+    /// </summary>
+    public RoleViewModel Role { get; }
 
     /// <summary>
     /// Updates (docs/UPDATES.md). Driven from the same clock as everything else, and it
@@ -82,6 +92,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _pauseLabel = "Запустить";
     [ObservableProperty] private string _configPathText = "";
 
+    /// <summary>True while this machine is the one holding the microphone.</summary>
+    [ObservableProperty] private bool _isGiving;
+
+    /// <summary>The line under the title, which says which half of the pair this is.</summary>
+    [ObservableProperty] private string _tagline = "микрофон, геймпады и буфер обмена с Mac";
+
+    /// <summary>Says what pressing it will do, like every other button in the header.</summary>
+    [ObservableProperty] private string _muteLabel = "Заглушить";
+
     // The window header shows the transport, not any one feature.
     [ObservableProperty] private string _headline = "Приём остановлен";
     [ObservableProperty] private bool _isGood;
@@ -104,6 +123,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             },
             log: Log.Add);
 
+        Role = new RoleViewModel(CommitRoleAsync);
         Pairing = new PairingViewModel(() => _config, CommitPairingAsync, Log.Add, _discovery);
 
         _modules = FeatureUiCatalog.For(_receiver.Features);
@@ -116,6 +136,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Settings.Load(_config, _ui);
         Settings.SaveRequested += OnSaveRequested;
         Settings.PairRequested += Pairing.Open;
+        Settings.RoleChangeRequested += () => Role.Open(_config.Role, firstRun: false);
         Settings.CheckRequested += Pairing.OpenChecks;
         Settings.PropertyChanged += OnSettingsPropertyChanged;
 
@@ -125,6 +146,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _timer.Start();
 
         Log.Add(LogLevel.Info, $"hexbridge: конфиг {_configPath}");
+        ApplyRole();
+
+        // A fresh install is asked what it is before it is asked to pair, because the answer
+        // decides who makes the key. An install that predates roles is not asked at all: it
+        // has a role — the one it has been doing — and a question with an obvious answer is
+        // a question not worth putting in somebody's way.
+        if (!_ui.RoleChosen && !_config.TryGetKey(out _, out _))
+        {
+            Role.Open(_config.Role, firstRun: true);
+            return;
+        }
+
+        _ui.RoleChosen = true;
 
         // §9: an install that has never been paired opens the wizard instead of a screen
         // full of empty telemetry. Once a key exists it never appears on its own again —
@@ -137,6 +171,61 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     /// <summary>
+    /// The role was answered. Writing it to the config is what makes it real; everything
+    /// else — which features start, which wizard opens, whether we advertise — follows from
+    /// the file.
+    /// </summary>
+    private async Task CommitRoleAsync(BridgeRole role)
+    {
+        _ui.RoleChosen = true;
+        _ui.Save();
+
+        if (_config.Role != role)
+        {
+            var next = _config.Clone();
+            next.Role = role;
+            try
+            {
+                next.Save(_configPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Add(LogLevel.Error, $"hexbridge: не удалось сохранить конфиг: {ex.Message}");
+                return;
+            }
+
+            _config = next;
+            Settings.Load(_config, _ui);
+            Log.Add(LogLevel.Info, $"hexbridge: роль — {RoleWording.Title(role).ToLowerInvariant()}");
+
+            // The old advertisement described a machine that listened. Leaving it up would
+            // point the other side at a port nothing is on any more.
+            _discovery.Stop();
+            ApplyRole();
+            if (_receiver.IsRunning) await RestartAsync();
+        }
+        else
+        {
+            ApplyRole();
+        }
+
+        // Changing role does not change the key, but an install that has never had one is
+        // exactly where this question came from.
+        if (!_config.TryGetKey(out _, out _)) Pairing.Open();
+    }
+
+    /// <summary>Pushes the role into everything that renders differently because of it.</summary>
+    private void ApplyRole()
+    {
+        IsGiving = _config.Role == BridgeRole.Sender;
+        Role.Current = _config.Role;
+        Pairing.Role = _config.Role;
+        Tagline = IsGiving
+            ? "микрофон этого компьютера и общий буфер обмена"
+            : "микрофон, геймпады и буфер обмена со второй машины";
+    }
+
+    /// <summary>
     /// §9.5: the key and the address the wizard generated become the config, and the
     /// receiver is restarted onto them. Writing the file is what makes the pairing real —
     /// everything before this point is a code on a screen.
@@ -145,9 +234,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var next = _config.Clone();
         next.Psk = payload.Psk;
-        // The listen address stays a wildcard: the payload carries the address the Mac
-        // should dial, which is not the same thing as the interface we bind.
-        if (string.IsNullOrWhiteSpace(next.Listen)) next.Listen = $"0.0.0.0:{payload.Port}";
+
+        if (next.Role == BridgeRole.Sender)
+        {
+            // Here the payload came off the other machine's screen, and its whole point is
+            // the address: that is the one thing this side could not have worked out alone.
+            next.Target = $"{payload.Host}:{payload.Port}";
+        }
+        else
+        {
+            // The listen address stays a wildcard: the payload carries the address the other
+            // machine should dial, which is not the same thing as the interface we bind.
+            if (string.IsNullOrWhiteSpace(next.Listen)) next.Listen = $"0.0.0.0:{payload.Port}";
+        }
 
         try
         {
@@ -229,7 +328,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     /// </summary>
     private void Advertise()
     {
-        if (!_receiver.IsRunning) return;
+        // Only the machine that listens has an address worth publishing. One that dials
+        // would be advertising an ephemeral port nothing answers on.
+        if (!_receiver.IsRunning || _config.Role != BridgeRole.Receiver) return;
         _discovery.Publish(_config, Pairing.MachineName);
     }
 
@@ -238,6 +339,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (_receiver.IsRunning) await StopAsync();
         else await StartAsync();
+    }
+
+    /// <summary>
+    /// Mute, live: no restart and no reconnect. The flag rides the keepalive, so the far
+    /// end says «микрофон заглушен» rather than watching the sound stop for no reason.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleMute()
+    {
+        _receiver.Muted = !_receiver.Muted;
+        Refresh();
     }
 
     [RelayCommand]
@@ -345,14 +457,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _ = Updates.TickAsync(_ui.LastUpdateCheckUtc, DateTime.UtcNow, DateTime.UtcNow - _startedAt);
         }
 
+        MuteLabel = _receiver.Muted ? "Включить микрофон" : "Заглушить";
+
+        // The header names no machine on purpose. Either end may be nameless until its first
+        // HELLO, and «Ждём » with nothing after it is worse than a sentence that is always
+        // true. The name has a home on the status page, where there is room for it.
         Headline = snapshot.Status switch
         {
             ReceiverStatus.Live => "Связь есть",
             ReceiverStatus.Muted => "Микрофон заглушен",
-            ReceiverStatus.SenderLost => "Mac замолчал",
-            ReceiverStatus.WaitingForSender => "Ждём Mac",
+            ReceiverStatus.SenderLost => "Связь пропала",
+            ReceiverStatus.WaitingForSender => "Ждём вторую машину",
             ReceiverStatus.Failed => "Ошибка",
-            _ => _stoppedByUser ? "На паузе" : "Приём остановлен",
+            _ => _stoppedByUser ? "На паузе" : IsGiving ? "Передача остановлена" : "Приём остановлен",
         };
         IsGood = snapshot.Status is ReceiverStatus.Live;
         IsWaiting = snapshot.Status is ReceiverStatus.WaitingForSender or ReceiverStatus.Muted or ReceiverStatus.SenderLost;
@@ -369,11 +486,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         TrayTooltip = snapshot.Status switch
         {
             ReceiverStatus.Live => $"HexBridge — звук идёт, {snapshot.PacketsPerSecond:F0} пак/с",
-            ReceiverStatus.Muted => "HexBridge — микрофон заглушен на Mac",
-            ReceiverStatus.SenderLost => "HexBridge — Mac замолчал",
-            ReceiverStatus.WaitingForSender => "HexBridge — ждём Mac",
+            ReceiverStatus.Muted => IsGiving
+                ? "HexBridge — микрофон заглушен"
+                : "HexBridge — микрофон заглушен на второй машине",
+            ReceiverStatus.SenderLost => "HexBridge — связь пропала",
+            ReceiverStatus.WaitingForSender => "HexBridge — ждём вторую машину",
             ReceiverStatus.Failed => "HexBridge — ошибка, откройте окно",
-            _ => _stoppedByUser ? "HexBridge — на паузе" : "HexBridge — приём остановлен",
+            _ => _stoppedByUser
+                ? "HexBridge — на паузе"
+                : IsGiving ? "HexBridge — передача остановлена" : "HexBridge — приём остановлен",
         };
     }
 

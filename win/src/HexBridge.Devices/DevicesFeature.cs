@@ -66,7 +66,43 @@ public sealed class DevicesFeature : IFeature
     public bool IsOptional => true;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
-    public bool IsEnabled(ReceiverConfig config) => config.Gamepad;
+    /// <summary>
+    /// Only ever on the machine that <b>accepts</b> devices. Forwarding one the other way is
+    /// not a switch nobody has turned on yet — see <see cref="Unavailable"/>.
+    /// </summary>
+    public bool IsEnabled(ReceiverConfig config) =>
+        config.Gamepad && config.Role == BridgeRole.Receiver;
+
+    /// <summary>
+    /// Why a machine that gives its microphone away cannot also give a gamepad away.
+    ///
+    /// <para>
+    /// The contract needs the device's real USB descriptors — device, configuration, HID
+    /// report — plus a snapshot of its feature reports, because the receiving end assembles a
+    /// virtual USB device out of them and answers <c>GET_REPORT</c> from games without a
+    /// network round trip. macOS hands all of that over for free: IOKit publishes the whole
+    /// configuration descriptor and <c>kIOHIDReportDescriptorKey</c> without opening the
+    /// device at all.
+    /// </para>
+    ///
+    /// <para>
+    /// Windows does not. Its HID class driver exposes <i>preparsed data</i>, not the report
+    /// descriptor the device actually sent — the bytes are gone by the time anything in user
+    /// space can look, and what can be rebuilt from <c>HidP_*</c> is a descriptor that
+    /// describes the same fields, not the same descriptor. The device and configuration
+    /// descriptors exist only behind an <c>IOCTL_USB_GET_DESCRIPTOR_FROM_NODE_CONNECTION</c>
+    /// on the parent hub, which means opening the hub with write access and knowing the port
+    /// index — administrator rights, on a path that is empty for anything not on a plain USB
+    /// hub. So the honest answer is that this direction does not work, and saying so is
+    /// better than a switch that turns on and forwards nothing.
+    /// </para>
+    /// </summary>
+    public string? Unavailable(ReceiverConfig config) => config.Role == BridgeRole.Sender
+        ? "Отдавать геймпады умеет только Mac: Windows не выдаёт приложениям настоящие "
+          + "USB-дескрипторы своих HID-устройств, а без них собрать устройство на другой "
+          + "стороне не из чего. Принимать устройства этот компьютер по-прежнему умеет — "
+          + "для этого переключите роль."
+        : null;
 
     public void Start(FeatureContext context)
     {

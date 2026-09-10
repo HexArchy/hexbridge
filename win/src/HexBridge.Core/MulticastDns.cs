@@ -30,6 +30,31 @@ public readonly record struct DnsQuestion(string Name, DnsRecordType Type, ushor
 }
 
 /// <summary>
+/// One record out of a response, with its rdata already decoded into the handful of shapes
+/// this protocol uses. Which fields mean anything depends on <see cref="Type"/>.
+/// </summary>
+public readonly record struct DnsAnswer(string Name, DnsRecordType Type, ushort Class, uint Ttl)
+{
+    /// <summary>PTR: the instance being pointed at. SRV: the host name.</summary>
+    public string Target { get; init; } = "";
+
+    /// <summary>SRV only.</summary>
+    public int Port { get; init; } = 0;
+
+    /// <summary>A only.</summary>
+    public IPAddress? Address { get; init; } = null;
+
+    /// <summary>TXT only: the raw <c>key=value</c> strings, exactly as the wire carries them.</summary>
+    public IReadOnlyList<string> Text { get; init; } = [];
+
+    /// <summary>
+    /// TTL zero is a goodbye (RFC 6762 §10.1): the record is being withdrawn, not published.
+    /// Reading it as an announcement is what keeps a machine in a list after it has left.
+    /// </summary>
+    public bool IsGoodbye => Ttl == 0;
+}
+
+/// <summary>
 /// Just enough of DNS to publish one Bonjour service, and not one byte more.
 ///
 /// <para>
@@ -212,6 +237,149 @@ public static class MulticastDns
 
         questions = found;
         return true;
+    }
+
+    /// <summary>
+    /// One question, as a whole packet. All a browser ever sends: «кто отзывается на
+    /// <c>_hexbridge._udp.local.</c>».
+    /// </summary>
+    public static byte[] BuildQuery(string name, DnsRecordType type)
+    {
+        var packet = new List<byte>(64);
+        // ID zero, no flags: a plain multicast query, one question and nothing else. RFC
+        // 6762 §5.4 lets a querier demand a unicast answer through the top bit of QCLASS;
+        // this does not, because an answer sent to the group is also seen by anything else
+        // browsing, which costs nothing on a home network and warms everyone's cache.
+        packet.AddRange([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
+        WriteName(packet, name);
+        packet.Add((byte)((ushort)type >> 8));
+        packet.Add((byte)type);
+        packet.Add(0);
+        packet.Add(0x01);  // class IN
+        return [.. packet];
+    }
+
+    /// <summary>
+    /// Reads every record out of a response — answers, authority and additional alike.
+    ///
+    /// <para>
+    /// The additional section is not optional extra here: an announcement puts PTR in the
+    /// answers and SRV, TXT and A in additional, so a reader that skipped it would learn
+    /// that a host exists and nothing whatever about how to reach it.
+    /// </para>
+    ///
+    /// <para>
+    /// Compression pointers are resolved here rather than handed on, because rdata that
+    /// names something — PTR and SRV both do — is meaningless away from the packet it was
+    /// compressed against. Returns false rather than throwing, for the same reason the
+    /// question reader does: this socket sees everything else on the local network, and a
+    /// printer with a creative responder must cost one skipped packet and no more.
+    /// </para>
+    /// </summary>
+    public static bool TryReadAnswers(ReadOnlySpan<byte> packet, out IReadOnlyList<DnsAnswer> answers)
+    {
+        answers = [];
+        if (packet.Length < 12) return false;
+
+        var flags = (ushort)((packet[2] << 8) | packet[3]);
+        // QR clear means somebody is asking, not answering.
+        if ((flags & 0x8000) == 0) return false;
+
+        var questions = (packet[4] << 8) | packet[5];
+        var sections = new[]
+        {
+            (packet[6] << 8) | packet[7],    // answers
+            (packet[8] << 8) | packet[9],    // authority
+            (packet[10] << 8) | packet[11],  // additional
+        };
+
+        var offset = 12;
+        for (var i = 0; i < questions; i++)
+        {
+            if (!TryReadName(packet, ref offset, out _)) return false;
+            if (offset + 4 > packet.Length) return false;
+            offset += 4;
+        }
+
+        var found = new List<DnsAnswer>(sections[0] + sections[2]);
+        foreach (var count in sections)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                if (!TryReadName(packet, ref offset, out var name)) return false;
+                if (offset + 10 > packet.Length) return false;
+
+                var type = (DnsRecordType)((packet[offset] << 8) | packet[offset + 1]);
+                var klass = (ushort)((packet[offset + 2] << 8) | packet[offset + 3]);
+                var ttl = (uint)((packet[offset + 4] << 24) | (packet[offset + 5] << 16)
+                    | (packet[offset + 6] << 8) | packet[offset + 7]);
+                var length = (packet[offset + 8] << 8) | packet[offset + 9];
+                offset += 10;
+
+                if (offset + length > packet.Length) return false;
+                found.Add(ReadRdata(packet, name, type, klass, ttl, offset, length));
+                offset += length;
+            }
+        }
+
+        answers = found;
+        return true;
+    }
+
+    private static DnsAnswer ReadRdata(
+        ReadOnlySpan<byte> packet, string name, DnsRecordType type, ushort klass, uint ttl, int offset, int length)
+    {
+        // The cache-flush bit lives in the top of the class and is not part of it.
+        var answer = new DnsAnswer(name, type, (ushort)(klass & 0x7FFF), ttl);
+
+        switch (type)
+        {
+            case DnsRecordType.Ptr:
+            {
+                var cursor = offset;
+                return TryReadName(packet, ref cursor, out var target)
+                    ? answer with { Target = target }
+                    : answer;
+            }
+
+            case DnsRecordType.Srv:
+            {
+                // priority, weight, port, target — and the port is worth keeping even when
+                // the target name turns out to be unreadable.
+                if (length < 7) return answer;
+                var port = (packet[offset + 4] << 8) | packet[offset + 5];
+                var cursor = offset + 6;
+                return TryReadName(packet, ref cursor, out var host)
+                    ? answer with { Port = port, Target = host }
+                    : answer with { Port = port };
+            }
+
+            case DnsRecordType.A:
+                return length == 4
+                    ? answer with { Address = new IPAddress(packet.Slice(offset, 4).ToArray()) }
+                    : answer;
+
+            case DnsRecordType.Txt:
+            {
+                var entries = new List<string>(4);
+                var cursor = offset;
+                var end = offset + length;
+                while (cursor < end)
+                {
+                    var size = packet[cursor++];
+                    // A zero-length string is the placeholder an empty TXT record needs; it
+                    // carries nothing and ends nothing.
+                    if (size == 0) continue;
+                    if (cursor + size > end) break;
+                    entries.Add(Encoding.UTF8.GetString(packet.Slice(cursor, size)));
+                    cursor += size;
+                }
+                return answer with { Text = entries };
+            }
+
+            default:
+                return answer;
+        }
     }
 
     // MARK: - Answers
@@ -595,7 +763,7 @@ public sealed class ServiceAdvertiser : IDisposable
     }
 
     /// <summary>A Bonjour instance name is at most 63 UTF-8 bytes.</summary>
-    private static string Trim(string value)
+    internal static string Trim(string value)
     {
         var name = string.IsNullOrWhiteSpace(value) ? "HexBridge" : value.Trim();
         while (Encoding.UTF8.GetByteCount(name) > 63) name = name[..^1];
@@ -617,5 +785,221 @@ public sealed class ServiceAdvertiser : IDisposable
 
         var name = builder.ToString().Trim('-');
         return name.Length == 0 ? "hexbridge" : name[..Math.Min(name.Length, 63)];
+    }
+}
+
+/// <summary>
+/// The other half of <see cref="ServiceAdvertiser"/>: asks who is out there and keeps the
+/// answers.
+///
+/// <para>
+/// Windows has never needed one — it was always the machine being found. The moment it can
+/// also be the machine doing the looking, the browse has to exist here too, and Apple's
+/// Bonjour for Windows is exactly as absent on a gaming PC as it was when the responder was
+/// written. So it is the same forty lines of DNS in the other direction, sharing the parser,
+/// the escaping and the interface enumeration with the half that already shipped.
+/// </para>
+///
+/// <para>
+/// Deliberately not a resolver either: no cache, no known-answer suppression, no negative
+/// records. It asks once a second at first and then backs off, which is what fills a list in
+/// front of somebody waiting at a wizard without becoming traffic anybody notices.
+/// </para>
+/// </summary>
+public sealed class ServiceBrowser : IDisposable
+{
+    /// <summary>
+    /// Queries go out on this schedule and then repeat at the last interval. Roughly RFC 6762
+    /// §5.2's exponential back-off, cut short: past half a minute a browse that has found
+    /// nothing is not going to.
+    /// </summary>
+    private static readonly TimeSpan[] Schedule =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(15),
+        TimeSpan.FromSeconds(30),
+    ];
+
+    private readonly CancellationTokenSource _stop = new();
+    private readonly List<IPAddress> _interfaces = [];
+    private readonly DiscoveryScan _scan = new();
+    private readonly Lock _gate = new();
+
+    private UdpClient? _socket;
+    private Task? _loop;
+    private Task? _queries;
+    private bool _disposed;
+
+    /// <summary>Null while the browse is healthy, which includes «ничего не нашлось».</summary>
+    public string? Error { get; private set; }
+
+    public bool IsBrowsing => _socket is not null;
+
+    /// <summary>Packets accepted as answers, so a silent network is distinguishable from a broken one.</summary>
+    public int AnswersSeen { get; private set; }
+
+    /// <summary>Everything visible right now. Safe to read from any thread.</summary>
+    public IReadOnlyList<DiscoveredHost> Hosts
+    {
+        get { lock (_gate) return _scan.Hosts; }
+    }
+
+    /// <summary>Raised on the browse thread when the visible set changes.</summary>
+    public event Action<IReadOnlyList<DiscoveredHost>>? Changed;
+
+    public void Start()
+    {
+        if (_socket is not null) return;
+
+        try
+        {
+            var socket = new UdpClient();
+            socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            socket.ExclusiveAddressUse = false;
+            socket.Client.Bind(new IPEndPoint(IPAddress.Any, MulticastDns.Port));
+
+            foreach (var local in MulticastDns.LocalAddresses())
+            {
+                try
+                {
+                    socket.Client.SetSocketOption(
+                        SocketOptionLevel.IP,
+                        SocketOptionName.AddMembership,
+                        new MulticastOption(MulticastDns.Group, local));
+                    _interfaces.Add(local);
+                }
+                catch (SocketException)
+                {
+                    // One adapter that does not do multicast; the rest still browse.
+                }
+            }
+
+            if (_interfaces.Count == 0) socket.JoinMulticastGroup(MulticastDns.Group);
+
+            socket.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 255);
+            socket.Ttl = 255;
+            _socket = socket;
+            Error = null;
+        }
+        catch (SocketException ex)
+        {
+            Error = $"порт {MulticastDns.Port} занят другой службой — {ex.Message}";
+            return;
+        }
+
+        _loop = Task.Run(() => ListenAsync(_stop.Token));
+        _queries = Task.Run(() => AskAsync(_stop.Token));
+    }
+
+    /// <summary>Forgets everything seen, so a stale list cannot outlive a restart.</summary>
+    public void Reset()
+    {
+        lock (_gate) _scan.Clear();
+        Changed?.Invoke(Hosts);
+    }
+
+    private async Task AskAsync(CancellationToken token)
+    {
+        var query = MulticastDns.BuildQuery(MulticastDns.ServiceType, DnsRecordType.Ptr);
+        var index = 0;
+
+        while (!token.IsCancellationRequested)
+        {
+            var wait = Schedule[Math.Min(index, Schedule.Length - 1)];
+            index++;
+            if (wait > TimeSpan.Zero)
+            {
+                try
+                {
+                    await Task.Delay(wait, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+            Send(query);
+        }
+    }
+
+    private async Task ListenAsync(CancellationToken token)
+    {
+        var socket = _socket;
+        if (socket is null) return;
+
+        while (!token.IsCancellationRequested)
+        {
+            UdpReceiveResult received;
+            try
+            {
+                received = await socket.ReceiveAsync(token);
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            if (!MulticastDns.TryReadAnswers(received.Buffer, out var answers)) continue;
+            AnswersSeen++;
+
+            bool changed;
+            lock (_gate) changed = _scan.Apply(answers);
+            if (changed) Changed?.Invoke(Hosts);
+        }
+    }
+
+    private void Send(byte[] packet)
+    {
+        var socket = _socket;
+        if (socket is null) return;
+
+        var target = new IPEndPoint(MulticastDns.Group, MulticastDns.Port);
+
+        if (_interfaces.Count == 0)
+        {
+            try
+            {
+                socket.Send(packet, packet.Length, target);
+            }
+            catch (Exception)
+            {
+                // A network that came and went. The next query finds out.
+            }
+            return;
+        }
+
+        foreach (var local in _interfaces)
+        {
+            try
+            {
+                // Per send, for the reason the advertiser does it: a socket has one
+                // IP_MULTICAST_IF, and the stack's default on a gaming PC is as likely to be
+                // a Hyper-V switch as the network the other machine is on.
+                socket.Client.SetSocketOption(
+                    SocketOptionLevel.IP, SocketOptionName.MulticastInterface, local.GetAddressBytes());
+                socket.Send(packet, packet.Length, target);
+            }
+            catch (Exception)
+            {
+                // One adapter unplugged mid-query must not silence the others.
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _stop.Cancel();
+        _socket?.Dispose();
+        _socket = null;
+        _stop.Dispose();
+        _ = _loop;
+        _ = _queries;
     }
 }

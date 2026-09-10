@@ -115,13 +115,20 @@ public sealed partial class DevicesViewModel : ObservableObject
     /// <summary>Up to four, in device-number order.</summary>
     public ObservableCollection<ForwardedDeviceViewModel> Devices { get; } = [];
 
-    public void Apply(DevicesState? s)
+    /// <summary>
+    /// <paramref name="raw"/> is the same feature's plain state, which is all there is when
+    /// the feature never started. It carries the reason — and «выключено в настройках» is
+    /// not always the reason: on a machine giving its microphone away there is no switch to
+    /// find, and sending somebody to look for one is the worst thing this page could do.
+    /// </summary>
+    public void Apply(DevicesState? s, FeatureState? raw = null)
     {
         if (s is null)
         {
-            Headline = "Проброс выключен";
-            Subline = "Включите приём устройств в настройках";
+            Headline = raw?.Headline is { Length: > 0 } headline ? headline : "Проброс выключен";
+            Subline = raw?.Detail is { Length: > 0 } detail ? detail : "Включите приём устройств в настройках";
             IsGood = IsWaiting = IsBad = false;
+            DriverMissing = false;
             Devices.Clear();
             HasDevices = false;
             SlotsText = "0 из 4";

@@ -26,6 +26,18 @@ public sealed class AppSettings
     public int LastTab { get; set; }
 
     /// <summary>
+    /// Somebody has answered «что делает этот компьютер» at least once.
+    ///
+    /// <para>
+    /// Here rather than in config.json, and deliberately separate from the role itself: the
+    /// role has a default, and an install upgraded from a build that only ever received has
+    /// to go on receiving without being asked anything. The question is worth putting on
+    /// screen only for an install that has never been set up at all.
+    /// </para>
+    /// </summary>
+    public bool RoleChosen { get; set; }
+
+    /// <summary>
     /// Look for new versions once a day. On by default — a stream utility that silently
     /// rots is worse than one that mentions a release — but it is one switch, and off means
     /// no network request of any kind.

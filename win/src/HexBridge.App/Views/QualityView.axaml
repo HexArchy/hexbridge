@@ -18,7 +18,7 @@
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
-                ToolTip.Tip="Время до Mac и обратно. Оценка: нужны синхронные часы на обеих машинах.">
+                ToolTip.Tip="Время до второй машины и обратно.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Задержка" />
             <TextBlock Classes="metric" Text="{Binding RttText}" />
@@ -32,7 +32,7 @@
         </Border>
       </UniformGrid>
 
-      <Border Classes="card">
+      <Border Classes="card" IsVisible="{Binding !IsGiving}">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Classes="section" Text="БУФЕР" />
@@ -44,7 +44,52 @@
         </StackPanel>
       </Border>
 
-      <UniformGrid Columns="3">
+      <!-- Six tiles for the machine holding the microphone. Half of them are the far end's
+           own counters, echoed back in every PONG: what left here is easy to count and says
+           nothing about what arrived. -->
+      <UniformGrid Columns="3" IsVisible="{Binding IsGiving}">
+        <Border Classes="tile" Margin="0,0,8,8">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Отправлено кадров" />
+            <TextBlock Classes="metric" Text="{Binding SentText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,8"
+                ToolTip.Tip="Размер последнего пакета Opus. Столько стоит одна двадцатимиллисекундная порция звука.">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Размер пакета" />
+            <TextBlock Classes="metric" Text="{Binding PacketBytesText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,0,8">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Битрейт" />
+            <TextBlock Classes="metric" Text="{Binding BitrateText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,0"
+                ToolTip.Tip="Сколько кадров досчиталась вторая машина. Её цифра, не наша.">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Принято там" />
+            <TextBlock Classes="metric" Text="{Binding RemoteReceivedText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,0"
+                ToolTip.Tip="Кадры, которых вторая машина не дождалась или восстановила приблизительно.">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Потеряно там" />
+            <TextBlock Classes="metric" Text="{Binding RemoteLostText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Доля потерь" />
+            <TextBlock Classes="metric" Text="{Binding LossText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <UniformGrid Columns="3" IsVisible="{Binding !IsGiving}">
         <Border Classes="tile" Margin="0,0,8,8"
                 ToolTip.Tip="Кадры, которых не было вовремя: Opus восстановил их приблизительно.">
           <StackPanel Spacing="2">
@@ -101,7 +146,7 @@
             <controls:Sparkline Values="{Binding PeakHistory}" Maximum="1" />
           </StackPanel>
 
-          <StackPanel Spacing="6">
+          <StackPanel Spacing="6" IsVisible="{Binding !IsGiving}">
             <TextBlock Classes="label" Text="Глубина буфера, кадров" />
             <controls:Sparkline Values="{Binding DepthHistory}" Maximum="{Binding MaxDepth}" />
           </StackPanel>

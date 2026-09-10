@@ -40,11 +40,11 @@
         <StackPanel Spacing="12">
           <TextBlock Classes="section" Text="СОЕДИНЕНИЕ" />
           <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" >
-            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Mac" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="{Binding PeerLabel}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding SenderText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Адрес" Margin="0,0,0,8" />
             <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" Text="{Binding PeerText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Звук идёт в" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="{Binding EndpointLabel}" />
             <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding OutputText}" />
           </Grid>
         </StackPanel>

@@ -20,15 +20,24 @@ public static class FeatureUiCatalog
     ];
 
     /// <summary>
-    /// One module per feature the receiver was built with, in the receiver's own order, so
-    /// the tabs follow registration rather than this list. A feature with no UI is simply
-    /// absent from the result.
+    /// One module per feature the host was built with, in the host's own order, so the tabs
+    /// follow registration rather than this list. A feature with no UI is simply absent from
+    /// the result.
+    ///
+    /// <para>
+    /// Two features may share an id — the microphone does, one class per role — and the two
+    /// of them get one set of pages between them rather than two. That is what the shared id
+    /// is for: exactly one is ever running, and the pages are written against the state
+    /// record both of them publish.
+    /// </para>
     /// </summary>
     public static IReadOnlyList<IFeatureUiModule> For(IEnumerable<IFeature> features)
     {
         var available = Factories.Select(factory => factory()).ToDictionary(module => module.FeatureId);
         return [.. features
-            .Select(feature => available.GetValueOrDefault(feature.Id))
+            .Select(feature => feature.Id)
+            .Distinct(StringComparer.Ordinal)
+            .Select(available.GetValueOrDefault)
             .OfType<IFeatureUiModule>()];
     }
 }
@@ -67,7 +76,9 @@ public sealed class DevicesUiModule : IFeatureUiModule
     public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Устройства", Devices)];
 
     public void Apply(ReceiverSnapshot snapshot) =>
-        Devices.Apply(snapshot.Feature<DevicesState>(FeatureId));
+        Devices.Apply(
+            snapshot.Feature<DevicesState>(FeatureId),
+            snapshot.Features.GetValueOrDefault(FeatureId));
 }
 
 /// <summary>The clipboard's single page: what it is, what it costs, and what crossed last.</summary>

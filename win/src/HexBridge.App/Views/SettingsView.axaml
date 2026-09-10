@@ -19,10 +19,30 @@
           all the features, so a copy of it on every page said the same thing
           three times over. Same wording as on the Mac.
         -->
+        <!--
+          First, because everything under it depends on the answer: which half of the pair
+          this machine is. Read-only here and changed through the modal that explains the
+          two choices, so there is one screen that says what they mean rather than two that
+          each half say it.
+        -->
+        <Border Classes="card">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Classes="section" Text="РОЛЬ ЭТОГО КОМПЬЮТЕРА" />
+              <TextBlock Classes="heading" Text="{Binding RoleTitle}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RoleSummary}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsGiving}"
+                         Text="{x:Static vm:RoleViewModel.SenderCaveat}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Сменить" VerticalAlignment="Center"
+                    Command="{Binding ChangeRoleCommand}" />
+          </Grid>
+        </Border>
+
         <Border Classes="card">
           <Grid ColumnDefinitions="*,Auto,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Classes="heading" Text="Связь с Mac" />
+              <TextBlock Classes="heading" Text="Связь со второй машиной" />
               <TextBlock Classes="caption" Text="Отпечаток должен совпасть на обеих машинах." />
               <SelectableTextBlock Classes="mono dim" Text="{Binding FingerprintText}" />
             </StackPanel>
@@ -37,11 +57,18 @@
           <StackPanel Spacing="14">
             <TextBlock Classes="section" Text="СЕТЬ" />
 
-            <StackPanel Spacing="6">
+            <StackPanel Spacing="6" IsVisible="{Binding IsTaking}">
               <TextBlock Classes="label" Text="Слушать (адрес и порт)" />
               <TextBox Text="{Binding Listen}" PlaceholderText="0.0.0.0:47702" />
               <TextBlock Classes="caption"
-                         Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на Mac." />
+                         Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на второй машине." />
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsGiving}">
+              <TextBlock Classes="label" Text="Адрес второй машины" />
+              <TextBox Text="{Binding Target}" PlaceholderText="192.168.1.10:47702" />
+              <TextBlock Classes="caption"
+                         Text="Обычно его подставляет мастер связывания. Свой порт этот компьютер выбирает сам." />
             </StackPanel>
 
             <!-- §7.4: on the first level only what the user touches. The relay
@@ -64,25 +91,25 @@
                             Command="{Binding GeneratePskCommand}" />
                   </Grid>
                   <TextBlock Classes="caption"
-                             Text="Ровно тот же ключ должен стоять на Mac." />
+                             Text="Ровно тот же ключ должен стоять на второй машине." />
                 </StackPanel>
 
                 <StackPanel Spacing="6">
                   <TextBlock Classes="label" Text="Релей" />
                   <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
                   <TextBlock Classes="caption"
-                             Text="Нужен, только если Mac не достучится до этого ПК напрямую." />
+                             Text="Нужен, только если машины не достучатся друг до друга напрямую." />
                 </StackPanel>
               </StackPanel>
             </Expander>
           </StackPanel>
         </Border>
 
-        <Border Classes="card">
+        <Border Classes="card" IsVisible="{Binding IsTaking}">
           <StackPanel Spacing="14">
             <TextBlock Classes="section" Text="УСТРОЙСТВА" />
 
-            <CheckBox IsChecked="{Binding Gamepad}" Content="Принимать устройства с Mac" />
+            <CheckBox IsChecked="{Binding Gamepad}" Content="Принимать устройства со второй машины" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
                        Text="До четырёх устройств, выбранных на Mac: контроллеры, рули, педали, HOTAS. Нужен драйвер usbip-win2." />
 
@@ -115,7 +142,7 @@
           <StackPanel Spacing="14">
             <TextBlock Classes="section" Text="БУФЕР ОБМЕНА" />
 
-            <CheckBox IsChecked="{Binding Clipboard}" Content="Общий буфер обмена с Mac" />
+            <CheckBox IsChecked="{Binding Clipboard}" Content="Общий буфер обмена со второй машиной" />
 
             <!-- The honest sentence, in the same words as on the «Буфер обмена»
                  page and on the Mac. A boxed three-sentence version of it next
@@ -125,7 +152,77 @@
           </StackPanel>
         </Border>
 
-        <Border Classes="card">
+        <!--
+          The microphone this machine reads. The mirror image of «ВЫВОД ЗВУКА» below, and
+          only one of the two is ever on screen: a machine either has a microphone to give
+          away or somewhere to play one, never both at once.
+        -->
+        <Border Classes="card" IsVisible="{Binding IsGiving}">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="ЗАХВАТ ЗВУКА" />
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Источник" />
+              <ComboBox ItemsSource="{Binding InputModes}" SelectedItem="{Binding Input}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:InputMode">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Микрофон" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Обновить список" Command="{Binding RefreshDevicesCommand}" />
+              </Grid>
+              <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding InputDevice}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DeviceOption">
+                    <TextBlock Text="{Binding Title}" Margin="0,2" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="caption" Text="{Binding InputNotice}"
+                         IsVisible="{Binding InputNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Усиление" />
+                <TextBlock Grid.Column="1" Classes="label" Text="{Binding InputGainText}" />
+              </Grid>
+              <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                      Value="{Binding InputGain}" />
+              <TextBlock Classes="caption" Text="1,0 (0 дБ) — как есть. Поднимайте, если вас слышно тихо." />
+            </StackPanel>
+
+            <CheckBox IsChecked="{Binding StartMuted}" Content="Запускаться с заглушённым микрофоном" />
+
+            <Expander Header="Кодек">
+              <StackPanel Spacing="14" Margin="0,10,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="Битрейт" />
+                  <ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding Bitrate}"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:BitrateOption">
+                        <TextBlock Text="{Binding Title}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="Голос всегда 48 кГц, моно, кадр 20 мс — это часть протокола. Меняется только сколько битрейта на кадр." />
+                </StackPanel>
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsTaking}">
           <StackPanel Spacing="14">
             <TextBlock Classes="section" Text="ВЫВОД ЗВУКА" />
 
@@ -169,7 +266,7 @@
               </Grid>
               <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
                       Value="{Binding Gain}" />
-              <TextBlock Classes="caption" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если Mac отдаёт тихо." />
+              <TextBlock Classes="caption" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если вторая машина отдаёт тихо." />
             </StackPanel>
 
             <!-- §7.4 «Дополнительно», collapsed: three latency knobs are the
@@ -224,7 +321,7 @@
               </ComboBox>
             </StackPanel>
 
-            <CheckBox Content="Начинать приём при запуске" IsChecked="{Binding StartOnLaunch}" />
+            <CheckBox Content="Запускать передачу сразу при старте" IsChecked="{Binding StartOnLaunch}" />
             <CheckBox Content="Запускаться сразу в трей" IsChecked="{Binding StartMinimised}" />
             <CheckBox Content="Запускать при входе в Windows" IsChecked="{Binding Autostart}" />
             <TextBlock Text="{Binding AutostartError}"
@@ -232,7 +329,7 @@
                        Foreground="{DynamicResource BadFg}"
                        TextWrapping="Wrap" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="Закрытие окна прячет приложение в трей, приём продолжается." />
+                       Text="Закрытие окна прячет приложение в трей, передача продолжается." />
           </StackPanel>
         </Border>
 

@@ -65,18 +65,39 @@ public readonly record struct DeliveryStats(long Received, long Lost)
 public sealed class FeatureContext(
     ReceiverConfig config,
     Action<LogLevel, string> log,
-    Action<PacketType, ReadOnlyMemory<byte>> send)
+    Action<PacketType, ReadOnlyMemory<byte>, PacketFlags> send,
+    Func<bool> readMuted,
+    Action<bool> writeMuted)
 {
     public ReceiverConfig Config { get; } = config;
+
+    /// <summary>Which end of the link this process is. Fixed for the life of the context.</summary>
+    public BridgeRole Role { get; } = config.Role;
 
     /// <summary>Safe to call from any thread.</summary>
     public void Log(LogLevel level, string message) => log(level, message);
 
     /// <summary>
-    /// Seals a payload and sends it to the current peer with <c>direction = 1</c>. Silently
-    /// does nothing while no sender is known — a feature must not care.
+    /// Seals a payload and sends it to the current peer, in whichever direction this role
+    /// owns. Silently does nothing while no peer is known — a feature must not care.
     /// </summary>
-    public void Send(PacketType type, ReadOnlyMemory<byte> payload) => send(type, payload);
+    public void Send(PacketType type, ReadOnlyMemory<byte> payload) =>
+        send(type, payload, PacketFlags.None);
+
+    /// <summary>The same, with header flags. Only the voice path has any use for them.</summary>
+    public void Send(PacketType type, ReadOnlyMemory<byte> payload, PacketFlags flags) =>
+        send(type, payload, flags);
+
+    /// <summary>
+    /// The transport's mute flag. It rides on HELLO as well as on AUDIO, which is why it
+    /// lives on the transport rather than inside the microphone: the keepalive has to
+    /// carry it even during a frame the microphone never produced.
+    /// </summary>
+    public bool Muted
+    {
+        get => readMuted();
+        set => writeMuted(value);
+    }
 }
 
 /// <summary>
@@ -106,6 +127,19 @@ public interface IFeature : IAsyncDisposable
 
     /// <summary>Whether the config asks for this feature at all.</summary>
     bool IsEnabled(ReceiverConfig config);
+
+    /// <summary>
+    /// Why this feature cannot run here, when the answer is something other than a switch
+    /// somebody turned off — most of all, a role this machine cannot fill.
+    ///
+    /// <para>
+    /// Non-null replaces the host's «Выключено в настройках» with the truth. A feature that
+    /// quietly reports itself as switched off when the real reason is that the platform
+    /// will not let it work is the exact failure this exists to prevent: the user turns the
+    /// switch on, nothing happens, and nothing says why.
+    /// </para>
+    /// </summary>
+    string? Unavailable(ReceiverConfig config) => null;
 
     /// <summary>
     /// Claims whatever the feature needs. Throwing here is how a feature reports that it

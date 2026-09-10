@@ -321,3 +321,79 @@ public sealed class PairingExchangeServer : IAsyncDisposable
         _stop.Dispose();
     }
 }
+
+/// <summary>
+/// The client side of the short-code exchange — the half the Mac has always had and Windows
+/// has never needed, because Windows was always the machine holding the code.
+///
+/// <para>
+/// It is a deliberate transcription of <c>PairingExchange.fetch</c> in
+/// <c>mac/Sources/HexBridge/Core/Pairing.swift</c>, down to which status codes mean «код не
+/// подошёл» rather than «ПК ответил не тем». Two clients that disagree about that would
+/// disagree in front of a user holding a code that works.
+/// </para>
+/// </summary>
+public static class PairingExchangeClient
+{
+    /// <summary>Long enough for a machine on the same network, short enough to retry by hand.</summary>
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>What one attempt turned out to be: a payload, or a sentence to show.</summary>
+    public readonly record struct Result(PairingPayload? Payload, string? Error)
+    {
+        public bool IsOk => Payload is not null;
+    }
+
+    /// <summary>
+    /// Trades a short code for the full pairing payload. <paramref name="dataPort"/> is the
+    /// audio port from the advertisement; the exchange answers one above it.
+    /// </summary>
+    public static async Task<Result> FetchAsync(
+        string host, int dataPort, string code, HttpMessageHandler? handler = null, CancellationToken token = default)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return new Result(null, "не указан адрес второго компьютера");
+        if (!ShortCode.IsComplete(code)) return new Result(null, "код должен быть из двенадцати символов");
+
+        var port = PairingPayload.ExchangePort(dataPort);
+        var url = $"http://{Bracketed(host)}:{port}{PairingExchangeProtocol.Path}?code={ShortCode.Normalise(code)}";
+
+        using var client = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
+        client.Timeout = Timeout;
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HexBridge/1.0 (Windows)");
+
+        HttpResponseMessage response;
+        string body;
+        try
+        {
+            response = await client.GetAsync(url, token).ConfigureAwait(false);
+            body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+        }
+        catch (TaskCanceledException) when (!token.IsCancellationRequested)
+        {
+            return new Result(null, $"второй компьютер не ответил за {Timeout.TotalSeconds:0} с — проверьте адрес и брандмауэр");
+        }
+        catch (HttpRequestException ex)
+        {
+            return new Result(null, $"не получилось связаться с {host}: {ex.Message}");
+        }
+
+        // These two and only these two mean the code was wrong. Anything else is a machine
+        // that answered but is not the one we were looking for, and saying «неверный код» to
+        // that sends the user off retyping a code that was fine.
+        if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.NotFound)
+        {
+            return new Result(null, "второй компьютер не принял код — проверьте, что мастер там ещё открыт");
+        }
+
+        if (!PairingPayload.TryParse(body, out var payload, out var error))
+        {
+            return new Result(null, $"ответ не похож на код связывания: {error}");
+        }
+
+        return new Result(payload, null);
+    }
+
+    /// <summary>An IPv6 literal has to be bracketed before it can be part of a URL.</summary>
+    private static string Bracketed(string host) =>
+        host.Contains(':') && !host.StartsWith('[') ? $"[{host}]" : host;
+}

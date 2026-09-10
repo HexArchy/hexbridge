@@ -56,8 +56,8 @@ public sealed partial class ClipboardViewModel : ObservableObject
         LastText = state.LastDescription ?? "—";
         LastDirectionText = state.LastDirection switch
         {
-            BulkDirection.Outgoing => "с этого ПК на Mac",
-            BulkDirection.Incoming => "с Mac на этот ПК",
+            BulkDirection.Outgoing => "отсюда на вторую машину",
+            BulkDirection.Incoming => "со второй машины сюда",
             _ => "—",
         };
         LastWhenText = state.LastAt is { } at ? When(DateTime.UtcNow - at) : "—";

@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.RoleView"
+             x:DataType="vm:RoleViewModel">
+
+  <!--
+    The role picker. Modal over the whole window and above the pairing wizard, because it
+    decides which wizard the user is about to see: the machine that listens makes the key,
+    the machine that dials reads it.
+
+    Two cards rather than a dropdown. There are exactly two answers, each needs a sentence
+    to be understandable, and a sentence does not fit in a combo box.
+  -->
+  <Grid IsVisible="{Binding IsOpen}">
+
+    <Border Classes="scrim" />
+
+    <Border Classes="modal" Width="720" Height="520"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Grid RowDefinitions="Auto,*,Auto">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="24,20,16,0">
+          <TextBlock Grid.Column="0" Classes="title" Text="{Binding Title}" VerticalAlignment="Center" />
+          <!-- No way out of the first run: an unanswered role is not a state the app can
+               work in, and a «Закрыть» that leaves it unanswered is a dead end. -->
+          <Button Grid.Column="1" Classes="ghost" Content="Отмена"
+                  IsVisible="{Binding !IsFirstRun}" Command="{Binding CancelCommand}" />
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Padding="24,16">
+          <StackPanel Spacing="14">
+
+            <TextBlock Classes="body" TextWrapping="Wrap"
+                       Text="HexBridge соединяет две машины: на одной микрофон, на другой игры. Выберите, чем этот компьютер будет в этой паре." />
+
+            <!-- Card 1: this machine plays somebody else's microphone. -->
+            <Button Classes="choice" HorizontalAlignment="Stretch"
+                    Classes.picked="{Binding ReceiverPicked}"
+                    Command="{Binding PickReceiverCommand}">
+              <Grid ColumnDefinitions="Auto,*" >
+                <Ellipse Grid.Column="0" Classes="dot large" Classes.ok="{Binding ReceiverPicked}"
+                         VerticalAlignment="Top" Margin="0,4,14,0" />
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Classes="heading" Text="{Binding ReceiverTitle}" />
+                  <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding ReceiverSummary}" />
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="Сюда же можно пробросить геймпад с Mac." />
+                </StackPanel>
+              </Grid>
+            </Button>
+
+            <!-- Card 2: this machine gives its own microphone away. -->
+            <Button Classes="choice" HorizontalAlignment="Stretch"
+                    Classes.picked="{Binding SenderPicked}"
+                    Command="{Binding PickSenderCommand}">
+              <Grid ColumnDefinitions="Auto,*">
+                <Ellipse Grid.Column="0" Classes="dot large" Classes.ok="{Binding SenderPicked}"
+                         VerticalAlignment="Top" Margin="0,4,14,0" />
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Classes="heading" Text="{Binding SenderTitle}" />
+                  <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding SenderSummary}" />
+                  <!-- Said here, before the choice, rather than discovered later on an
+                       empty devices page. -->
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="{x:Static vm:RoleViewModel.SenderCaveat}" />
+                </StackPanel>
+              </Grid>
+            </Button>
+
+            <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Footnote}" />
+
+          </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="{DynamicResource AppSurfaceAlt}"
+                BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
+                CornerRadius="0,0,16,16" Padding="24,14">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Text="Роль можно сменить в любой момент — «Настройки» → «Роль этого компьютера»." />
+            <Button Grid.Column="1" Classes="primary" Content="{Binding ConfirmLabel}"
+                    Command="{Binding ConfirmCommand}" />
+          </Grid>
+        </Border>
+
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

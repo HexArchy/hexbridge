@@ -30,7 +30,10 @@
                       VerticalAlignment="Center" Margin="0,0,8,0">
             <Ellipse Classes="step" Classes.current="{Binding IsStep1}" Classes.done="{Binding !IsStep1}" />
             <Ellipse Classes="step" Classes.current="{Binding IsStep2}" Classes.done="{Binding IsStep3}" />
-            <Ellipse Classes="step" Classes.current="{Binding IsStep3}" Classes.done="{Binding IsStep4}" />
+            <!-- «Ждём» exists only for the machine handing the key over; the one typing a
+                 code finds out at once whether it worked. -->
+            <Ellipse Classes="step" Classes.current="{Binding IsStep3}" Classes.done="{Binding IsStep4}"
+                     IsVisible="{Binding IsStep3Visible}" />
             <Ellipse Classes="step" Classes.current="{Binding IsStep4}" />
           </StackPanel>
 
@@ -41,8 +44,10 @@
 
         <ScrollViewer Grid.Row="1" Padding="24,16" IsVisible="{Binding IsStep1}">
           <StackPanel Spacing="16">
-            <TextBlock Classes="body" TextWrapping="Wrap"
-                       Text="HexBridge создаст общий ключ и покажет его в виде кода. На Mac этот код нужно будет ввести один раз." />
+            <TextBlock Classes="body" TextWrapping="Wrap" IsVisible="{Binding !IsGiving}"
+                       Text="HexBridge создаст общий ключ и покажет его в виде кода. На второй машине этот код нужно будет ввести один раз." />
+            <TextBlock Classes="body" TextWrapping="Wrap" IsVisible="{Binding IsGiving}"
+                       Text="Ключ создаст вторая машина — та, что принимает звук: только она знает свой адрес. Здесь нужно будет ввести код с её экрана." />
 
             <Border Classes="tile">
               <ItemsControl ItemsSource="{Binding Readiness}">
@@ -63,8 +68,8 @@
               </ItemsControl>
             </Border>
 
-            <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Имя этого ПК — Mac покажет его в списке" />
+            <StackPanel Spacing="6" IsVisible="{Binding !IsGiving}">
+              <TextBlock Classes="label" Text="Имя этого компьютера — вторая машина покажет его в списке" />
               <TextBox Text="{Binding MachineName}" Width="320" HorizontalAlignment="Left" />
             </StackPanel>
 
@@ -77,7 +82,13 @@
 
         <!-- MARK: Step 2 — the code -->
 
-        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="24,16" IsVisible="{Binding IsStep2}">
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="24,16">
+          <Grid.IsVisible>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="IsStep2" />
+              <Binding Path="!IsGiving" />
+            </MultiBinding>
+          </Grid.IsVisible>
 
           <StackPanel Grid.Column="0" Spacing="12">
             <!-- White paper in both themes: a camera has to read it (§9.2). -->
@@ -89,11 +100,11 @@
           </StackPanel>
 
           <StackPanel Grid.Column="1" Spacing="14" Margin="24,0,0,0">
-            <TextBlock Classes="heading" Text="На Mac" />
+            <TextBlock Classes="heading" Text="На второй машине" />
             <StackPanel Spacing="6">
-              <TextBlock Classes="body" Text="1. Откройте HexBridge и нажмите «Подключиться к ПК»." />
-              <TextBlock Classes="body" Text="2. Выберите «Отсканировать код» и наведите камеру на экран." />
-              <TextBlock Classes="body" Text="3. Если камеры нет — «Ввести код» и наберите двенадцать символов." />
+              <TextBlock Classes="body" Text="1. Откройте HexBridge и начните связывание." />
+              <TextBlock Classes="body" Text="2. На Mac — «Отсканировать код» и камеру на экран." />
+              <TextBlock Classes="body" Text="3. На Windows или без камеры — наберите двенадцать символов." />
             </StackPanel>
 
             <StackPanel Spacing="6">
@@ -109,12 +120,83 @@
               <TextBlock Classes="section" Text="ОТПЕЧАТОК КЛЮЧА" />
               <SelectableTextBlock Classes="mono" Text="{Binding Fingerprint}" />
               <TextBlock Classes="caption"
-                         Text="Тот же отпечаток должен появиться на Mac. Сам ключ никуда не показывается." />
+                         Text="Тот же отпечаток должен появиться на второй машине. Сам ключ никуда не показывается." />
             </StackPanel>
 
             <TextBlock Classes="caption" Text="{Binding DiscoveryText}" />
           </StackPanel>
         </Grid>
+
+        <!-- MARK: Step 2, the other way round — take a code off the second machine -->
+
+        <ScrollViewer Grid.Row="1" Padding="24,16">
+          <ScrollViewer.IsVisible>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="IsStep2" />
+              <Binding Path="IsGiving" />
+            </MultiBinding>
+          </ScrollViewer.IsVisible>
+          <StackPanel Spacing="14">
+
+            <TextBlock Classes="body" TextWrapping="Wrap"
+                       Text="Откройте HexBridge на второй машине, дойдите до экрана с кодом и наберите его здесь." />
+
+            <!-- The list is a convenience, never a decision: a machine is dialled because
+                 its tag matches this one's key, and a name proves nothing. Strangers are
+                 shown rather than hidden, or the one machine on screen not being the right
+                 one has no explanation. -->
+            <StackPanel Spacing="6">
+              <TextBlock Classes="section" Text="НАЙДЕНО В СЕТИ" />
+              <ItemsControl ItemsSource="{Binding Found}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:FoundHostViewModel">
+                    <Button Classes="choice" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                            Classes.picked="{Binding IsOurs}"
+                            IsEnabled="{Binding CanDial}"
+                            Command="{Binding $parent[ItemsControl].((vm:PairingViewModel)DataContext).PickCommand}"
+                            CommandParameter="{Binding}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                          <TextBlock Classes="label" Text="{Binding Title}" />
+                          <TextBlock Classes="caption" Text="{Binding Note}" />
+                        </StackPanel>
+                        <SelectableTextBlock Grid.Column="1" Classes="mono" Text="{Binding Address}"
+                                             VerticalAlignment="Center" />
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding BrowseText}" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,220" >
+              <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
+                <TextBlock Classes="section" Text="КОД СО ВТОРОЙ МАШИНЫ" />
+                <TextBox Classes="mono" Text="{Binding EnteredCode}" PlaceholderText="ABCD-EFGH-JKLM"
+                         FontSize="18" />
+                <TextBlock Classes="caption" TextWrapping="Wrap"
+                           Text="Сюда же можно вставить ссылку hexbridge://pair целиком — тогда адрес не нужен." />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="6">
+                <TextBlock Classes="section" Text="АДРЕС" />
+                <TextBox Text="{Binding EnteredHost}" PlaceholderText="192.168.1.10" />
+              </StackPanel>
+            </Grid>
+
+            <Border Classes="alert bad" IsVisible="{Binding ConnectError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding ConnectError}" />
+            </Border>
+
+            <StackPanel Spacing="4" IsVisible="{Binding Fingerprint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock Classes="section" Text="ОТПЕЧАТОК КЛЮЧА" />
+              <SelectableTextBlock Classes="mono" Text="{Binding Fingerprint}" />
+              <TextBlock Classes="caption"
+                         Text="Он должен совпасть с тем, что показан на второй машине. Сам ключ нигде не показывается." />
+            </StackPanel>
+
+          </StackPanel>
+        </ScrollViewer>
 
         <!-- MARK: Step 3 — waiting -->
 
@@ -127,10 +209,10 @@
           </Border>
           <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
             <Ellipse Classes="dot large warn pulse" />
-            <TextBlock Classes="title" Text="Ждём Mac" />
+            <TextBlock Classes="title" Text="Ждём вторую машину" />
           </StackPanel>
           <TextBlock Classes="caption" HorizontalAlignment="Center"
-                     Text="Как только Mac заберёт ключ, проверка связи начнётся сама." />
+                     Text="Как только вторая машина заберёт ключ, проверка связи начнётся сама." />
         </StackPanel>
 
         <!-- MARK: Step 4 — the connection check -->
@@ -160,11 +242,11 @@
             <Border Classes="alert info" IsVisible="{Binding IsSoundPrompt}">
               <StackPanel Spacing="8">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Classes="body" Text="Скажите что-нибудь вслух рядом с Mac" />
+                  <TextBlock Grid.Column="0" Classes="body" Text="{Binding SoundPrompt}" />
                   <TextBlock Grid.Column="1" Classes="label" Text="{Binding SoundCountdown}" />
                 </Grid>
                 <ProgressBar Minimum="0" Maximum="1" Value="{Binding SoundLevel}" Height="10" />
-                <TextBlock Classes="caption" Text="Уровень измеряется на этом ПК, а не на Mac." />
+                <TextBlock Classes="caption" Text="{Binding SoundNote}" />
               </StackPanel>
             </Border>
 
@@ -185,18 +267,45 @@
                 BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
                 CornerRadius="0,0,16,16" Padding="24,14">
           <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center"
-                       Text="Ключ создаётся на этом ПК: только он знает свой адрес." />
+            <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
+                       IsVisible="{Binding !IsGiving}"
+                       Text="Ключ создаётся на этом компьютере: только он знает свой адрес." />
+            <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
+                       IsVisible="{Binding IsGiving}"
+                       Text="Ключ создаёт вторая машина — та, что принимает звук." />
 
             <Button Grid.Column="1" Margin="0,0,8,0" Content="Обновить код"
-                    IsVisible="{Binding IsStep2}" Command="{Binding RegenerateCommand}" />
+                    Command="{Binding RegenerateCommand}">
+              <Button.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="IsStep2" />
+                  <Binding Path="!IsGiving" />
+                </MultiBinding>
+              </Button.IsVisible>
+            </Button>
             <Button Grid.Column="1" Margin="0,0,8,0" Content="Проверить ещё раз"
                     IsVisible="{Binding IsStep4}" Command="{Binding RetryCommand}" />
 
             <Button Grid.Column="2" Classes="primary" Content="Далее"
                     IsVisible="{Binding IsStep1}" Command="{Binding NextCommand}" />
-            <Button Grid.Column="2" Classes="primary" Content="Mac готов"
-                    IsVisible="{Binding IsStep2}" Command="{Binding WaitCommand}" />
+            <Button Grid.Column="2" Classes="primary" Content="Вторая машина готова"
+                    Command="{Binding WaitCommand}">
+              <Button.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="IsStep2" />
+                  <Binding Path="!IsGiving" />
+                </MultiBinding>
+              </Button.IsVisible>
+            </Button>
+            <Button Grid.Column="2" Classes="primary" Content="Связать"
+                    Command="{Binding ConnectCommand}" IsEnabled="{Binding !IsConnecting}">
+              <Button.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="IsStep2" />
+                  <Binding Path="IsGiving" />
+                </MultiBinding>
+              </Button.IsVisible>
+            </Button>
             <Button Grid.Column="2" Classes="primary" Content="Готово"
                     IsVisible="{Binding IsStep4}" Command="{Binding FinishCommand}" />
           </Grid>

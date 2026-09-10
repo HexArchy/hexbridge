@@ -13,6 +13,21 @@ public sealed partial class QualityViewModel : ObservableObject
     private readonly double[] _peaks = new double[HistorySeconds];
     private readonly double[] _depths = new double[HistorySeconds];
 
+    /// <summary>
+    /// This machine holds the microphone. The page keeps the same three headline numbers
+    /// either way; what changes is the six tiles under them, because a jitter buffer is a
+    /// thing the receiving end has and the giving end does not.
+    /// </summary>
+    [ObservableProperty] private bool _isGiving;
+
+    // The giving side's counters. Loss is reported by the far end in every PONG, which is
+    // the only place either machine learns what actually arrived.
+    [ObservableProperty] private string _sentText = "0";
+    [ObservableProperty] private string _packetBytesText = "—";
+    [ObservableProperty] private string _remoteReceivedText = "0";
+    [ObservableProperty] private string _remoteLostText = "0";
+    [ObservableProperty] private string _bitrateText = "—";
+
     [ObservableProperty] private double _depth;
     [ObservableProperty] private double _targetDepth = 1;
     [ObservableProperty] private double _maxDepth = 1;
@@ -41,6 +56,14 @@ public sealed partial class QualityViewModel : ObservableObject
 
     public void Apply(ReceiverSnapshot s, MicrophoneState? m)
     {
+        IsGiving = s.Role == BridgeRole.Sender;
+
+        SentText = (m?.Sent ?? 0).ToString("N0");
+        PacketBytesText = m is { LastPacketBytes: > 0 } ? $"{m.LastPacketBytes} Б" : "—";
+        RemoteReceivedText = s.RemoteReceived.ToString("N0");
+        RemoteLostText = s.RemoteLost.ToString("N0");
+        BitrateText = m is { Bitrate: > 0 } ? $"{m.Bitrate / 1000} кбит/с" : "—";
+
         var depth = m?.Depth ?? 0;
         var target = m?.TargetDepth ?? 0;
         var max = m?.MaxDepth ?? 0;
@@ -62,7 +85,16 @@ public sealed partial class QualityViewModel : ObservableObject
         RejectedText = s.Rejected.ToString("N0");
         DecodedText = (m?.Decoded ?? 0).ToString("N0");
 
-        // Concealment and late drops are both "audio the listener did not get intact".
+        // Two different measurements of the same thing, each taken where it can be taken.
+        // On the giving side the only truthful number is the one the far end reports; on the
+        // taking side it is what the buffer had to invent.
+        if (IsGiving)
+        {
+            var delivered = s.RemoteReceived + s.RemoteLost;
+            LossText = delivered > 0 ? $"{100.0 * s.RemoteLost / delivered:F2} %" : 0d.ToString("F2") + " %";
+            return;
+        }
+
         var damaged = (m?.Concealed ?? 0) + (m?.DroppedLate ?? 0);
         var total = (m?.Decoded ?? 0) + damaged;
         LossText = total > 0 ? $"{100.0 * damaged / total:F2} %" : 0d.ToString("F2") + " %";
