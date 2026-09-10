@@ -203,6 +203,23 @@ public sealed class WasapiSink : IAudioSink
 /// </summary>
 public sealed class PumpSink : IAudioSink
 {
+    /// <summary>The tail of each wait that is spun rather than slept.</summary>
+    private static readonly TimeSpan SpinThreshold = TimeSpan.FromMilliseconds(2);
+
+    /// <summary>
+    /// Asks Windows for a 1 ms timer tick for as long as the pump runs. The default is
+    /// 15.6 ms, which a 20 ms wait overshoots to 31 — enough to starve the buffer and
+    /// then have it trimmed. Spinning the whole gap instead would cost most of a core.
+    /// </summary>
+    // DllImport rather than LibraryImport: the source generator wants unsafe blocks
+    // enabled for the whole project, which is a lot to turn on for two calls that
+    // take a uint and return one.
+    [System.Runtime.InteropServices.DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
+    private static extern uint BeginTimerPeriod(uint ms);
+
+    [System.Runtime.InteropServices.DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
+    private static extern uint EndTimerPeriod(uint ms);
+
     private readonly IWaveProvider _provider;
     private readonly WaveFileWriter? _writer;
     private readonly string _description;
@@ -243,6 +260,10 @@ public sealed class PumpSink : IAudioSink
         var clock = Stopwatch.StartNew();
         long frames = 0;
 
+        var raisedResolution = OperatingSystem.IsWindows() && BeginTimerPeriod(1) == 0;
+        try
+        {
+
         while (!_cancel.IsCancellationRequested)
         {
             var read = _provider.Read(buffer);
@@ -250,12 +271,29 @@ public sealed class PumpSink : IAudioSink
             frames++;
 
             // Stay on a 20 ms grid rather than accumulating sleep drift.
+            //
+            // Sleeping the whole way is not good enough on Windows, where the timer
+            // tick is 15.6 ms by default: a 20 ms wait routinely overshoots to 31,
+            // the buffer piles up and then gets trimmed, and the diagnostics then
+            // report late frames that only this loop caused. The real output is
+            // paced by the audio device's own callback and never had the problem —
+            // so the fix belongs here, not in the jitter buffer. Sleep to just
+            // short of the deadline, then spin the remainder.
             var due = TimeSpan.FromMilliseconds(frames * 20);
             var wait = due - clock.Elapsed;
-            if (wait > TimeSpan.Zero)
+            if (wait > SpinThreshold)
             {
-                _cancel.Token.WaitHandle.WaitOne(wait);
+                _cancel.Token.WaitHandle.WaitOne(wait - SpinThreshold);
             }
+            while (clock.Elapsed < due && !_cancel.IsCancellationRequested)
+            {
+                Thread.SpinWait(50);
+            }
+        }
+        }
+        finally
+        {
+            if (raisedResolution) EndTimerPeriod(1);
         }
     }
 

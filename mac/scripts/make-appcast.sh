@@ -20,6 +20,19 @@ ARCHIVE="${2:?укажите zip со сборкой}"
 URL="${3:?укажите URL, по которому zip будет лежать}"
 OUTPUT="${4:-appcast.xml}"
 
+# Resolve the caller's paths before moving: the script cd's into the package to
+# find sign_update, and a relative archive path handed in from the repository
+# root would silently stop existing after that. CI passed exactly such a path and
+# the release failed with "no such file" on a file that was right there.
+abspath() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *)  printf '%s/%s\n' "$(pwd)" "$1" ;;
+    esac
+}
+ARCHIVE="$(abspath "$ARCHIVE")"
+OUTPUT="$(abspath "$OUTPUT")"
+
 cd "$(dirname "$0")/.."
 
 SIGN_UPDATE="$(find .build/artifacts -type f -name sign_update -perm -u+x | head -1)"
