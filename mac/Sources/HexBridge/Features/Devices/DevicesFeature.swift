@@ -123,14 +123,20 @@ final class DevicesFeature: Feature {
         let chosen = selection
         let live = forwarded
 
+        // Reading is not forwarding: a chosen device is opened and drawn as soon
+        // as something is looking at it, switch or no switch. §7.3 calls that the
+        // moment the user learns their pad is read correctly, and it is worth
+        // more than a tidier state machine.
         guard isEnabled else {
             return FeatureStatus(
                 state: .off,
                 tone: .off,
-                headline: "Проброс выключен",
-                detail: chosen.isEmpty
-                    ? "Ни одно устройство на Windows не пробрасывается."
-                    : "Выбрано \(count(chosen.count)), но проброс выключен.",
+                headline: live.isEmpty ? "Проброс выключен" : "Устройства читаются, проброс выключен",
+                detail: live.isEmpty
+                    ? (chosen.isEmpty
+                        ? "Ни одно устройство на Windows не пробрасывается."
+                        : "Выбрано \(count(chosen.count)), но проброс выключен.")
+                    : "\(names(live)). Windows их пока не видит.",
                 primaryAction: FeatureAction(title: "Включить проброс") { [weak self] in
                     self?.isEnabled = true
                 }

@@ -208,13 +208,21 @@ final class DeviceBridge {
         let reconnected = bind(sender)
 
         lock.lock()
-        let changed = self.forwarding != forwarding || self.selection != selection
+        let wasForwarding = self.forwarding
+        let changed = wasForwarding != forwarding || self.selection != selection
         self.forwarding = forwarding
         self.selection = selection
         if !forwarding || reconnected {
             for entry in forwarded.values { entry.status.attachAcknowledged = false }
         }
+        let held = forwarded.values.map(\.number)
         lock.unlock()
+
+        // Switching the passthrough off takes the devices away from Windows but
+        // leaves them open here, still feeding the outline on screen.
+        if wasForwarding, !forwarding {
+            for number in held { sender?.sendDeviceDetach(device: number) }
+        }
 
         guard changed || reconnected else { return }
         thread.async { [self] in
@@ -415,10 +423,15 @@ final class DeviceBridge {
         let selection = self.selection
         lock.unlock()
 
-        // 1. Drop everything that is gone, deselected, or switched off.
+        // 1. Drop everything that is gone or no longer chosen.
+        //
+        //    Deliberately not "or forwarding is off". Reading a device is not
+        //    forwarding it: §7.3 wants the outline of a chosen pad to stay live
+        //    with the switch off, because that is where the user finds out their
+        //    controller is read correctly before Windows is involved at all.
         let liveIDs = Set(present.map(\.registryID))
         for entry in Array(forwarded.values) {
-            if !liveIDs.contains(entry.registryID) || !forwarding || !selection.contains(entry.identity) {
+            if !liveIDs.contains(entry.registryID) || !selection.contains(entry.identity) {
                 detach(entry, notifyHost: true)
             }
         }
@@ -428,22 +441,20 @@ final class DeviceBridge {
         var attachedIDs = Set(forwarded.values.map(\.registryID))
         var attachedLocations = Set(forwarded.values.map(\.locationID))
         var crowdedOut = Set<UInt64>()
-        if forwarding {
-            for candidate in physical
-            where selection.contains(candidate.identity)
-                && !attachedIDs.contains(candidate.registryID)
-                && !attachedLocations.contains(candidate.locationID)
-                && DeviceEligibility.of(candidate) == .eligible
-                && failures[candidate.registryID] == nil {
+        for candidate in physical
+        where selection.contains(candidate.identity)
+            && !attachedIDs.contains(candidate.registryID)
+            && !attachedLocations.contains(candidate.locationID)
+            && DeviceEligibility.of(candidate) == .eligible
+            && failures[candidate.registryID] == nil {
 
-                guard let number = freeSlot() else {
-                    crowdedOut.insert(candidate.registryID)
-                    continue
-                }
-                if attach(candidate, number: number) {
-                    attachedIDs.insert(candidate.registryID)
-                    attachedLocations.insert(candidate.locationID)
-                }
+            guard let number = freeSlot() else {
+                crowdedOut.insert(candidate.registryID)
+                continue
+            }
+            if attach(candidate, number: number, forwarding: forwarding) {
+                attachedIDs.insert(candidate.registryID)
+                attachedLocations.insert(candidate.locationID)
             }
         }
 
@@ -531,7 +542,7 @@ final class DeviceBridge {
     /// Returns false when the device could not be taken; the reason is recorded
     /// so the next tick does not try again.
     @discardableResult
-    private func attach(_ candidate: HIDDevice, number: UInt8) -> Bool {
+    private func attach(_ candidate: HIDDevice, number: UInt8, forwarding: Bool) -> Bool {
         let openResult = candidate.open()
         guard openResult == kIOReturnSuccess else {
             note(failure: "не удалось открыть «\(candidate.displayName)»: \(IOKitError.describe(openResult))",
@@ -594,7 +605,9 @@ final class DeviceBridge {
         generalError = nil
         lock.unlock()
 
-        sender?.sendDeviceAttach(device: number, descriptors: blocks)
+        if forwarding {
+            sender?.sendDeviceAttach(device: number, descriptors: blocks)
+        }
         return true
     }
 
@@ -611,9 +624,11 @@ final class DeviceBridge {
 
         lock.lock()
         forwarded[entry.number] = nil
+        let wasForwarding = forwarding
         lock.unlock()
 
-        if notifyHost {
+        // Nothing to take back if the receiver was never told about it.
+        if notifyHost, wasForwarding {
             sender?.sendDeviceDetach(device: entry.number)
         }
     }

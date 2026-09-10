@@ -135,7 +135,11 @@ final class AppModel: FeatureHost {
         // flag back so the icon follows an external toggle.
         muteSignal = CLI.installMuteSignal(runtime)
 
-        uiTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        // 20 Hz only while somebody is looking. The popover's content view stays
+        // instantiated when the popover is closed, so every model update still
+        // relaid it out — measured at ~12% CPU with nothing on screen. Closed, a
+        // second is plenty: the only thing visible is the menu bar glyph.
+        uiTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 20, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         // The popover runs the main loop in .eventTracking while it is open;
@@ -236,7 +240,22 @@ final class AppModel: FeatureHost {
         startPipeline()
     }
 
+    /// Set by the shell when the popover opens or closes.
+    var popoverOpen = false {
+        didSet { if popoverOpen { idleTick = 0; tick() } }
+    }
+
+    private var idleTick = 0
+
     private func tick() {
+        // Closed popover: fold 20 ticks into one. The feature states still
+        // advance once a second, which is all the menu bar glyph needs.
+        if !popoverOpen {
+            idleTick += 1
+            guard idleTick >= 20 else { return }
+            idleTick = 0
+        }
+
         for feature in features { feature.refresh() }
         logSummaryIfChanged()
         retryPipelineIfStalled()

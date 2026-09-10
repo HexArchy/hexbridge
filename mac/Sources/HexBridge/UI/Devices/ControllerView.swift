@@ -202,9 +202,19 @@ struct ControllerView: View {
             paused = true
         }
         // Twice a second is enough to notice "the user stopped touching it"
-        // and to react to the window being hidden; it costs nothing.
-        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
-            reassess()
+        // and to react to the window being hidden.
+        //
+        // Deliberately a `task`, not `Timer.publish(...).autoconnect()` inside
+        // `body`: that publisher is rebuilt on every body evaluation, and since
+        // `reassess()` writes @State, the body evaluates again, builds another
+        // timer, and so on. The subscriptions pile up and the view graph ends up
+        // dirty on every display frame — measured at a permanent 20-30% CPU with
+        // nothing on screen. A `task` is bound to the view's lifetime instead.
+        .task {
+            while !Task.isCancelled {
+                reassess()
+                try? await Task.sleep(for: .milliseconds(500))
+            }
         }
         .accessibilityHidden(true)
     }

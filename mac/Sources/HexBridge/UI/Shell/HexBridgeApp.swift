@@ -47,6 +47,9 @@ struct HexBridgeApp: App {
             captureActions()
         }
         .menuBarExtraStyle(.window)
+        .onChange(of: popoverPresented) { _, open in
+            AppBootstrap.model?.popoverOpen = open
+        }
 
         Settings {
             Themed(theme: model.theme) {
