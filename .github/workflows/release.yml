@@ -47,9 +47,13 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
+          # A fork, or a repository whose owner has not set the secret, should still
+          # get a release with working apps in it. Only the macOS update channel
+          # needs the key, so its absence skips that one step and says so loudly
+          # rather than failing the whole release.
           if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
-            echo "::error::нет секрета SPARKLE_PRIVATE_KEY — обновления на macOS не будут подписаны, см. docs/UPDATES.md"
-            exit 1
+            echo "::warning::SPARKLE_PRIVATE_KEY is not set — this release ships without a signed macOS update feed, so Sparkle will not offer it. See docs/UPDATES.md."
+            exit 0
           fi
           bash mac/scripts/make-appcast.sh \
             "${{ steps.version.outputs.value }}" \
@@ -60,6 +64,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos
+          # appcast.xml is absent when the signing secret is not configured.
+          if-no-files-found: warn
           path: |
             HexBridge-macOS-arm64.zip
             appcast.xml
@@ -188,9 +194,15 @@ jobs:
       - name: Check the update channels were produced
         working-directory: artifacts
         run: |
-          for required in appcast.xml HexBridge-win-Setup.exe RELEASES releases.win.json; do
-            if [ ! -f "$required" ]; then
-              echo "::error::в релизе нет $required — обновления встанут молча"
+          # Windows update channel is always required; the macOS feed only when the
+          # signing secret exists, since without it there is nothing to sign with.
+          required="HexBridge-win-Setup.exe RELEASES releases.win.json"
+          if [ -n "${{ secrets.SPARKLE_PRIVATE_KEY }}" ]; then
+            required="appcast.xml $required"
+          fi
+          for f in $required; do
+            if [ ! -f "$f" ]; then
+              echo "::error::the release is missing $f — updates would fail silently"
               exit 1
             fi
           done

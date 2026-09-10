@@ -274,6 +274,7 @@ public sealed class UsbIpServer : IAsyncDisposable
     {
         using var sessionCancel = CancellationTokenSource.CreateLinkedTokenSource(token);
         var writeLock = new SemaphoreSlim(1, 1);
+        var inOrder = new OrderedTurns();
         var pending = new Dictionary<uint, CancellationTokenSource>();
         var pendingLock = new object();
         var inFlight = new List<Task>();
@@ -369,7 +370,11 @@ public sealed class UsbIpServer : IAsyncDisposable
                     lock (pendingLock) pending[submit.Seqnum] = urbCancel;
 
                     inFlight.RemoveAll(t => t.IsCompleted);
-                    inFlight.Add(InterruptIn(stream, writeLock, device, submit, urbCancel, pending, pendingLock));
+                    // Ticket taken here, on the read loop, because this is the only
+                    // place that still knows the order the client asked in.
+                    inFlight.Add(InterruptIn(
+                        stream, writeLock, device, submit, urbCancel, pending, pendingLock,
+                        inOrder, inOrder.Take()));
                     continue;
                 }
 
@@ -463,7 +468,9 @@ public sealed class UsbIpServer : IAsyncDisposable
         UsbIpSubmit submit,
         CancellationTokenSource urbCancel,
         Dictionary<uint, CancellationTokenSource> pending,
-        object pendingLock)
+        object pendingLock,
+        OrderedTurns inOrder,
+        long ticket)
     {
         try
         {
@@ -477,6 +484,7 @@ public sealed class UsbIpServer : IAsyncDisposable
 
             var reply = UsbIpSubmitReply.ForIn(
                 submit.Seqnum, UsbIpProtocol.StatusSuccess, report, submit.TransferBufferLength);
+            await inOrder.WaitAsync(ticket).ConfigureAwait(false);
             await SendLocked(stream, writeLock, reply.ToArray(), CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -497,6 +505,7 @@ public sealed class UsbIpServer : IAsyncDisposable
         }
         finally
         {
+            inOrder.Done(ticket);
             lock (pendingLock) pending.Remove(submit.Seqnum);
             urbCancel.Dispose();
         }
