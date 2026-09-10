@@ -134,6 +134,11 @@ relay themselves, so no port forwarding is required on either end. The relay see
 only the header and cannot decrypt either the audio or the input. Deployment:
 [docs/VPS.md](docs/VPS.md).
 
+## Languages
+
+The interface ships in English and Russian. It follows the system language on
+first launch and can be switched at any time in Settings, without a restart.
+
 ## Limitations
 
 * DualSense HD haptics is **off by default**. It works — the signature haptics is

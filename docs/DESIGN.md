@@ -2104,7 +2104,13 @@ window's HWND.
 
 ### 11.3 Localization
 
-The interface is in Russian. Strings live in resource files, not in markup, even
+The interface ships in English and Russian, English by default, following the
+system language on first run. Wording for both is fixed by
+[GLOSSARY.md](GLOSSARY.md), which outranks either platform's own taste: the same
+idea has to come out as the same word on both, or people conclude they are looking
+at two different programs.
+
+Strings live in resource files, not in markup, even
 though a second language isn't planned: it's a discipline that forces you to
 proofread the wording as a list rather than one string at a time.
 
