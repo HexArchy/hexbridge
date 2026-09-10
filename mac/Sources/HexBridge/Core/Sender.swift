@@ -4,8 +4,14 @@ import Network
 
 /// Owns the UDP connection to the host (or to the VPS relay) and the packet counters.
 final class Sender {
-    private let connection: NWConnection
+    /// Rebuilt on failure, so not a constant. NWConnection has no way back from
+    /// `.failed` — the object is spent and a new one has to take its place.
+    private var connection: NWConnection
+    private let target: NWEndpoint
     private let queue = DispatchQueue(label: "hexbridge.sender")
+    /// Grows to a minute so a host that is switched off overnight costs almost nothing.
+    private var retryDelay: TimeInterval = 2
+    private var stopped = false
     private let key: SymmetricKey
     private let room: UInt64
     private let session: UInt32
@@ -42,37 +48,84 @@ final class Sender {
     var muted = false
 
     init(target: NWEndpoint, key: SymmetricKey, nodeName: String) {
+        self.target = target
         self.key = key
         self.room = Wire.roomID(psk: key)
         self.session = UInt32.random(in: 1...UInt32.max)
         self.nodeName = nodeName
 
+        connection = NWConnection(to: target, using: Self.parameters())
+    }
+
+    private static func parameters() -> NWParameters {
         let params = NWParameters.udp
         params.serviceClass = .responsiveData
-        connection = NWConnection(to: target, using: params)
+        return params
     }
 
     func start() {
+        attach()
+        connection.start(queue: queue)
+        receiveLoop()
+    }
+
+    private func attach() {
         connection.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             switch state {
-            case .failed(let error), .waiting(let error):
+            case .failed(let error):
+                self.lock.lock()
+                self.lastError = error.localizedDescription
+                self.lock.unlock()
+                // Terminal for this object. Without a replacement the microphone
+                // stays dead until the whole agent is restarted — which is exactly
+                // what happens when the host is simply switched off for the night.
+                self.scheduleRebuild()
+            case .waiting(let error):
+                // Not terminal: NWConnection retries these itself.
                 self.lock.lock()
                 self.lastError = error.localizedDescription
                 self.lock.unlock()
             case .ready:
                 self.lock.lock()
                 self.lastError = nil
+                self.retryDelay = 2
                 self.lock.unlock()
             default:
                 break
             }
         }
-        connection.start(queue: queue)
-        receiveLoop()
+    }
+
+    private func scheduleRebuild() {
+        lock.lock()
+        if stopped {
+            lock.unlock()
+            return
+        }
+        let delay = retryDelay
+        retryDelay = min(retryDelay * 2, 60)
+        lock.unlock()
+
+        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let done = self.stopped
+            self.lock.unlock()
+            if done { return }
+
+            self.connection.cancel()
+            self.connection = NWConnection(to: self.target, using: Self.parameters())
+            self.attach()
+            self.connection.start(queue: self.queue)
+            self.receiveLoop()
+        }
     }
 
     func stop() {
+        lock.lock()
+        stopped = true
+        lock.unlock()
         connection.cancel()
     }
 

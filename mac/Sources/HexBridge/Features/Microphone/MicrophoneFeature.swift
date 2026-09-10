@@ -129,6 +129,14 @@ final class MicrophoneFeature: Feature {
 
     // MARK: - State machine (§7.2)
 
+    /// Network-layer unreachability, as opposed to a real local failure. Matched on
+    /// the POSIX codes Network.framework reports rather than on message text, which
+    /// is localised: 50 network down, 51 network unreachable, 64 host down,
+    /// 65 no route to host.
+    private static func isHostUnreachable(_ failure: String) -> Bool {
+        ["error 50", "error 51", "error 64", "error 65"].contains { failure.contains($0) }
+    }
+
     private func derive() -> FeatureStatus {
         guard isEnabled else {
             return FeatureStatus(
@@ -170,6 +178,21 @@ final class MicrophoneFeature: Feature {
         }
 
         if let failure {
+            // An unreachable host is not a fault of ours: the gaming PC is simply
+            // off, asleep or off the network, which is the normal overnight state.
+            // Painting that red trains people to ignore red.
+            if Self.isHostUnreachable(failure) {
+                return FeatureStatus(
+                    state: .waiting,
+                    tone: .warn,
+                    headline: "Игровой ПК недоступен",
+                    detail: "Звук пойдёт сам, как только ПК включится. Проверять ничего не нужно.",
+                    primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                        self?.host.openLinkCheck()
+                    }
+                )
+            }
+
             return FeatureStatus(
                 state: .error,
                 tone: .bad,

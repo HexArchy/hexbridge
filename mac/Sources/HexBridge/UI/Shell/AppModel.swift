@@ -67,6 +67,7 @@ final class AppModel: FeatureHost {
     private var saveTimer: Timer?
     private var muteSignal: DispatchSourceSignal?
     private var deviceRefreshTick = 0
+    private var retryTick = 0
     private var loggedSummary: String?
 
     private static let paneKey = "ru.hexarch.hexbridge.settingsPane"
@@ -164,6 +165,10 @@ final class AppModel: FeatureHost {
                 try runtime.start()
             } catch {
                 failure = "\(error)"
+                // Without this the failure reaches the popover and nowhere else, so a
+                // launchd-started agent that cannot capture looks identical in the log
+                // to one that simply has no host to talk to.
+                print("hexbridge: не удалось запустить конвейер: \(error)")
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -210,9 +215,27 @@ final class AppModel: FeatureHost {
 
     // MARK: - Polling
 
+    /// Retries a start that did not take.
+    ///
+    /// The case that matters is the microphone permission: an agent launched by
+    /// launchd puts the TCC prompt on screen with nobody in front of it, gives up,
+    /// and would then stay silent forever — the user grants access, and nothing
+    /// happens until they restart the agent by hand. Retrying quietly turns that
+    /// into "it starts working a few seconds after you click Allow".
+    private func retryPipelineIfStalled() {
+        guard !starting, !runtime.isRunning, config.isConfigured else { return }
+        guard features.contains(where: { $0.id == "microphone" && $0.isEnabled }) else { return }
+
+        retryTick += 1
+        guard retryTick >= 15 else { return }   // tick is 20 Hz-driven but coalesced to 1 s
+        retryTick = 0
+        startPipeline()
+    }
+
     private func tick() {
         for feature in features { feature.refresh() }
         logSummaryIfChanged()
+        retryPipelineIfStalled()
 
         // CoreAudio enumeration is not free; once a second is plenty for a
         // device list that only changes when someone plugs something in.
@@ -227,8 +250,14 @@ final class AppModel: FeatureHost {
     /// is printed. Under launchd this lands in ~/Library/Logs/HexBridge.log and
     /// makes a silent death obvious.
     private func logSummaryIfChanged() {
+        // The headline goes in too: a bare `error` sends whoever reads this log
+        // hunting through the code for which of the several error branches fired.
         let line = features
-            .map { "\($0.id)=\($0.status.state.rawValue)" }
+            .map { feature -> String in
+                let state = feature.status.state.rawValue
+                let headline = feature.status.headline
+                return headline.isEmpty ? "\(feature.id)=\(state)" : "\(feature.id)=\(state) «\(headline)»"
+            }
             .joined(separator: " ")
         guard line != loggedSummary else { return }
         loggedSummary = line

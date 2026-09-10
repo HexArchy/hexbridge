@@ -52,8 +52,32 @@ cat > "$PLIST" <<PLIST_EOF
 PLIST_EOF
 
 echo "==> перезапускаю агент"
+
+# bootout возвращает управление раньше, чем служба действительно снята, и
+# bootstrap следом молча проваливается — агент остаётся незарегистрированным.
 launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$UID" "$PLIST"
+for _ in $(seq 1 25); do
+    launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1 || break
+    sleep 0.2
+done
+
+if ! launchctl bootstrap "gui/$UID" "$PLIST"; then
+    echo "не удалось зарегистрировать агент" >&2
+    exit 1
+fi
+
+# Проверяем, что он действительно поднялся, а не только зарегистрировался.
+for _ in $(seq 1 25); do
+    if launchctl print "gui/$UID/$LABEL" 2>/dev/null | grep -q "state = running"; then
+        break
+    fi
+    sleep 0.2
+done
+
+if ! launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then
+    echo "агент зарегистрирован, но не запустился — смотрите $LOG" >&2
+    exit 1
+fi
 
 echo "готово. Логи: $LOG"
 echo "мьют:      kill -USR1 \$(pgrep -f HexBridge.app)"

@@ -63,20 +63,48 @@ final class AudioCapture {
     }
 
     /// Blocks until the user answers the microphone prompt.
+    private static let requestLock = NSLock()
+    private static var requestInFlight = false
+
     static func requestPermission() -> Bool {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
         case .authorized:
             return true
         case .notDetermined:
+            // The retry loop calls this repeatedly. macOS keeps the first prompt on
+            // screen, so asking again would only queue duplicates behind it.
+            requestLock.lock()
+            if requestInFlight {
+                requestLock.unlock()
+                return false
+            }
+            requestInFlight = true
+            requestLock.unlock()
+            defer {
+                requestLock.lock()
+                requestInFlight = false
+                requestLock.unlock()
+            }
+
             let semaphore = DispatchSemaphore(value: 0)
             var granted = false
             AVCaptureDevice.requestAccess(for: .audio) { ok in
                 granted = ok
                 semaphore.signal()
             }
-            semaphore.wait()
+            // Bounded on purpose. Started by launchd there may be nobody to show the
+            // prompt to, and an unbounded wait then wedges the whole pipeline: the UI
+            // sits on "запускается" forever and the log stays silent, which is exactly
+            // the failure this bound exists to turn into a legible one.
+            if semaphore.wait(timeout: .now() + 20) == .timedOut {
+                print("hexbridge: запрос доступа к микрофону остался без ответа — "
+                    + "разрешите доступ в Системных настройках → Конфиденциальность → Микрофон")
+                return false
+            }
             return granted
         default:
+            print("hexbridge: доступ к микрофону запрещён (статус \(status.rawValue))")
             return false
         }
     }
