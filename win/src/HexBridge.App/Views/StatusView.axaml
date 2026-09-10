@@ -9,12 +9,12 @@
     <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch">
 
       <Border Classes="status"
-              Classes.good="{Binding IsGood}"
-              Classes.waiting="{Binding IsWaiting}"
+              Classes.ok="{Binding IsGood}"
+              Classes.warn="{Binding IsWaiting}"
               Classes.bad="{Binding IsBad}">
         <StackPanel Spacing="6">
-          <TextBlock Classes="headline" Text="{Binding Headline}" />
-          <TextBlock Classes="subline" Text="{Binding Subline}" />
+          <TextBlock Classes="display" Text="{Binding Headline}" />
+          <TextBlock Classes="body" Text="{Binding Subline}" />
         </StackPanel>
       </Border>
 
@@ -24,12 +24,13 @@
             <TextBlock Grid.Column="0" Classes="section" Text="УРОВЕНЬ" />
             <TextBlock Grid.Column="1" Classes="label" Text="{Binding PeakText}" />
           </Grid>
-          <controls:LevelMeter Level="{Binding Level}" Peak="{Binding PeakMark}" />
+          <controls:LevelMeter Level="{Binding Level}" Peak="{Binding PeakMark}"
+                               IsMuted="{Binding IsMuted}" />
           <Grid ColumnDefinitions="*,*,*,Auto">
-            <TextBlock Grid.Column="0" Classes="hint" Text="-60" />
-            <TextBlock Grid.Column="1" Classes="hint" Text="-40" HorizontalAlignment="Center" />
-            <TextBlock Grid.Column="2" Classes="hint" Text="-20" HorizontalAlignment="Center" />
-            <TextBlock Grid.Column="3" Classes="hint" Text="0 dBFS" />
+            <TextBlock Grid.Column="0" Classes="caption" Text="-60" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="-40" HorizontalAlignment="Center" />
+            <TextBlock Grid.Column="2" Classes="caption" Text="-20" HorizontalAlignment="Center" />
+            <TextBlock Grid.Column="3" Classes="caption" Text="0 dBFS" />
           </Grid>
         </StackPanel>
       </Border>
@@ -38,26 +39,26 @@
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Пакетов в секунду" />
-            <TextBlock Classes="value" Text="{Binding PacketsText}" />
+            <TextBlock Classes="metric" Text="{Binding PacketsText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
                 ToolTip.Tip="Оценка по метке времени в служебных пакетах HELLO. Требует, чтобы часы Mac и Windows были синхронизированы.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="RTT (оценка)" />
-            <TextBlock Classes="value" Text="{Binding RttText}" />
+            <TextBlock Classes="metric" Text="{Binding RttText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Аптайм" />
-            <TextBlock Classes="value" Text="{Binding UptimeText}" />
+            <TextBlock Classes="metric" Text="{Binding UptimeText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Буфер" />
-            <TextBlock Classes="value" Text="{Binding BufferText}" />
+            <TextBlock Classes="metric" Text="{Binding BufferText}" />
           </StackPanel>
         </Border>
       </UniformGrid>
@@ -67,17 +68,17 @@
           <TextBlock Classes="section" Text="СОЕДИНЕНИЕ" />
           <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" >
             <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Отправитель" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="0" Grid.Column="1" Classes="field" Text="{Binding SenderText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding SenderText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Адрес" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Classes="field mono" Text="{Binding PeerText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" Text="{Binding PeerText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Сессия" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Classes="field mono" Text="{Binding SessionText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="mono" Text="{Binding SessionText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="Слушаем" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="3" Grid.Column="1" Classes="field mono" Text="{Binding ListenText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Classes="mono" Text="{Binding ListenText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="Релей" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="4" Grid.Column="1" Classes="field" Text="{Binding RelayText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Classes="body" Text="{Binding RelayText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="5" Grid.Column="0" Classes="label" Text="Вывод" />
-            <TextBlock Grid.Row="5" Grid.Column="1" Classes="field" Text="{Binding OutputText}" />
+            <TextBlock Grid.Row="5" Grid.Column="1" Classes="body" Text="{Binding OutputText}" />
           </Grid>
         </StackPanel>
       </Border>
@@ -89,7 +90,7 @@
               IsVisible="{Binding HasGameHint}">
         <StackPanel Spacing="4">
           <TextBlock Classes="section" Text="В ИГРАХ И ГОЛОСОВЫХ ЧАТАХ" />
-          <TextBlock Classes="field" Text="{Binding GameHint, StringFormat='Выбирайте микрофон «{0}»'}" />
+          <TextBlock Classes="body" Text="{Binding GameHint, StringFormat='Выбирайте микрофон «{0}»'}" />
         </StackPanel>
       </Border>
 

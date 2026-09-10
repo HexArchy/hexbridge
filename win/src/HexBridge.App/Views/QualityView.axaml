@@ -15,8 +15,8 @@
             <TextBlock Grid.Column="1" Classes="label" Text="{Binding DepthText}" />
           </Grid>
           <ProgressBar Minimum="0" Maximum="1" Value="{Binding DepthFraction, Mode=OneWay}" Height="8" />
-          <TextBlock Classes="hint" Text="{Binding TargetText}" />
-          <TextBlock Classes="hint"
+          <TextBlock Classes="caption" Text="{Binding TargetText}" />
+          <TextBlock Classes="caption"
                      Text="Буфер сглаживает неровности сети. Больше буфер — меньше щелчков, но выше задержка." />
         </StackPanel>
       </Border>
@@ -26,40 +26,40 @@
                 ToolTip.Tip="Кадры, которых не было вовремя: Opus восстановил их приблизительно.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Скрытые кадры" />
-            <TextBlock Classes="value" Text="{Binding ConcealedText}" />
+            <TextBlock Classes="metric" Text="{Binding ConcealedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,8"
                 ToolTip.Tip="Пакеты, пришедшие после того, как их момент уже отыграли.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Поздние" />
-            <TextBlock Classes="value" Text="{Binding LateText}" />
+            <TextBlock Classes="metric" Text="{Binding LateText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,0,8"
                 ToolTip.Tip="Буфер опустел, и звук пришлось добить тишиной.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Недоборы" />
-            <TextBlock Classes="value" Text="{Binding UnderrunsText}" />
+            <TextBlock Classes="metric" Text="{Binding UnderrunsText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Декодировано" />
-            <TextBlock Classes="value" Text="{Binding DecodedText}" />
+            <TextBlock Classes="metric" Text="{Binding DecodedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
                 ToolTip.Tip="Пакеты с чужим ключом, повторы и мусор из сети.">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Отброшено" />
-            <TextBlock Classes="value" Text="{Binding RejectedText}" />
+            <TextBlock Classes="metric" Text="{Binding RejectedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Доля потерь" />
-            <TextBlock Classes="value" Text="{Binding LossText}" />
+            <TextBlock Classes="metric" Text="{Binding LossText}" />
           </StackPanel>
         </Border>
       </UniformGrid>

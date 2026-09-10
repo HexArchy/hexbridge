@@ -7,4 +7,14 @@
     <RootNamespace>HexBridge</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!--
+      The pairing encoders are internal because nothing outside this assembly should be
+      building a payload by hand. The compatibility suite has to reach them anyway: it
+      re-implements the Mac's parser and feeds it Windows' own base64url and ASCII
+      transliteration, which is the only check that the two halves still agree.
+    -->
+    <InternalsVisibleTo Include="HexBridge.Tests" />
+  </ItemGroup>
+
 </Project>

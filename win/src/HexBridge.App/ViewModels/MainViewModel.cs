@@ -37,6 +37,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public SettingsViewModel Settings { get; } = new();
     public LogViewModel Log { get; } = new();
 
+    /// <summary>
+    /// The pairing wizard (§9). It lives on the shell rather than on a page because it is
+    /// shown over whatever the user was looking at, and because §9.2 makes it the very
+    /// first thing an unconfigured install does.
+    /// </summary>
+    public PairingViewModel Pairing { get; }
+
     /// <summary>Every tab, in order: the features first, then the app's own two pages.</summary>
     public ObservableCollection<FeaturePage> Pages { get; } = [];
 
@@ -67,6 +74,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _ui = AppSettings.Load();
         _config = ReceiverConfig.Load(_configPath);
 
+        Pairing = new PairingViewModel(() => _config, CommitPairingAsync, Log.Add);
+
         _modules = FeatureUiCatalog.For(_receiver.Features);
         foreach (var page in _modules.SelectMany(module => module.CreatePages())) Pages.Add(page);
         Pages.Add(new FeaturePage("Настройки", Settings));
@@ -75,6 +84,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedTab = Math.Clamp(_ui.LastTab, 0, Pages.Count - 1);
         Settings.Load(_config, _ui);
         Settings.SaveRequested += OnSaveRequested;
+        Settings.PairRequested += Pairing.Open;
+        Settings.CheckRequested += Pairing.OpenChecks;
         Settings.PropertyChanged += OnSettingsPropertyChanged;
 
         _receiver.Log += Log.Enqueue;
@@ -83,10 +94,47 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _timer.Start();
 
         Log.Add(LogLevel.Info, $"hexbridge: конфиг {_configPath}");
+
+        // §9: an install that has never been paired opens the wizard instead of a screen
+        // full of empty telemetry. Once a key exists it never appears on its own again —
+        // it stays one button away in the settings as «Связать заново».
         if (!_config.TryGetKey(out _, out var keyError))
         {
-            Log.Add(LogLevel.Warning, $"hexbridge: {keyError} — откройте «Настройки» и задайте общий ключ");
+            Log.Add(LogLevel.Warning, $"hexbridge: {keyError} — запускаем мастер связывания");
+            Pairing.Open();
         }
+    }
+
+    /// <summary>
+    /// §9.5: the key and the address the wizard generated become the config, and the
+    /// receiver is restarted onto them. Writing the file is what makes the pairing real —
+    /// everything before this point is a code on a screen.
+    /// </summary>
+    private async Task CommitPairingAsync(PairingPayload payload)
+    {
+        var next = _config.Clone();
+        next.Psk = payload.Psk;
+        // The listen address stays a wildcard: the payload carries the address the Mac
+        // should dial, which is not the same thing as the interface we bind.
+        if (string.IsNullOrWhiteSpace(next.Listen)) next.Listen = $"0.0.0.0:{payload.Port}";
+
+        try
+        {
+            next.Save(_configPath);
+        }
+        catch (Exception ex)
+        {
+            Log.Add(LogLevel.Error, $"hexbridge: не удалось сохранить конфиг: {ex.Message}");
+            return;
+        }
+
+        _config = next;
+        Settings.Load(_config, _ui);
+        Log.Add(LogLevel.Info, $"hexbridge: связано, отпечаток ключа {payload.Fingerprint}");
+
+        // The receiver has to come up on the new key before the checks can say anything
+        // truthful about packets arriving.
+        await RestartAsync();
     }
 
     partial void OnSelectedTabChanged(int value)
@@ -105,6 +153,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         CopyToClipboard = copy;
         Log.CopyToClipboard = copy;
         Settings.CopyToClipboard = copy;
+        Pairing.CopyToClipboard = copy;
     }
 
     // MARK: - Commands
@@ -223,6 +272,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         var snapshot = _receiver.Snapshot;
 
         foreach (var module in _modules) module.Apply(snapshot);
+        Pairing.Apply(snapshot);
         Log.Drain();
 
         IsRunning = snapshot.IsRunning;
@@ -268,6 +318,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _timer.Stop();
+        await Pairing.DisposeAsync();
         await _receiver.DisposeAsync();
     }
 }

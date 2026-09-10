@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using HexBridge.App.Controls;
 using HexBridge.DualSense;
 
 namespace HexBridge.App.ViewModels;
@@ -15,6 +16,25 @@ public sealed partial class DualSenseViewModel : ObservableObject
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
     [ObservableProperty] private bool _isBad;
+
+    /// <summary>
+    /// Live input for the visualisation (§8). A reference to the publisher rather than a
+    /// value: the screen polls it at its own frame rate instead of being pinned to the ten
+    /// snapshots a second the rest of this view model is built from.
+    /// </summary>
+    [ObservableProperty] private DualSenseInputSource? _input;
+
+    /// <summary>
+    /// §7.3 in one property. «Прочитан» and «проброшен» are different states and the
+    /// outline says which: dim when the controller is being read but Windows cannot see
+    /// it, accented once the virtual device is imported.
+    /// </summary>
+    [ObservableProperty] private PadMood _mood = PadMood.Inactive;
+
+    /// <summary>The one line under the outline, which is what a decorative canvas owes
+    /// somebody using a screen reader (§8.4: the visualisation is not accessible on its
+    /// own, so the data is duplicated as text).</summary>
+    [ObservableProperty] private string _visualCaption = "Контроллер не подключён";
 
     // Driver.
     [ObservableProperty] private bool _driverInstalled;
@@ -48,6 +68,9 @@ public sealed partial class DualSenseViewModel : ObservableObject
             Headline = "Проброс выключен";
             Subline = "Включите проброс DualSense в настройках и перезапустите приём";
             IsGood = IsWaiting = IsBad = false;
+            Input = null;
+            Mood = PadMood.Inactive;
+            VisualCaption = "Проброс выключен";
             return;
         }
 
@@ -56,6 +79,19 @@ public sealed partial class DualSenseViewModel : ObservableObject
         IsGood = s.Status is FeatureStatus.Live;
         IsWaiting = s.Status is FeatureStatus.Waiting or FeatureStatus.Warning;
         IsBad = s.Status is FeatureStatus.Failed;
+
+        Input = s.Input;
+        // §7.3: an outline that reacts but is not accented says «Windows его пока не
+        // видит» without a word of explanation.
+        Mood = s.Input is null || !s.Attached ? PadMood.Inactive
+            : s.Imported ? PadMood.Forwarding
+            : PadMood.Reading;
+        VisualCaption = Mood switch
+        {
+            PadMood.Forwarding => $"{s.Product ?? "Контроллер"} — проброшен, {s.ReportsPerSecond:F0} отч/с",
+            PadMood.Reading => $"{s.Product ?? "Контроллер"} — читается, Windows его пока не видит",
+            _ => "Контроллер не подключён",
+        };
 
         DriverInstalled = s.DriverInstalled;
         DriverMissing = !s.DriverInstalled;

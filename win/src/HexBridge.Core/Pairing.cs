@@ -23,6 +23,18 @@ public sealed record PairingPayload
     public const string Action = "pair";
     public const int Version = 1;
 
+    /// <summary>The UDP port the receiver listens on when nothing says otherwise.</summary>
+    public const int DefaultPort = 47702;
+
+    /// <summary>
+    /// Where the short-code exchange answers: one above the audio port. The convention is
+    /// fixed by the Mac (<c>Pairing.exchangePort(forDataPort:)</c>), which adds one with
+    /// <c>&amp;+</c> — an unchecked wrap — so the last port wraps to zero rather than
+    /// throwing. Matched here for the same reason: an out-of-range port must fail as a
+    /// refused connection, not as a crash inside the wizard.
+    /// </summary>
+    public static int ExchangePort(int dataPort) => (dataPort + 1) & 0xFFFF;
+
     /// <summary>Address the Mac should send to. Never a wildcard — the Mac cannot dial 0.0.0.0.</summary>
     public required string Host { get; init; }
 
@@ -141,9 +153,28 @@ public sealed record PairingPayload
         Name = name,
     };
 
+    /// <summary>
+    /// Eight bytes of a domain-separated hash of the key, in four groups of four hex
+    /// characters. Shown so two machines can be compared by eye without either of them
+    /// revealing the key (DESIGN.md §10.3).
+    ///
+    /// <para>
+    /// The domain string is part of the contract with the Mac — <c>Pairing.fingerprint</c>
+    /// in <c>mac/Sources/HexBridge/Core/Pairing.swift</c> prefixes the same bytes. Hash the
+    /// bare key here and the two sides print different fingerprints for the same key, which
+    /// is exactly the failure the fingerprint exists to rule out.
+    /// </para>
+    /// </summary>
+    public const string FingerprintDomain = "hexbridge-fingerprint-v1";
+
     public static string FingerprintOf(byte[] key)
     {
-        var digest = SHA256.HashData(key);
+        var domain = Encoding.UTF8.GetBytes(FingerprintDomain);
+        var buffer = new byte[domain.Length + key.Length];
+        domain.CopyTo(buffer, 0);
+        key.CopyTo(buffer, domain.Length);
+
+        var digest = SHA256.HashData(buffer);
         var groups = new string[4];
         for (var i = 0; i < 4; i++) groups[i] = Convert.ToHexString(digest, i * 2, 2);
         return string.Join(" · ", groups);
@@ -254,13 +285,29 @@ public static class ShortCode
         return Format(new string(raw));
     }
 
-    /// <summary>Groups of four separated by hyphens, which is how it is shown and typed.</summary>
+    /// <summary>
+    /// Groups of four separated by hyphens, which is how the code is shown and typed.
+    ///
+    /// <para>
+    /// Partial input is formatted too, and anything past the twelfth character is dropped.
+    /// That is not a nicety: the Mac reformats the field on every keystroke
+    /// (<c>Pairing.formatCode</c>), so a Windows build that only formatted a complete code
+    /// would print <c>ABCDEFGH</c> where the Mac prints <c>ABCD-EFGH</c>, and the user
+    /// comparing the two screens would be looking at two different strings.
+    /// </para>
+    /// </summary>
     public static string Format(string code)
     {
         var bare = Normalise(code);
-        return bare.Length != Length
-            ? bare
-            : $"{bare[..4]}-{bare[4..8]}-{bare[8..]}";
+        if (bare.Length > Length) bare = bare[..Length];
+
+        var builder = new StringBuilder(Length + 2);
+        for (var index = 0; index < bare.Length; index++)
+        {
+            if (index > 0 && index % 4 == 0) builder.Append('-');
+            builder.Append(bare[index]);
+        }
+        return builder.ToString();
     }
 
     /// <summary>

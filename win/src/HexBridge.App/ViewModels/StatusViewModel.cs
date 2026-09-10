@@ -22,6 +22,14 @@ public sealed partial class StatusViewModel : ObservableObject
     [ObservableProperty] private double _peakMark;   // 0..1, short-lived hold marker
     [ObservableProperty] private string _peakText = "—";
 
+    /// <summary>
+    /// The Mac has the microphone on mute. The meter keeps moving — the audio is still
+    /// being read and sent, it is simply not going anywhere useful — but it drops the
+    /// colour scale, because «горячо» and «тихо» are not questions worth answering while
+    /// nothing is being heard on the other end.
+    /// </summary>
+    [ObservableProperty] private bool _isMuted;
+
     [ObservableProperty] private string _packetsText = "—";
     [ObservableProperty] private string _rttText = "—";
     [ObservableProperty] private string _uptimeText = "—";
@@ -47,6 +55,8 @@ public sealed partial class StatusViewModel : ObservableObject
         IsGood = s.Status is ReceiverStatus.Live;
         IsWaiting = s.Status is ReceiverStatus.WaitingForSender or ReceiverStatus.Muted or ReceiverStatus.SenderLost;
         IsBad = s.Status is ReceiverStatus.Failed;
+
+        IsMuted = s.Status is ReceiverStatus.Muted;
 
         var peakHold = m?.PeakHold ?? 0;
         var db = MicrophoneState.ToDbfs(peakHold);

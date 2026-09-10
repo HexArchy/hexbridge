@@ -19,6 +19,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _loading;
 
     public event Action? SaveRequested;
+
+    /// <summary>
+    /// «Связать заново» and «Проверить связь». The wizard is owned by the shell, so the
+    /// settings page asks for it rather than holding one — §9.5 keeps it reachable from
+    /// here forever, and this is the whole of that connection.
+    /// </summary>
+    public event Action? PairRequested;
+    public event Action? CheckRequested;
+
     public Func<string, Task>? CopyToClipboard { get; set; }
 
     public ObservableCollection<DeviceOption> Devices { get; } = [];
@@ -184,6 +193,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void TogglePskReveal() => PskRevealed = !PskRevealed;
 
     [RelayCommand]
+    private void Pair() => PairRequested?.Invoke();
+
+    [RelayCommand]
+    private void Check() => CheckRequested?.Invoke();
+
+    /// <summary>The fingerprint of the key currently in the form, for comparing with the Mac.</summary>
+    public string FingerprintText => PairingPayload.FingerprintOfPsk(Psk) ?? "ключ не задан";
+
+    [RelayCommand]
     private void Save()
     {
         if (!Validate()) return;
@@ -259,6 +277,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             case nameof(JitterMs): OnPropertyChanged(nameof(JitterText)); break;
             case nameof(MaxJitterMs): OnPropertyChanged(nameof(MaxJitterText)); break;
             case nameof(LatencyMs): OnPropertyChanged(nameof(LatencyText)); break;
+            case nameof(Psk): OnPropertyChanged(nameof(FingerprintText)); break;
             // Bookkeeping and the preferences that apply immediately are not "unsaved edits".
             case nameof(IsDirty) or nameof(ValidationError) or nameof(PskRevealed) or nameof(DeviceNotice)
                 or nameof(Theme) or nameof(StartOnLaunch) or nameof(StartMinimised):

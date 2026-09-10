@@ -156,6 +156,16 @@
   <SolidColorBrush x:Key="MeterTrack" Color="{DynamicResource MeterTrackColor}" />
   <SolidColorBrush x:Key="OverlayScrim" Color="{DynamicResource OverlayScrimColor}" />
 
+  <!-- The controller's own palette (§8.5): object colours, not interface colours. -->
+  <SolidColorBrush x:Key="PadBody" Color="{DynamicResource PadBodyColor}" />
+  <SolidColorBrush x:Key="PadButton" Color="{DynamicResource PadButtonColor}" />
+  <SolidColorBrush x:Key="PadButtonEdge" Color="{DynamicResource PadButtonEdgeColor}" />
+  <SolidColorBrush x:Key="PadStickRim" Color="{DynamicResource PadStickRimColor}" />
+  <SolidColorBrush x:Key="PadStickCap" Color="{DynamicResource PadStickCapColor}" />
+  <SolidColorBrush x:Key="PadTouch" Color="{DynamicResource PadTouchColor}" />
+  <SolidColorBrush x:Key="PadTouchEdge" Color="{DynamicResource PadTouchEdgeColor}" />
+  <SolidColorBrush x:Key="PadLightOff" Color="{DynamicResource PadLightOffColor}" />
+
   <!-- Spacing. Base 4; only these steps exist. -->
   <sys:Double x:Key="SpaceXs">4</sys:Double>
   <sys:Double x:Key="SpaceSm">8</sys:Double>

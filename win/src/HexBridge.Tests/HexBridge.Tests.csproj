@@ -12,6 +12,9 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- The same encoder the wizard draws its QR with, so the payload can be checked for
+         size and shape without an Avalonia render surface. -->
+    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.2.1" />
   </ItemGroup>
 
   <ItemGroup>

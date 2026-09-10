@@ -9,6 +9,26 @@
     <ScrollViewer Grid.Row="0" Padding="24">
       <StackPanel Spacing="16" MaxWidth="820">
 
+        <!--
+          §9.5: after the first run the wizard never opens by itself again, but it stays
+          one button away — and «Проверить связь» is the same six checks from §9.4,
+          available at any time and not only during setup.
+        -->
+        <Border Classes="card">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Classes="heading" Text="Связь с Mac" />
+              <TextBlock Classes="caption"
+                         Text="Ключ создаётся на этом ПК и переносится на Mac кодом. Отпечаток должен совпасть на обеих машинах." />
+              <SelectableTextBlock Classes="mono dim" Text="{Binding FingerprintText}" />
+            </StackPanel>
+            <Button Grid.Column="1" Margin="0,0,8,0" Content="Проверить связь"
+                    Command="{Binding CheckCommand}" VerticalAlignment="Center" />
+            <Button Grid.Column="2" Classes="primary" Content="Связать заново"
+                    Command="{Binding PairCommand}" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+
         <Border Classes="card">
           <StackPanel Spacing="14">
             <TextBlock Classes="section" Text="СЕТЬ" />
@@ -16,14 +36,14 @@
             <StackPanel Spacing="6">
               <TextBlock Classes="label" Text="Слушать (адрес и порт)" />
               <TextBox Text="{Binding Listen}" PlaceholderText="0.0.0.0:47702" />
-              <TextBlock Classes="hint"
+              <TextBlock Classes="caption"
                          Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на Mac." />
             </StackPanel>
 
             <StackPanel Spacing="6">
               <TextBlock Classes="label" Text="Релей (необязательно)" />
               <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
-              <TextBlock Classes="hint"
+              <TextBlock Classes="caption"
                          Text="Нужен, только если Mac не может достучаться до этого компьютера напрямую." />
             </StackPanel>
 
@@ -41,7 +61,7 @@
                 <Button Grid.Column="3" Margin="8,0,0,0" Content="Сгенерировать"
                         Command="{Binding GeneratePskCommand}" />
               </Grid>
-              <TextBlock Classes="hint"
+              <TextBlock Classes="caption"
                          Text="32 байта в base64. Ровно тот же ключ должен стоять на Mac — иначе пакеты будут молча отбрасываться." />
             </StackPanel>
           </StackPanel>
@@ -52,7 +72,7 @@
             <TextBlock Classes="section" Text="DUALSENSE" />
 
             <CheckBox IsChecked="{Binding Gamepad}" Content="Пробрасывать DualSense с Mac" />
-            <TextBlock Classes="hint"
+            <TextBlock Classes="caption"
                        Text="Контроллер, воткнутый в Mac, появится в Windows как настоящий USB-геймпад. Нужен драйвер usbip-win2." />
 
             <CheckBox IsChecked="{Binding UsbIpAutoAttach}"
@@ -63,7 +83,7 @@
               <TextBlock Classes="label" Text="Адрес сервера USB/IP" />
               <TextBox Text="{Binding UsbIpListen}" IsEnabled="{Binding Gamepad}"
                        PlaceholderText="127.0.0.1:3240" />
-              <TextBlock Classes="hint"
+              <TextBlock Classes="caption"
                          Text="Драйвер работает на этом же компьютере, поэтому наружу этот порт открывать незачем." />
             </StackPanel>
 
@@ -71,7 +91,7 @@
               <TextBlock Classes="label" Text="Путь к usbip.exe (необязательно)" />
               <TextBox Text="{Binding UsbIpPath}" IsEnabled="{Binding Gamepad}"
                        PlaceholderText="C:\Program Files\USBip\usbip.exe" />
-              <TextBlock Classes="hint"
+              <TextBlock Classes="caption"
                          Text="Заполняйте, только если драйвер установлен не в стандартную папку." />
             </StackPanel>
           </StackPanel>
@@ -104,13 +124,13 @@
                   <DataTemplate x:DataType="vm:DeviceOption">
                     <StackPanel Spacing="1" Margin="0,2">
                       <TextBlock Text="{Binding Title}" />
-                      <TextBlock Classes="hint" Text="{Binding Paired, StringFormat='пара для игр: {0}'}"
+                      <TextBlock Classes="caption" Text="{Binding Paired, StringFormat='пара для игр: {0}'}"
                                  IsVisible="{Binding Paired, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <TextBlock Classes="hint" Text="{Binding DeviceNotice}"
+              <TextBlock Classes="caption" Text="{Binding DeviceNotice}"
                          IsVisible="{Binding DeviceNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </StackPanel>
 
@@ -121,7 +141,7 @@
               </Grid>
               <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
                       Value="{Binding Gain}" />
-              <TextBlock Classes="hint" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если Mac отдаёт тихо." />
+              <TextBlock Classes="caption" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если Mac отдаёт тихо." />
             </StackPanel>
 
             <StackPanel Spacing="6">
@@ -146,7 +166,7 @@
               </Grid>
               <Slider Minimum="20" Maximum="200" TickFrequency="20" IsSnapToTickEnabled="True"
                       Value="{Binding JitterMs}" />
-              <TextBlock Classes="hint" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
+              <TextBlock Classes="caption" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
             </StackPanel>
 
             <StackPanel Spacing="6">
@@ -183,7 +203,7 @@
                        IsVisible="{Binding AutostartError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Foreground="{DynamicResource BadFg}"
                        TextWrapping="Wrap" />
-            <TextBlock Classes="hint"
+            <TextBlock Classes="caption"
                        Text="Кнопка «Закрыть» прячет окно в трей, приём при этом продолжается. Выйти совсем — через меню значка в трее." />
           </StackPanel>
         </Border>
@@ -198,16 +218,16 @@
             Padding="24,12">
       <Grid ColumnDefinitions="*,Auto,Auto">
         <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
-          <TextBlock Classes="hint" Text="Сохранение перезапускает приём — звук прервётся на секунду."
+          <TextBlock Classes="caption" Text="Сохранение перезапускает приём — звук прервётся на секунду."
                      IsVisible="{Binding !IsDirty}" />
-          <TextBlock Classes="hint" Text="Есть несохранённые изменения." IsVisible="{Binding IsDirty}" />
-          <TextBlock Classes="field" Foreground="{DynamicResource BadFg}"
+          <TextBlock Classes="caption" Text="Есть несохранённые изменения." IsVisible="{Binding IsDirty}" />
+          <TextBlock Classes="body" Foreground="{DynamicResource BadFg}"
                      Text="{Binding ValidationError}"
                      IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
         <Button Grid.Column="1" Content="Отменить" Margin="0,0,8,0"
                 Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
-        <Button Grid.Column="2" Content="Сохранить и применить" Classes="Primary"
+        <Button Grid.Column="2" Content="Сохранить и применить" Classes="primary"
                 Command="{Binding SaveCommand}" />
       </Grid>
     </Border>

@@ -13,7 +13,20 @@
     than guessing at another library's part names.
   -->
 
+  <!-- The type scale. It lives in its own file because §4.2 is a closed list of nine
+       roles, and folding it into the component styles below would invite a tenth. -->
+  <StyleInclude Source="/Styles/Typography.axaml" />
+
   <Styles.Resources>
+    <ResourceDictionary>
+
+      <!-- Every colour, radius, spacing step and duration in the app. Merged here rather
+           than in App.axaml so that including Theme.axaml is enough to get a working
+           theme: a DynamicResource that resolves in one entry point and not in another
+           is precisely the failure this arrangement rules out, and it fails silently. -->
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Styles/Tokens.axaml" />
+      </ResourceDictionary.MergedDictionaries>
 
     <!-- A focus ring visible on every surface we paint: 2 px accent with a small gap,
          which is the §11.1 requirement. -->
@@ -60,6 +73,7 @@
       </Setter>
     </ControlTheme>
 
+    </ResourceDictionary>
   </Styles.Resources>
 
   <!-- MARK: - Buttons -->
@@ -496,6 +510,28 @@
     <Setter Property="AreaBrush" Value="{DynamicResource SparkArea}" />
     <Setter Property="BaselineBrush" Value="{DynamicResource AppBorder}" />
     <Setter Property="Height" Value="64" />
+  </Style>
+
+  <!--
+    The controller visualisation, §8.5. Its palette is the Pad* group of tokens rather than
+    the surface tokens: these are object colours — the plastic of a thing on the screen —
+    and they must not shift when a card's background does.
+  -->
+  <Style Selector="controls|ControllerVisual">
+    <Setter Property="BodyBrush" Value="{DynamicResource PadBody}" />
+    <Setter Property="OutlineBrush" Value="{DynamicResource AppBorderStrong}" />
+    <Setter Property="ButtonBrush" Value="{DynamicResource PadButton}" />
+    <Setter Property="ButtonEdgeBrush" Value="{DynamicResource PadButtonEdge}" />
+    <Setter Property="StickRimBrush" Value="{DynamicResource PadStickRim}" />
+    <Setter Property="StickWellBrush" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="StickCapBrush" Value="{DynamicResource PadStickCap}" />
+    <Setter Property="TouchBrush" Value="{DynamicResource PadTouch}" />
+    <Setter Property="TouchEdgeBrush" Value="{DynamicResource PadTouchEdge}" />
+    <Setter Property="LightbarOffBrush" Value="{DynamicResource PadLightOff}" />
+    <Setter Property="AccentBrush" Value="{DynamicResource AppAccent}" />
+    <Setter Property="DimBrush" Value="{DynamicResource AppTextDim}" />
+    <Setter Property="OffBrush" Value="{DynamicResource OffFg}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
 
   <!-- MARK: - Fields -->
