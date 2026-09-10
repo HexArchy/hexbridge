@@ -31,10 +31,33 @@
               BorderBrush="{DynamicResource WarnBorder}"
               BorderThickness="1"
               IsVisible="{Binding DriverMissing}">
-        <StackPanel Spacing="6">
+        <StackPanel Spacing="10">
           <TextBlock Classes="section" Text="{l:Tr Devices_Section_DriverNeeded}" />
           <TextBlock Classes="body" Text="{Binding DriverHint}" TextWrapping="Wrap" />
+
+          <!-- The button picks x64 or ARM64 by the machine it is running on. The address is
+               spelled out under it because a shell that refuses to open a browser must not
+               turn a one-click install back into a dead end. -->
+          <StackPanel Spacing="6" HorizontalAlignment="Left">
+            <Button Classes="primary"
+                    Content="{l:Tr Devices_Driver_Button_Download}"
+                    Command="{Binding OpenDriverDownloadCommand}" />
+            <SelectableTextBlock Classes="caption" Text="{Binding DriverUrl}" />
+          </StackPanel>
+
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="{l:Tr Devices_Driver_Waiting}" />
         </StackPanel>
+      </Border>
+
+      <!-- The reward for installing a driver should not be a warning that silently
+           disappears. Shown for a few seconds after it appears, then it steps aside. -->
+      <Border CornerRadius="8" Padding="14,12"
+              Background="{DynamicResource OkBg}"
+              BorderBrush="{DynamicResource OkBorder}"
+              BorderThickness="1"
+              IsVisible="{Binding DriverJustInstalled}">
+        <TextBlock Classes="body" Text="{l:Tr Devices_Driver_Installed}" />
       </Border>
 
       <TextBlock Classes="caption" Text="{Binding SlotsLine}" IsVisible="{Binding HasDevices}" />

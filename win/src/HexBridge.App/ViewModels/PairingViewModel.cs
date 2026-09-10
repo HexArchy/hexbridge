@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexBridge.Devices;
 using HexBridge.Microphone;
-using Net.Codecrete.QrCodeGenerator;
 
 using HexBridge.Localization;
 
@@ -138,7 +137,7 @@ public sealed partial class CheckItem(int number, string titleKey) : ObservableO
 ///
 /// <para>
 /// All three transports from §9.1 are offered at once, because which one works depends on
-/// facts the app cannot know: a QR code (needs a camera), autodiscovery over Bonjour
+/// facts the app cannot know: autodiscovery over Bonjour
 /// (needs one subnet and a switch that passes multicast), and a twelve-character code the
 /// user types (needs nothing, and is therefore never taken away).
 /// </para>
@@ -195,8 +194,6 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     public ObservableCollection<ReadinessItem> Readiness { get; } = [];
 
     // Step 2.
-    [ObservableProperty] private Geometry? _qr;
-    [ObservableProperty] private Thickness _qrQuietZone = new(16);
     [ObservableProperty] private string _code = "";
     [ObservableProperty] private string _uri = "";
     [ObservableProperty] private string _fingerprint = "";
@@ -673,8 +670,6 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         Code = ShortCode.Generate();
         Pending = payload;
 
-        BuildQr(Uri);
-
         _codeExpiresAt = DateTime.UtcNow + ShortCode.Lifetime;
         StartCountdown();
         StartServices(port);
@@ -682,37 +677,6 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
     /// <summary>The payload on screen, kept until the user finishes or gives up.</summary>
     public PairingPayload? Pending { get; private set; }
-
-    /// <summary>
-    /// The QR as one path, per §9.2. Error correction M: the payload is short, and a higher
-    /// level would only make the modules smaller for no gain.
-    ///
-    /// <c>ToGraphicsPath</c> hands back an SVG path string that <see cref="Geometry.Parse"/>
-    /// takes as is, so no raster ever exists — which is also why it stays sharp at any DPI.
-    /// </summary>
-    private void BuildQr(string text)
-    {
-        try
-        {
-            var qr = QrCode.EncodeText(text, QrCode.Ecc.Medium);
-            // Border 0: the quiet zone is drawn as padding on the white panel instead,
-            // because a border baked into the path is not part of its bounding box and
-            // would be dropped the moment the geometry is stretched to fit.
-            Qr = Geometry.Parse(qr.ToGraphicsPath(0));
-
-            // §9.2 and the QR standard both want at least four modules of white around it.
-            const double Side = 240;
-            var module = Side / qr.Size;
-            QrQuietZone = new Thickness(Math.Ceiling(module * 4));
-        }
-        catch (Exception ex)
-        {
-            // A payload that will not encode is a bug, not a user error — but the short
-            // code still works, so the wizard keeps going and says so in the log.
-            Qr = null;
-            _log(LogLevel.Warning, Loc.F(Strings.Log_QrFailed, ex.Message));
-        }
-    }
 
     private void StartCountdown()
     {
@@ -802,12 +766,6 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     private async Task CopyCodeAsync()
     {
         if (CopyToClipboard is not null) await CopyToClipboard(Code);
-    }
-
-    [RelayCommand]
-    private async Task CopyUriAsync()
-    {
-        if (CopyToClipboard is not null) await CopyToClipboard(Uri);
     }
 
     // MARK: - Step 4: the connection check

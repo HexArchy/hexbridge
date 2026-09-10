@@ -13,7 +13,7 @@ namespace HexBridge.App.ViewModels;
 /// It is asked before pairing, not after, because the answer decides who generates the key.
 /// The machine that listens is the one that knows its own address, so it is the one that
 /// makes the code; the machine that dials reads a code off the other one's screen. Asking
-/// in the other order would mean showing somebody a QR code and then taking it away.
+/// in the other order would mean showing somebody a pairing code and then taking it away.
 /// </para>
 ///
 /// <para>

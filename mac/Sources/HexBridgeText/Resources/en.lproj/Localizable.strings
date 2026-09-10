@@ -239,8 +239,6 @@
 "pair.discovery.choose" = "Choose";
 "pair.discovery.confirm" = "A PC found this way still has to be confirmed with the code from its screen — on its own, the Mac only talks to a PC it is already paired with.";
 
-"pair.noCamera" = "Scanning a QR code with the camera is not in this version. It needs camera permission and will arrive together with the QR screen on the Windows side — until then there will be no button here that does nothing.";
-
 "pair.done.peer" = "Sound is going to “%@”.";
 "pair.done.generic" = "The link is set up.";
 "pair.done.hint" = "In games, choose the Steam Streaming Microphone.";

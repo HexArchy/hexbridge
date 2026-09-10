@@ -47,7 +47,6 @@
     <PackageReference Include="FluentIcons.Avalonia" Version="2.1.339.1" />
     <!-- QR for the pairing wizard. Zero transitive dependencies, and ToGraphicsPath()
          hands us an SVG path string that Geometry.Parse takes as is. -->
-    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.2.1" />
     <!--
       Updates. Velopack rather than Squirrel or a hand-rolled downloader, for one decisive
       reason: it builds the Windows installer and the update channel from macOS, which is

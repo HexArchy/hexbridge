@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 using HexBridge.Localization;
@@ -29,6 +30,20 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
     /// would have been baked into every call site at compile time.
     /// </summary>
     public static string InstallHint => Strings.Devices_Driver_InstallHint;
+
+    /// <summary>
+    /// The installer to hand the user, for the architecture this machine actually runs.
+    ///
+    /// usbip-win2 ships x64 and ARM64 binaries under one tag, and the wrong one produces a
+    /// driver that simply never loads. The question is about the operating system rather
+    /// than about us: on ARM64 Windows our own x64 build runs under emulation perfectly
+    /// well, and it still needs the ARM64 driver.
+    /// </summary>
+    public static string InstallerUrl =>
+        "https://github.com/vadimgrn/usbip-win2/releases/download/v.0.9.8.0/USBip-0.9.8.0-"
+        + (RuntimeInformation.OSArchitecture is Architecture.Arm64 ? "arm64" : "x64")
+        + ".exe";
+
 
     /// <summary>vhci port per busid. Each forwarded device is its own attachment.</summary>
     private readonly ConcurrentDictionary<string, int> _ports = new();
@@ -77,8 +92,28 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
         return null;
     }
 
-    /// <summary>Re-checks for the client, e.g. after the user has installed it mid-session.</summary>
-    public void Rescan() => ClientPath = Locate(explicitPath);
+    private long _lastLookup;
+
+    /// <summary>
+    /// Re-checks for the client, so an install done while the app is open is noticed
+    /// without a restart — the whole difference between "install this driver" as a dead
+    /// end and as something the screen watches for you.
+    ///
+    /// Once found it never looks again, and while missing it looks at most once a second,
+    /// so the ten-times-a-second UI poll can call this on every frame.
+    /// </summary>
+    /// <returns>Whether the client is there now.</returns>
+    public bool Rescan()
+    {
+        if (ClientPath is not null) return true;
+
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _lastLookup) < 1000) return false;
+        Interlocked.Exchange(ref _lastLookup, now);
+
+        ClientPath = Locate(explicitPath);
+        return ClientPath is not null;
+    }
 
     /// <summary>
     /// Plugs the virtual device into the local vhci. <c>--receive-mode=low-latency</c> is the

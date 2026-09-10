@@ -453,6 +453,15 @@
   <data name="Devices_Sub_Off" xml:space="preserve">
     <value>Включите приём устройств в настройках</value>
   </data>
+  <data name="Devices_Driver_Button_Download" xml:space="preserve">
+    <value>Скачать драйвер</value>
+  </data>
+  <data name="Devices_Driver_Waiting" xml:space="preserve">
+    <value>Установите и вернитесь — экран заметит сам.</value>
+  </data>
+  <data name="Devices_Driver_Installed" xml:space="preserve">
+    <value>Драйвер установлен</value>
+  </data>
   <data name="Devices_Section_DriverNeeded" xml:space="preserve">
     <value>НУЖЕН ДРАЙВЕР USBIP-WIN2</value>
   </data>
@@ -514,7 +523,7 @@
     <value>статус 0x{0}</value>
   </data>
   <data name="Devices_Driver_InstallHint" xml:space="preserve">
-    <value>Установите драйвер usbip-win2 0.9.8.0: скачайте USBip-0.9.8.0-x64.exe со страницы github.com/vadimgrn/usbip-win2/releases и запустите. Ни Secure Boot, ни тестовый режим подписи отключать не нужно — бинарники подписаны Microsoft.</value>
+    <value>Геймпад появится здесь после установки драйвера usbip-win2. Ничего отключать не нужно — он подписан Microsoft.</value>
   </data>
 
   <!-- Clipboard page -->
@@ -982,17 +991,8 @@
   <data name="Pairing_Readiness_Note" xml:space="preserve">
     <value>Незакрытые строки не мешают связать машины — их можно починить потом.</value>
   </data>
-  <data name="Pairing_Step2_Heading" xml:space="preserve">
-    <value>На второй машине</value>
-  </data>
   <data name="Pairing_Step2_Line1" xml:space="preserve">
-    <value>1. Откройте HexBridge и начните связывание.</value>
-  </data>
-  <data name="Pairing_Step2_Line2" xml:space="preserve">
-    <value>2. На Mac — «Отсканировать код» и камеру на экран.</value>
-  </data>
-  <data name="Pairing_Step2_Line3" xml:space="preserve">
-    <value>3. На Windows или без камеры — наберите двенадцать символов.</value>
+    <value>Откройте HexBridge на второй машине и введите этот код.</value>
   </data>
   <data name="Pairing_Section_ShortCode" xml:space="preserve">
     <value>КОРОТКИЙ КОД</value>
@@ -1646,9 +1646,6 @@
   </data>
   <data name="Log_UpdateApplying" xml:space="preserve">
     <value>hexbridge: ставлю {0} и перезапускаюсь</value>
-  </data>
-  <data name="Log_QrFailed" xml:space="preserve">
-    <value>hexbridge: QR не построился: {0}</value>
   </data>
   <data name="Log_CodeAccepted" xml:space="preserve">
     <value>hexbridge: код принят, отпечаток {0}</value>

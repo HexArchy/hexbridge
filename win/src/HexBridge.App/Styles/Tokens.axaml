@@ -61,8 +61,6 @@
       <SolidColorBrush x:Key="SparkArea" Color="#1D65C4" Opacity="0.14" />
       <SolidColorBrush x:Key="TitleBarBrush" Color="#FFFFFF" />
       <SolidColorBrush x:Key="SidebarBrush" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="QrPaperBrush" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="QrInkBrush" Color="#101418" />
 
       <BoxShadows x:Key="ShadowCard">0 1 2 0 #0F101828, 0 1 3 0 #1A101828</BoxShadows>
       <BoxShadows x:Key="ShadowPop">0 8 24 0 #24101828</BoxShadows>
@@ -113,9 +111,6 @@
       <SolidColorBrush x:Key="SparkArea" Color="#5A9BFF" Opacity="0.18" />
       <SolidColorBrush x:Key="TitleBarBrush" Color="#1E222A" />
       <SolidColorBrush x:Key="SidebarBrush" Color="#1A1E25" />
-      <!-- The QR panel keeps a white paper even in dark: a camera has to read it. -->
-      <SolidColorBrush x:Key="QrPaperBrush" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="QrInkBrush" Color="#101418" />
 
       <BoxShadows x:Key="ShadowCard">0 1 2 0 #52000000</BoxShadows>
       <BoxShadows x:Key="ShadowPop">0 8 24 0 #7A000000</BoxShadows>

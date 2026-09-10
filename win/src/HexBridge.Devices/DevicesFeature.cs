@@ -447,7 +447,10 @@ public sealed class DevicesFeature : IFeature
         }
 
         var fault = Volatile.Read(ref _fault);
-        var installed = attacher?.IsInstalled ?? false;
+        // Rescan rather than IsInstalled: the driver may well be installed *because* this
+        // screen asked for it, and the person watching should not have to restart the app
+        // to be told it worked.
+        var installed = attacher?.Rescan() ?? false;
         var now = DateTime.UtcNow;
 
         var devices = _slots

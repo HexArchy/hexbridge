@@ -105,6 +105,22 @@
     <Setter Property="Foreground" Value="{DynamicResource AppText}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource AppAccentSoft}" />
   </Style>
+  <!--
+    The pairing code, and the only place its size is written down. It is the one string a
+    person reads off one screen and types into another, so it is set big, spaced, and with
+    a line box that fits it: inheriting .mono here silently clipped the glyphs, because
+    that style fixes a line height meant for twelve-point text.
+  -->
+  <Style Selector="SelectableTextBlock.code">
+    <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+    <Setter Property="FontSize" Value="34" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="46" />
+    <Setter Property="LetterSpacing" Value="1.5" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource AppAccentSoft}" />
+  </Style>
+
   <Style Selector="SelectableTextBlock.dim">
     <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
   </Style>

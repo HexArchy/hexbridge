@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using HexBridge.App.Controls;
 using HexBridge.Devices;
 
@@ -109,6 +111,37 @@ public sealed partial class DevicesViewModel : ObservableObject
     [ObservableProperty] private bool _driverMissing;
     [ObservableProperty] private string _driverHint = UsbIpAttacher.InstallHint;
 
+    /// <summary>
+    /// True for a few seconds after the driver appears, so the screen that asked for it
+    /// says so instead of merely going quiet. Without this the reward for installing a
+    /// driver is a warning that vanishes, which reads like the app lost interest.
+    /// </summary>
+    [ObservableProperty] private bool _driverJustInstalled;
+
+    /// <summary>When the driver first showed up, or default while it has never been seen.</summary>
+    private DateTime _driverAppeared;
+
+    /// <summary>How long the confirmation stays up. Long enough to read, short enough not to nag.</summary>
+    private static readonly TimeSpan DriverPraiseFor = TimeSpan.FromSeconds(8);
+
+    [RelayCommand]
+    private void OpenDriverDownload()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(UsbIpAttacher.InstallerUrl) { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            // No browser, or the shell refused. The address is on screen next to the
+            // button for exactly this case, so there is nothing to report and nothing
+            // worth crashing a settings page over.
+        }
+    }
+
+    /// <summary>Shown under the button, so a browser that refuses to open is not a dead end.</summary>
+    public string DriverUrl => UsbIpAttacher.InstallerUrl;
+
     /// <summary>«Занято номеров: 2 из 4» — one line, so the count and its frame stay together.</summary>
     [ObservableProperty] private string _slotsLine = "";
 
@@ -134,6 +167,7 @@ public sealed partial class DevicesViewModel : ObservableObject
             Subline = raw?.Detail is { Length: > 0 } detail ? detail : Strings.Devices_Sub_Off;
             IsGood = IsWaiting = IsBad = false;
             DriverMissing = false;
+            DriverJustInstalled = false;
             Devices.Clear();
             HasDevices = false;
             SetSlots(0, 4);
@@ -146,7 +180,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         IsWaiting = s.Status is FeatureStatus.Waiting or FeatureStatus.Warning;
         IsBad = s.Status is FeatureStatus.Failed;
 
-        DriverMissing = !s.DriverInstalled;
+        NoteDriver(s.DriverInstalled);
         DriverHint = s.DriverHint;
 
         SetSlots(s.Devices.Count, s.MaxDevices);
@@ -179,6 +213,29 @@ public sealed partial class DevicesViewModel : ObservableObject
             }
             row.Apply(device, s.ServerListen);
         }
+    }
+
+    /// <summary>
+    /// Turns "is the driver there" into the three things the screen actually shows: still
+    /// missing, just arrived, or long since sorted. Driven by the ordinary UI tick, so the
+    /// confirmation ages out on its own without a timer of its own.
+    /// </summary>
+    private void NoteDriver(bool installed)
+    {
+        if (!installed)
+        {
+            DriverMissing = true;
+            DriverJustInstalled = false;
+            return;
+        }
+
+        // Only a transition earns the confirmation. A driver that was already in place when
+        // the app started has nothing to celebrate.
+        if (DriverMissing) _driverAppeared = DateTime.UtcNow;
+
+        DriverMissing = false;
+        DriverJustInstalled = _driverAppeared != default
+            && DateTime.UtcNow - _driverAppeared < DriverPraiseFor;
     }
 
     private void SetSlots(int used, int of)

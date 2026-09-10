@@ -453,6 +453,15 @@
   <data name="Devices_Sub_Off" xml:space="preserve">
     <value>Turn on receiving devices in the settings</value>
   </data>
+  <data name="Devices_Driver_Button_Download" xml:space="preserve">
+    <value>Download the driver</value>
+  </data>
+  <data name="Devices_Driver_Waiting" xml:space="preserve">
+    <value>Install it and come back — this screen will notice on its own.</value>
+  </data>
+  <data name="Devices_Driver_Installed" xml:space="preserve">
+    <value>The driver is installed</value>
+  </data>
   <data name="Devices_Section_DriverNeeded" xml:space="preserve">
     <value>THE USBIP-WIN2 DRIVER IS MISSING</value>
   </data>
@@ -514,7 +523,7 @@
     <value>status 0x{0}</value>
   </data>
   <data name="Devices_Driver_InstallHint" xml:space="preserve">
-    <value>Install the usbip-win2 0.9.8.0 driver: download USBip-0.9.8.0-x64.exe from github.com/vadimgrn/usbip-win2/releases and run it. Neither Secure Boot nor test signing has to be turned off — the binaries are signed by Microsoft.</value>
+    <value>Gamepads show up here once the usbip-win2 driver is installed. Nothing has to be turned off — it is signed by Microsoft.</value>
   </data>
 
   <!-- Clipboard page -->
@@ -982,17 +991,8 @@
   <data name="Pairing_Readiness_Note" xml:space="preserve">
     <value>An unfinished line does not stop the pairing — it can be sorted out later.</value>
   </data>
-  <data name="Pairing_Step2_Heading" xml:space="preserve">
-    <value>On the other machine</value>
-  </data>
   <data name="Pairing_Step2_Line1" xml:space="preserve">
-    <value>1. Open HexBridge and start pairing.</value>
-  </data>
-  <data name="Pairing_Step2_Line2" xml:space="preserve">
-    <value>2. On a Mac — Scan the code, and point the camera at this screen.</value>
-  </data>
-  <data name="Pairing_Step2_Line3" xml:space="preserve">
-    <value>3. On Windows, or with no camera — type the twelve characters.</value>
+    <value>Open HexBridge on the second machine and type this code.</value>
   </data>
   <data name="Pairing_Section_ShortCode" xml:space="preserve">
     <value>SHORT CODE</value>
@@ -1646,9 +1646,6 @@
   </data>
   <data name="Log_UpdateApplying" xml:space="preserve">
     <value>hexbridge: installing {0} and restarting</value>
-  </data>
-  <data name="Log_QrFailed" xml:space="preserve">
-    <value>hexbridge: the QR did not build: {0}</value>
   </data>
   <data name="Log_CodeAccepted" xml:space="preserve">
     <value>hexbridge: code accepted, fingerprint {0}</value>

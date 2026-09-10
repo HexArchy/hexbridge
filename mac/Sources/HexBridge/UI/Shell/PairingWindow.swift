@@ -12,10 +12,6 @@ import SwiftUI
 ///  • a `hexbridge://pair?…` link — pasted here, or opened from anywhere;
 ///  • a short code typed by hand, exchanged with the PC for the full link;
 ///  • automatic discovery on the local network.
-///
-/// QR scanning by camera is not implemented in this revision — see the note at
-/// the bottom of the method chooser, which says so to the user rather than
-/// hiding a dead button.
 struct PairingWindow: View {
     @Bindable var model: AppModel
 
@@ -177,11 +173,6 @@ struct PairingWindow: View {
                     }
                 }
             }
-
-            Text(L.t("pair.noCamera"))
-                .font(.dsCaption)
-                .foregroundStyle(palette.textDim)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

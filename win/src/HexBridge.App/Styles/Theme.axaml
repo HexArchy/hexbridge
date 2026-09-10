@@ -523,12 +523,6 @@
   </Style>
 
   <!-- The QR always sits on white paper, in both themes: a camera has to read it. -->
-  <Style Selector="Border.paper">
-    <Setter Property="Background" Value="{DynamicResource QrPaperBrush}" />
-    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}" />
-    <Setter Property="Padding" Value="16" />
-  </Style>
-
   <!-- MARK: - Own controls -->
 
   <Style Selector="controls|LevelMeter">
