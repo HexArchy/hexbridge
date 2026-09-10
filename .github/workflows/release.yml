@@ -22,16 +22,16 @@ jobs:
 
       # The tag drives both version strings in the bundle. CFBundleVersion has to
       # increase with every release or Sparkle offers the update to nobody.
-      - name: Определить версию
+      - name: Resolve the version
         id: version
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Тесты Swift
+      - name: Swift tests
         run: bash mac/scripts/test.sh
 
-      - name: Собрать приложение
+      - name: Build the app
         env:
           HEXBRIDGE_VERSION: ${{ steps.version.outputs.value }}
         run: bash mac/scripts/build-app.sh
@@ -42,7 +42,7 @@ jobs:
       # The appcast is built here and not in the publish job, for two reasons:
       # `sign_update` is a macOS binary, and the archive it signs exists only on
       # this runner. What travels onward is the signature, never the key.
-      - name: Собрать appcast для Sparkle
+      - name: Build the Sparkle appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
@@ -98,7 +98,7 @@ jobs:
   # `windows` on purpose — that one produces the portable zip people carry to the
   # gaming PC on a stick, this one produces the thing that updates itself.
   velopack:
-    name: Инсталлятор Windows
+    name: Windows installer
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -106,7 +106,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Определить версию
+      - name: Resolve the version
         id: version
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
@@ -115,14 +115,14 @@ jobs:
       # Pinned to the same version as the Velopack package reference in
       # HexBridge.App.csproj: the tool writes the release metadata the library
       # reads, and a mismatch shows up as an update that never applies.
-      - name: Поставить vpk
+      - name: Install vpk
         run: dotnet tool install -g vpk --version 1.2.0
 
-      - name: Опубликовать под win-x64
+      - name: Publish for win-x64
         run: |
           dotnet publish win/src/HexBridge.App -c Release -r win-x64 --self-contained true -o publish/win
 
-      - name: Собрать пакет Velopack
+      - name: Build the Velopack package
         run: |
           export PATH="$PATH:$HOME/.dotnet/tools"
           vpk '[win]' pack \
@@ -185,7 +185,7 @@ jobs:
       # Both update channels are release assets, and both are reached by a URL
       # that never changes: `releases/latest/download/appcast.xml` for Sparkle,
       # and the repository itself for Velopack, which reads the newest release.
-      - name: Проверить, что каналы обновлений собрались
+      - name: Check the update channels were produced
         working-directory: artifacts
         run: |
           for required in appcast.xml HexBridge-win-Setup.exe RELEASES releases.win.json; do
