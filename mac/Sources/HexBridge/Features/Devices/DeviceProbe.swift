@@ -503,26 +503,47 @@ enum DeviceProbe {
         Thread.sleep(forTimeInterval: 0.6)
         let quiet = stats.motionDeviation()
 
-        let blocks = feed(player, seconds: seconds, frequency: 40, amplitude: 0.9, stats: stats)
+        let pass = feed(player, seconds: seconds, frequency: 40, amplitude: 0.9, stats: stats)
         let shaking = stats.motionDeviation()
+        let status = player.status()
+
+        // A second pass with every eighth block thrown away on purpose. The wire
+        // loses blocks and the sender skips silent ones, and the player has to
+        // tell those two apart from the numbering alone — this is the only way to
+        // watch it do so without waiting for a bad network.
+        let lossy = feed(
+            player, seconds: seconds, frequency: 40, amplitude: 0.9, stats: stats, dropEvery: 8
+        )
+        let shakenWithLoss = stats.motionDeviation()
+        let after = player.status()
 
         // And back to nothing, so the run does not end with the actuators still
         // ringing from the last block.
         player.stop()
         Thread.sleep(forTimeInterval: 0.3)
 
-        let status = player.status()
         log("")
-        log("блоков отправлено: \(blocks), проиграно \(status.blocksPlayed), "
+        log("блоков отправлено: \(pass.blocks), проиграно \(status.blocksPlayed), "
             + "потеряно \(status.blocksLost), опоздало \(status.blocksDropped)")
         log("недоборов буфера:  \(status.underruns)")
-        if let error = status.lastError {
+        if let error = after.lastError {
             log("ошибка аудио:      \(error)")
         }
         log(String(
             format: "гироскоп в покое: σ %.1f (%d репортов), под хаптикой: σ %.1f (%d репортов)",
             quiet.sigma, quiet.samples, shaking.sigma, shaking.samples
         ))
+
+        let noticed = after.blocksLost - status.blocksLost
+        log("")
+        log("— потеря блоков —")
+        log("выброшен каждый 8-й: дошло \(lossy.blocks - lossy.dropped) из \(lossy.blocks), "
+            + "приёмник насчитал потерь \(noticed)")
+        log(String(format: "гироскоп при потерях: σ %.1f (%d репортов)",
+                   shakenWithLoss.sigma, shakenWithLoss.samples))
+        log(noticed == UInt64(lossy.dropped)
+            ? "Пропуски опознаны по нумерации и заполнены тишиной, поток не рассыпался."
+            : "ВНИМАНИЕ: пропуски посчитаны неверно — проверьте нумерацию блоков.")
 
         let confirmed = shaking.samples > 10 && shaking.sigma > max(20, quiet.sigma * 4)
         log("")
@@ -542,10 +563,10 @@ enum DeviceProbe {
     /// Real time on purpose. A burst would overrun the ring and be dropped —
     /// which is the correct behaviour, and proves nothing about whether the
     /// audio path works.
-    @discardableResult
     private static func feed(
-        _ player: HapticPlayer, seconds: Double, frequency: Double, amplitude: Double, stats: InputStats
-    ) -> UInt32 {
+        _ player: HapticPlayer, seconds: Double, frequency: Double, amplitude: Double,
+        stats: InputStats, dropEvery: UInt32 = 0
+    ) -> (blocks: UInt32, dropped: UInt32) {
         let frames = Wire.Haptics.framesPerBlock
         let step = 2 * Double.pi * frequency / Double(Wire.Haptics.sampleRate)
         let blockSeconds = Double(frames) / Double(Wire.Haptics.sampleRate)
@@ -553,6 +574,7 @@ enum DeviceProbe {
 
         var phase = 0.0
         var index: UInt32 = 0
+        var dropped: UInt32 = 0
         var deadline = Date()
         // The gyro window opens with the first block, not with the timer: the
         // actuators do nothing until the ring has its preroll, and measuring
@@ -570,7 +592,19 @@ enum DeviceProbe {
                 if phase > 2 * Double.pi { phase -= 2 * Double.pi }
             }
 
-            player.play(Wire.Haptics.Block(device: 0, channels: 2, index: index, samples: samples))
+            // Through the codec, not around it: a block that is encoded and
+            // decoded again is the block the socket would have handed over, and
+            // the two halves of that codec live on different machines.
+            let payload = Wire.Haptics.encode(device: 0, channels: 2, index: index, samples: samples)
+            // The last block is always kept. A drop with nothing sent after it is
+            // a drop the far end cannot notice, and counting it would make the
+            // check fail for the one reason that is not a bug.
+            let keep = dropEvery == 0 || index % dropEvery != dropEvery - 1 || index == total - 1
+            if keep, let block = Wire.Haptics.decode(payload) {
+                player.play(block)
+            } else {
+                dropped += 1
+            }
             index += 1
 
             if !started {
@@ -588,7 +622,7 @@ enum DeviceProbe {
             let wait = deadline.timeIntervalSinceNow
             if wait > 0 { Thread.sleep(forTimeInterval: wait) }
         }
-        return index
+        return (index, dropped)
     }
 
     // MARK: - list

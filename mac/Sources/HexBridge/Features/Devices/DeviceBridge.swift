@@ -162,6 +162,8 @@ final class DeviceBridge {
     private let thread = HIDRunLoopThread()
     private let lock = NSLock()
     private let outputQueue = DispatchQueue(label: "hexbridge.devices.output", qos: .userInteractive)
+    /// Haptic blocks, apart from both the socket and the HID writer. See `playHaptics`.
+    private let hapticQueue = DispatchQueue(label: "hexbridge.devices.haptics", qos: .userInteractive)
 
     private weak var sender: Sender?
     /// False when the bridge is only feeding the visualisation and the picker.
@@ -775,27 +777,36 @@ final class DeviceBridge {
     // MARK: - HD haptics
 
     /// One block of PCM off the wire, on its way into the controller's own
-    /// actuators. Called on the connection queue at up to 200 blocks a second.
+    /// actuators. Arrives on the connection queue at up to 200 blocks a second.
     ///
-    /// Not scheduled onto the output queue like a DEV_OUT: the player only
-    /// copies into a ring buffer, and the thing that must not be delayed here is
-    /// the audio, not the socket.
+    /// Handed to a queue of its own rather than played inline. The first block of
+    /// a stream is the one that opens the CoreAudio device, and opening a USB
+    /// audio device takes tens of milliseconds — or, if the controller is being
+    /// unplugged at that moment, considerably longer. The socket's receive loop
+    /// is not the place to find that out: it is also carrying the rumble commands
+    /// for three other devices.
+    ///
+    /// Serial, so blocks keep their order, and separate from the output queue,
+    /// which blocks for the length of a USB transaction on every HID write.
     private func playHaptics(_ block: Wire.Haptics.Block) {
-        lock.lock()
-        let entry = forwarded[block.device]
-        let isDualSense = entry?.profile?.kind == .dualSense
-        lock.unlock()
+        hapticQueue.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let entry = self.forwarded[block.device]
+            let isDualSense = entry?.profile?.kind == .dualSense
+            self.lock.unlock()
 
-        // A block for a device we are not holding is not an error worth counting:
-        // the receiver can still be streaming into a controller that was unplugged
-        // half a second ago.
-        guard let entry else { return }
+            // A block for a device we are not holding is not worth counting as an
+            // error: the receiver can still be streaming into a controller that
+            // was unplugged half a second ago.
+            guard let entry else { return }
 
-        if entry.haptics.play(block), isDualSense {
-            // First block of a stream. Nothing has cleared the controller's haptic
-            // mute yet, and until something does the PCM is carried the whole way
-            // and thrown away at the last step.
-            assertHapticsEnabled(device: block.device)
+            if entry.haptics.play(block), isDualSense {
+                // First block of a stream. Nothing has cleared the controller's
+                // haptic mute yet, and until something does, the PCM is carried
+                // the whole way and thrown away at the last step.
+                self.assertHapticsEnabled(device: block.device)
+            }
         }
     }
 

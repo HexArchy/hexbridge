@@ -755,7 +755,7 @@ public class HapticStreamTests
         Assert.Equal(21u, last.Index);
 
         // 21 blocks of 5 ms is 105 ms of nothing, which is what the receiver has to insert.
-        Assert.Equal(105, (last.Index - first.Index) * HapticStream.BlockMilliseconds);
+        Assert.Equal(105u, (last.Index - first.Index) * (uint)HapticStream.BlockMilliseconds);
     }
 
     /// <summary>
@@ -774,6 +774,35 @@ public class HapticStreamTests
 
         Assert.Equal(HapticStream.MaxBlocksPerSecond, sent.Count);
         Assert.Equal(50, stream.BlocksDropped);
+    }
+
+    /// <summary>
+    /// The budget, checked rather than asserted in prose. Haptics travel beside voice and
+    /// 250 input reports a second, over a relay that refuses more than 2000 packets a second
+    /// from one address — so what this costs is a number somebody has to be able to look up.
+    /// </summary>
+    [Fact]
+    public void ASecondOfHapticsFitsBesideTheVoiceAndTheInput()
+    {
+        var sent = new List<byte[]>();
+        var stream = Stream(sent);
+
+        var blocksPerSecond = 1000 / HapticStream.BlockMilliseconds;
+        Assert.Equal(200, blocksPerSecond);
+
+        stream.Write(Frames(240, i => (0, 0, (short)(i + 1), (short)(i + 1))));
+        var datagram = Assert.Single(sent).Length + 24 + 16;   // header and GCM tag
+
+        Assert.True(datagram <= 1400, $"датаграмма {datagram} байт не помещается в MTU");
+
+        // 1.6 Mbit/s, and only while something is actually happening: a silent run costs
+        // nothing at all, which is what makes this affordable next to a voice channel.
+        var bytesPerSecond = datagram * blocksPerSecond;
+        Assert.InRange(bytesPerSecond, 190_000, 210_000);
+
+        // Voice is 51 packets a second and a forwarded pad is 250. Together with this the
+        // relay's ceiling is still four times away.
+        Assert.True(blocksPerSecond + 250 + 51 < 2000);
     }
 
     [Fact]
@@ -849,8 +878,9 @@ public class HapticChannelTests
     [Fact]
     public void APayloadThatDoesNotDivideIntoFramesIsRefused()
     {
-        var payload = DeviceChannel.WriteHaptic(0, 2, 1, new byte[10]);
-        Assert.False(DeviceChannel.TryReadHaptic(payload.AsSpan(0, payload.Length - 2), out _));
+        // Ten bytes of a two-channel block is two and a half frames.
+        Assert.False(DeviceChannel.TryReadHaptic(DeviceChannel.WriteHaptic(0, 2, 1, new byte[10]), out _));
+        Assert.True(DeviceChannel.TryReadHaptic(DeviceChannel.WriteHaptic(0, 2, 1, new byte[12]), out _));
     }
 
     [Theory]
@@ -860,5 +890,194 @@ public class HapticChannelTests
     {
         var payload = DeviceChannel.WriteHaptic(0, channels, 1, new byte[8]);
         Assert.False(DeviceChannel.TryReadHaptic(payload, out _));
+    }
+}
+
+/// <summary>
+/// The isochronous path driven over a real loopback socket, by a client written from the
+/// specification. The thing being tested is the framing: an isochronous URB carries a
+/// variable amount of data and a variable number of descriptors, and a server that
+/// miscounts either one leaves a TCP stream that never resynchronises.
+/// </summary>
+public class IsochronousServerTests : IAsyncLifetime
+{
+    private readonly List<byte[]> _haptics = [];
+    private VirtualHidDevice _device = null!;
+    private UsbIpServer _server = null!;
+
+    public Task InitializeAsync()
+    {
+        _device = TestDevices.CompositeDevice(onHaptic: _haptics.Add);
+        _server = new UsbIpServer(() => [_device], (_, _) => { });
+        _server.Start(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+        return Task.CompletedTask;
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _server.DisposeAsync();
+        _device.Dispose();
+    }
+
+    private async Task<UsbIpTestClient> ImportedAsync()
+    {
+        var client = await UsbIpTestClient.ConnectAsync(_server.LocalEndPoint!);
+        var (header, device) = await client.ImportAsync(_device.Info.BusId);
+        Assert.Equal(UsbIpProtocol.StatusOk, header.Status);
+        Assert.NotNull(device);
+        return client;
+    }
+
+    [Fact]
+    public async Task AnIsochronousOutIsAcceptedWithOneDescriptorPerMicroframe()
+    {
+        await using var client = await ImportedAsync();
+
+        var seqnum = await client.IsochronousAsync(
+            0x01, UsbIpProtocol.DirectionOut, packets: 8, packetLength: 392);
+        var reply = await client.ReadSubmitReplyAsync();
+
+        Assert.Equal(seqnum, reply.Seqnum);
+        Assert.Equal(UsbIpProtocol.StatusSuccess, reply.Status);
+        Assert.Equal(8, reply.NumberOfPackets);
+        Assert.Equal(8, reply.IsoPackets.Count);
+        Assert.Equal(0, reply.ErrorCount);
+        Assert.Equal(8 * 392, reply.ActualLength);
+        Assert.All(reply.IsoPackets, p => Assert.Equal(392, p.ActualLength));
+
+        // The offsets an OUT reply reports are the host's own: it laid the buffer out.
+        Assert.Equal(0, reply.IsoPackets[0].Offset);
+        Assert.Equal(392, reply.IsoPackets[1].Offset);
+    }
+
+    [Fact]
+    public async Task AnIsochronousInComesBackPackedWithItsOffsetsComputed()
+    {
+        await using var client = await ImportedAsync();
+
+        await client.IsochronousAsync(0x82, UsbIpProtocol.DirectionIn, packets: 4, packetLength: 196);
+        var reply = await client.ReadSubmitReplyAsync();
+
+        Assert.Equal(UsbIpProtocol.StatusSuccess, reply.Status);
+        Assert.Equal(4, reply.IsoPackets.Count);
+        Assert.Equal(4 * 192, reply.ActualLength);
+        Assert.Equal(4 * 192, reply.Data.Length);
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.Equal(i * 192, reply.IsoPackets[i].Offset);
+            Assert.Equal(192, reply.IsoPackets[i].ActualLength);
+        }
+    }
+
+    /// <summary>
+    /// The whole path, over the socket: five milliseconds of PCM in on the isochronous
+    /// endpoint, one HAPTIC packet out on the wire, with only the actuator channels in it.
+    /// </summary>
+    [Fact]
+    public async Task PcmOnTheEndpointBecomesAHapticPacket()
+    {
+        await using var client = await ImportedAsync();
+
+        var frames = 240;
+        var buffer = new byte[frames * 8];
+        for (var i = 0; i < frames; i++)
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(buffer.AsSpan(i * 8), 7);              // speaker L
+            BinaryPrimitives.WriteInt16LittleEndian(buffer.AsSpan(i * 8 + 2), 7);          // speaker R
+            BinaryPrimitives.WriteInt16LittleEndian(buffer.AsSpan(i * 8 + 4), (short)(i + 1));
+            BinaryPrimitives.WriteInt16LittleEndian(buffer.AsSpan(i * 8 + 6), (short)-(i + 1));
+        }
+
+        await client.IsochronousAsync(
+            0x01, UsbIpProtocol.DirectionOut, packets: 1, packetLength: buffer.Length, data: buffer);
+        var reply = await client.ReadSubmitReplyAsync();
+        Assert.Equal(UsbIpProtocol.StatusSuccess, reply.Status);
+
+        var payload = Assert.Single(_haptics);
+        Assert.True(DeviceChannel.TryReadHaptic(payload, out var block));
+        Assert.Equal(2, block.Channels);
+        Assert.Equal(1, BinaryPrimitives.ReadInt16LittleEndian(block.Pcm));
+        Assert.Equal(-1, BinaryPrimitives.ReadInt16LittleEndian(block.Pcm.AsSpan(2)));
+    }
+
+    /// <summary>
+    /// The stream has to survive an isochronous URB whatever the answer was. If the server
+    /// left one descriptor unread, the next URB would be parsed out of the middle of it — and
+    /// the symptom would be a controller that vanished, not a sound that did not play.
+    /// </summary>
+    [Fact]
+    public async Task TheStreamStaysInSyncAfterAnIsochronousUrb()
+    {
+        await using var client = await ImportedAsync();
+
+        await client.IsochronousAsync(0x01, UsbIpProtocol.DirectionOut, packets: 8, packetLength: 392);
+        await client.ReadSubmitReplyAsync();
+
+        // GET_DESCRIPTOR(device) right behind it: a header parsed one byte out of place
+        // cannot possibly answer this.
+        await client.ControlInAsync(TestDevices.Setup(0x80, 0x06, 0x0100, 0, 18), 18);
+        var reply = await client.ReadSubmitReplyAsync();
+
+        Assert.Equal(UsbIpProtocol.StatusSuccess, reply.Status);
+        Assert.Equal(18, reply.ActualLength);
+        Assert.Equal(0x12, reply.Data[0]);
+        Assert.Equal(UsbDescriptorType.Device, reply.Data[1]);
+    }
+
+    /// <summary>
+    /// A HID-only device has no isochronous endpoint, and a URB for one is refused. It still
+    /// comes back with a full set of descriptors: vhci compares the count against the URB it
+    /// is still holding and abandons the session when they disagree, so a refusal that
+    /// dropped them would cost the controller as well as the sound.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedIsochronousUrbStillCarriesItsDescriptors()
+    {
+        using var hidOnly = TestDevices.Device(number: 1);
+        await using var server = new UsbIpServer(() => [hidOnly], (_, _) => { });
+        server.Start(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+
+        await using var client = await UsbIpTestClient.ConnectAsync(server.LocalEndPoint!);
+        var (header, _) = await client.ImportAsync(hidOnly.Info.BusId);
+        Assert.Equal(UsbIpProtocol.StatusOk, header.Status);
+
+        await client.IsochronousAsync(0x01, UsbIpProtocol.DirectionOut, packets: 4, packetLength: 64);
+        var reply = await client.ReadSubmitReplyAsync();
+
+        Assert.Equal(UsbIpProtocol.StatusStall, reply.Status);
+        Assert.Equal(4, reply.NumberOfPackets);
+        Assert.Equal(4, reply.IsoPackets.Count);
+        Assert.Equal(4, reply.ErrorCount);
+        Assert.Equal(0, reply.ActualLength);
+        Assert.All(reply.IsoPackets, p => Assert.Equal(UsbIpProtocol.StatusStall, p.Status));
+
+        // And the session is still usable.
+        await client.ControlInAsync(TestDevices.Setup(0x80, 0x06, 0x0100, 0, 18), 18);
+        Assert.Equal(18, (await client.ReadSubmitReplyAsync()).ActualLength);
+    }
+
+    /// <summary>
+    /// A count that large is a corrupt header, and the descriptors it claims are the only
+    /// thing that says where the next URB begins. There is nothing to do but close the
+    /// session — and closing it is what must happen, rather than allocating what was asked
+    /// for or reading past the frame.
+    /// </summary>
+    [Fact]
+    public async Task AnAbsurdPacketCountClosesTheSessionInsteadOfAllocating()
+    {
+        await using var client = await ImportedAsync();
+
+        var bytes = new byte[UsbIpProtocol.UrbHeaderSize];
+        new UrbHeader(UsbIpProtocol.CmdSubmit, 99, 0x00010001, UsbIpProtocol.DirectionOut, 1).Write(bytes);
+        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(32), 0x40000000);
+        await client.WriteRawAsync(bytes);
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            // Either the read fails because the server hung up, or nothing ever arrives.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await client.ReadReplyAsync().WaitAsync(timeout.Token);
+        });
     }
 }

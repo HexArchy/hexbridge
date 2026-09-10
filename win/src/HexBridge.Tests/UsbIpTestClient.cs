@@ -203,6 +203,9 @@ public sealed class UsbIpTestClient : IAsyncDisposable
         return _tcp.Available == 0;
     }
 
+    /// <summary>Puts bytes on the socket unchanged, for the malformed-header cases.</summary>
+    public Task WriteRawAsync(byte[] bytes) => Write(bytes);
+
     private async Task Write(byte[] bytes) => await _stream.WriteAsync(bytes);
 
     private async Task<byte[]> Read(int count)
