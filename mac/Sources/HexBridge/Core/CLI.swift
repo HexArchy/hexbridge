@@ -51,7 +51,7 @@ enum KeyFactory {
 
 enum CLI {
     static let usage = """
-    hexbridge — отправляет микрофон Mac на Windows-хост Vibepollo.
+    hexbridge — пробрасывает микрофон и DualSense с Mac на игровой ПК с Windows.
 
     Использование:
       hexbridge [флаги]              запустить передачу (меню-бар + UI)

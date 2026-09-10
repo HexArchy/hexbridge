@@ -48,6 +48,7 @@ jobs:
           Copy-Item publish/cli/HexBridge.Receiver.exe package/ -Force
           Copy-Item win/scripts/install.ps1 package/ -Force
           Copy-Item win/scripts/install-task.ps1 package/ -Force
+          Copy-Item win/scripts/ЧИТАЙ.txt package/ -Force
           Get-ChildItem package -Filter *.pdb | Remove-Item -Force
           Compress-Archive -Path package/* -DestinationPath HexBridge-Windows-x64.zip -Force
       - uses: actions/upload-artifact@v4
