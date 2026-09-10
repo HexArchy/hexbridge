@@ -8,6 +8,8 @@
 
 Самый быстрый вариант, не трогает существующий стек:
 
+Ниже `vps` — ваш ssh-алиас для сервера.
+
 ```bash
 rsync -a relay/ vps:/opt/hexbridge-relay/
 ssh vps 'cd /opt/hexbridge-relay && docker compose up -d --build'
