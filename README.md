@@ -50,11 +50,11 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 The script stops any older version, copies the files, opens the firewall port and
-enables autostart. The app then generates a key and shows a QR code.
+enables autostart. The app then generates a key and shows a twelve-character code.
 
 **macOS.** Download `HexBridge-macOS-arm64.zip`, put `HexBridge.app` into
-Applications and launch it. Scan the QR code off the Windows screen, or type in
-the short code.
+Applications and launch it. Pick the PC from the list it found and type in the
+code from its screen.
 
 That's it. You get a menu bar icon on the Mac and a tray icon on Windows.
 

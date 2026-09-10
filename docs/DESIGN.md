@@ -1,3 +1,9 @@
+> **Superseded, 11.09.2026.** Everything below about QR codes is history. Pairing is
+> one typed code: the QR led the screen and told the person to aim a Mac camera at the
+> Windows monitor, which is the one thing a laptop camera cannot do — it faces the
+> person, not the screen beside it. The generator, the package and the scanning plans
+> are gone from the code.
+
 # HexBridge design system
 
 This document describes the interface of two desktop applications that make up one
