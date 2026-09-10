@@ -1,7 +1,8 @@
 import AppKit
+import HexBridgeText
 import SwiftUI
 
-/// «Подключиться к ПК» — the Mac half of the pairing wizard (§9.3).
+/// "Connect to a PC" — the Mac half of the pairing wizard (§9.3).
 ///
 /// The key is generated on Windows, never here: Windows is the side that
 /// listens, so it is the side that knows the address, and the address has to
@@ -51,6 +52,9 @@ struct PairingWindow: View {
         .padding(Space.xl)
         .frame(width: Metrics.wizardWidth, height: Metrics.wizardHeight)
         .background(palette.bg)
+        // The window's own title comes from the `Window` scene, which is built
+        // once; this follows the step, and follows the language with it.
+        .navigationTitle(titleText)
         .animation(Motion.emphasis(Motion.slow, reduced: motion.reduceMotion), value: step)
         .onAppear {
             // Reopening the window after a successful pairing should not drop
@@ -80,30 +84,26 @@ struct PairingWindow: View {
 
     private var titleText: String {
         switch step {
-        case .choose: return "Подключиться к ПК"
-        case .code: return "Ввести код"
-        case .check: return "Проверка связи"
-        case .done: return model.linkCheck.verdict ?? "Готово"
+        case .choose: return L.t("pair.title.choose")
+        case .code: return L.t("pair.title.code")
+        case .check: return L.t("pair.title.check")
+        case .done: return model.linkCheck.verdict ?? L.t("pair.title.done")
         }
     }
 
     private var subtitleText: String {
         switch step {
-        case .choose:
-            return "Ключ создаётся на игровом ПК и переносится сюда целиком вместе с адресом. На Mac ничего генерировать не нужно."
-        case .code:
-            return "Введите двенадцать символов, которые HexBridge показал на экране ПК, и адрес ПК в сети."
-        case .check:
-            return "Шесть проверок подряд. Каждая говорит, что именно работает, а что нет."
-        case .done:
-            return ""
+        case .choose: return L.t("pair.subtitle.choose")
+        case .code: return L.t("pair.subtitle.code")
+        case .check: return L.t("pair.subtitle.check")
+        case .done: return ""
         }
     }
 
     private var footer: some View {
         HStack(spacing: Space.sm) {
             if step != .choose {
-                Button("Назад") { step = .choose }
+                Button(L.t("pair.back")) { step = .choose }
                     .buttonStyle(.dsSecondary)
             }
             Spacer()
@@ -115,13 +115,13 @@ struct PairingWindow: View {
                     .frame(maxWidth: 360, alignment: .trailing)
             }
             if step == .check {
-                Button(model.linkCheck.running ? "Идёт проверка…" : "Проверить ещё раз") {
+                Button(model.linkCheck.running ? L.t("pair.checking") : L.t("pair.checkAgain")) {
                     model.runLinkCheck()
                 }
                 .buttonStyle(.dsSecondary)
                 .disabled(model.linkCheck.running)
             }
-            Button("Закрыть") {
+            Button(L.t("pair.close")) {
                 NSApp.keyWindow?.close()
             }
             .buttonStyle(.dsSecondary)
@@ -134,19 +134,22 @@ struct PairingWindow: View {
         VStack(alignment: .leading, spacing: Space.lg) {
             Card {
                 VStack(alignment: .leading, spacing: Space.sm) {
-                    SectionLabel(text: "Ссылка с ПК")
-                    Text("Самый короткий путь: скопируйте ссылку с экрана ПК и вставьте её сюда. Ссылка несёт и адрес, и ключ, и имя машины.")
+                    SectionLabel(text: L.t("pair.link.section"))
+                    Text(L.t("pair.link.text"))
                         .font(.dsCaption)
                         .foregroundStyle(palette.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: Space.sm) {
-                        TextField("hexbridge://pair?v=1&h=…", text: $linkText)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.dsMono)
-                        Button("Вставить") {
+                        TextField(text: $linkText, prompt: Text(verbatim: "hexbridge://pair?v=1&h=…")) {
+                            Text(L.t("pair.link.section"))
+                        }
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+                        .font(.dsMono)
+                        Button(L.t("pair.link.paste")) {
                             linkText = NSPasteboard.general.string(forType: .string) ?? ""
                         }
-                        Button("Связать") { applyLink() }
+                        Button(L.t("pair.link.apply")) { applyLink() }
                             .buttonStyle(.dsPrimary)
                             .fixedSize()
                             .disabled(linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -157,25 +160,25 @@ struct PairingWindow: View {
             HStack(alignment: .top, spacing: Space.lg) {
                 Card {
                     VStack(alignment: .leading, spacing: Space.sm) {
-                        SectionLabel(text: "Короткий код")
-                        Text("Если ссылку скопировать некуда — на ПК есть код из двенадцати символов.")
+                        SectionLabel(text: L.t("pair.code.section"))
+                        Text(L.t("pair.code.text"))
                             .font(.dsCaption)
                             .foregroundStyle(palette.textDim)
                             .fixedSize(horizontal: false, vertical: true)
-                        Button("Ввести код") { step = .code }
+                        Button(L.t("pair.code.enter")) { step = .code }
                             .buttonStyle(.dsSecondary)
                     }
                 }
 
                 Card {
                     VStack(alignment: .leading, spacing: Space.sm) {
-                        SectionLabel(text: "Автопоиск в сети")
+                        SectionLabel(text: L.t("pair.discovery.section"))
                         discoveryBody
                     }
                 }
             }
 
-            Text("Сканирования QR камерой в этой версии нет. Оно требует разрешения на камеру и появится вместе с экраном QR на стороне Windows — до тех пор кнопки, которая ничего не делает, здесь не будет.")
+            Text(L.t("pair.noCamera"))
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
                 .fixedSize(horizontal: false, vertical: true)
@@ -186,18 +189,18 @@ struct PairingWindow: View {
     private var discoveryBody: some View {
         if model.discovery.hosts.isEmpty {
             Text(model.discovery.searching
-                 ? "Ищу HexBridge в локальной сети…"
-                 : "Mac находит игровой ПК сам, если тот в той же сети и HexBridge на нём запущен.")
+                 ? L.t("pair.discovery.searching")
+                 : L.t("pair.discovery.idle"))
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
                 .fixedSize(horizontal: false, vertical: true)
             if let error = model.discovery.lastError {
-                Text("Поиск не работает: \(error). Ссылка и код работают как обычно.")
+                Text(L.t("pair.discovery.failed", error))
                     .font(.dsCaption)
                     .foregroundStyle(palette.badText)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button(model.discovery.searching ? "Остановить поиск" : "Искать") {
+            Button(model.discovery.searching ? L.t("pair.discovery.stop") : L.t("pair.discovery.start")) {
                 if model.discovery.searching {
                     model.discovery.stop()
                 } else {
@@ -213,7 +216,7 @@ struct PairingWindow: View {
                         .filter { !$0.isEmpty }
                         .joined(separator: " · "),
                     state: model.discovery.isOurs(found) ? .ok : .pending,
-                    action: FeatureAction(title: "Выбрать") {
+                    action: FeatureAction(title: L.t("pair.discovery.choose")) {
                         pcAddress = found.address.isEmpty ? found.name : found.address
                         step = .code
                     }
@@ -222,23 +225,26 @@ struct PairingWindow: View {
 
             // §9.3, and the reason autodiscovery is safe to have at all: the
             // list is a shortcut past typing an address, never past the code.
-            // Without this sentence a user looking at one row labelled «связан
-            // с другим Mac» has no way to know why nothing happened.
-            Text("Найденный ПК ещё нужно подтвердить кодом с его экрана — сам по себе Mac подключается только к ПК, с которым уже связан.")
+            // Without this sentence a user looking at one row labelled "paired
+            // with another Mac" has no way to know why nothing happened.
+            Text(L.t("pair.discovery.confirm"))
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    // MARK: - Step 1в: short code
+    // MARK: - Step 1c: short code
 
     private var codeEntry: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
             Card {
                 VStack(alignment: .leading, spacing: Space.md) {
-                    SectionLabel(text: "Код с экрана ПК")
-                    TextField("ABCD-EFGH-JKLM", text: $codeText)
+                    SectionLabel(text: L.t("pair.code.fromScreen"))
+                    TextField(text: $codeText, prompt: Text(verbatim: "ABCD-EFGH-JKLM")) {
+                        Text(L.t("pair.code.fromScreen"))
+                    }
+                        .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 20, design: .monospaced))
                         .onChange(of: codeText) { _, new in
@@ -249,16 +255,19 @@ struct PairingWindow: View {
                             if formatted != new { codeText = formatted }
                         }
 
-                    SectionLabel(text: "Адрес ПК в сети")
-                    TextField("192.168.1.10", text: $pcAddress)
+                    SectionLabel(text: L.t("pair.code.address"))
+                    TextField(text: $pcAddress, prompt: Text(verbatim: "192.168.1.10")) {
+                        Text(L.t("pair.code.address"))
+                    }
+                        .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .font(.dsMono)
-                    Text("HexBridge на ПК показывает этот адрес рядом с кодом. Обмен идёт на порт \(Pairing.exchangePort(forDataPort: 47702)) и живёт три минуты.")
+                    Text(L.t("pair.code.hint", L.integer(Int(Pairing.exchangePort(forDataPort: 47702)))))
                         .font(.dsCaption)
                         .foregroundStyle(palette.textDim)
 
                     HStack(spacing: Space.sm) {
-                        Button(busy ? "Спрашиваю ПК…" : "Получить ключ") { exchange() }
+                        Button(busy ? L.t("pair.code.asking") : L.t("pair.code.fetch")) { exchange() }
                             .buttonStyle(.dsPrimary)
                             .fixedSize()
                             .disabled(busy || !Pairing.isCompleteCode(codeText) || pcAddress.isEmpty)
@@ -268,10 +277,7 @@ struct PairingWindow: View {
                 }
             }
 
-            InlineAlert(
-                text: "Обмен по короткому коду на стороне Windows пишется отдельно и на момент сборки этой версии ещё не существовал. Если ПК не отвечает — это ожидаемо; воспользуйтесь ссылкой.",
-                tone: .warn
-            )
+            InlineAlert(text: L.t("pair.code.warning"), tone: .warn)
         }
     }
 
@@ -280,10 +286,10 @@ struct PairingWindow: View {
     private var doneScreen: some View {
         VStack(alignment: .leading, spacing: Space.md) {
             SuccessTick()
-            Text(model.config.peerName.map { "Звук идёт на «\($0)»." } ?? "Связь настроена.")
+            Text(model.config.peerName.map { L.t("pair.done.peer", $0) } ?? L.t("pair.done.generic"))
                 .font(.dsBody)
                 .foregroundStyle(palette.text)
-            Text("В играх выбирайте микрофон Steam Streaming Microphone.")
+            Text(L.t("pair.done.hint"))
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
         }
@@ -346,8 +352,8 @@ struct LinkCheckView: View {
                     tone: model.linkCheck.verdictTone,
                     headline: verdict,
                     detail: model.linkCheck.verdictTone == .ok
-                        ? (model.config.peerName.map { "Звук идёт на «\($0)». В играх выбирайте микрофон Steam Streaming Microphone." } ?? "Приёмник отвечает.")
-                        : "Ниже раскрыт только тот пункт, который не прошёл."
+                        ? (model.config.peerName.map { L.t("check.result.peer", $0) } ?? L.t("check.result.generic"))
+                        : L.t("check.result.failed")
                 ))
             }
 
@@ -403,6 +409,6 @@ struct SuccessTick: View {
             withAnimation(Motion.standard(Motion.base).delay(Motion.long)) { scale = 1.06 }
             withAnimation(Motion.standard(Motion.base).delay(Motion.long + Motion.base)) { scale = 1 }
         }
-        .accessibilityLabel("Проверка пройдена")
+        .accessibilityLabel(L.t("pair.done.tick"))
     }
 }

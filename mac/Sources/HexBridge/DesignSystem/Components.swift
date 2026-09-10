@@ -1,3 +1,4 @@
+import HexBridgeText
 import SwiftUI
 
 // MARK: - 2. StatusDot
@@ -82,7 +83,7 @@ struct StatusCard<Trailing: View>: View {
         .animation(Motion.standard(Motion.base, reduced: motion.reduceMotion), value: status.tone)
         .animation(Motion.standard(Motion.short, reduced: motion.reduceMotion), value: status.headline)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(headline). \(detail)")
+        .accessibilityLabel(L.t("statusCard.accessibility", headline, detail))
     }
 
     private var headline: String { Wording.plain(status.headline) }
@@ -153,7 +154,7 @@ struct LevelMeter: View {
     /// Linear sample peak, 0…1.
     let peak: Float
     var muted = false
-    /// `пик −12,9 dBFS` under the bar. A number for somebody setting a gain,
+    /// `peak −12.9 dBFS` under the bar. A number for somebody setting a gain,
     /// which is a settings-window job; in the popover the bar itself is the
     /// whole answer, so the caption is off there.
     var showsCaption = true
@@ -193,7 +194,7 @@ struct LevelMeter: View {
 
             if showsCaption {
                 HStack(spacing: Space.xs) {
-                    Text(muted ? "заглушено" : caption)
+                    Text(muted ? L.t("meter.muted") : caption)
                         .font(.dsCaption)
                         .foregroundStyle(palette.textDim)
                         .monospacedDigit()
@@ -202,11 +203,12 @@ struct LevelMeter: View {
             }
         }
         .onChange(of: peak) { _, _ in step() }
-        .accessibilityLabel(muted ? "Уровень: заглушено" : "Уровень: \(caption)")
+        .accessibilityLabel(L.t("meter.accessibility", muted ? L.t("meter.muted") : caption))
     }
 
     private var caption: String {
-        peak > 0 ? String(format: "пик %.1f dBFS", 20 * log10(Double(peak))) : "тишина"
+        guard peak > 0 else { return L.t("meter.silence") }
+        return L.t("meter.peak", L.number(20 * log10(Double(peak))))
     }
 
     /// Called from the model's poll rather than from a timer of its own; the
@@ -287,8 +289,6 @@ struct FeatureRow: View {
     let title: String
     let symbolName: String
     let status: FeatureStatus
-    /// A sentence already shown above this row. See `Wording.stateLine`.
-    var echoing: String = ""
     @Binding var isEnabled: Bool
 
     @Environment(\.palette) private var palette
@@ -305,10 +305,11 @@ struct FeatureRow: View {
                 Text(title)
                     .font(.dsLabel.weight(.medium))
                     .foregroundStyle(palette.text)
-                // The name is already on the line above, so the state line
-                // never repeats it: «Буфер обмена» over «Буфер обмена общий»
-                // was two lines to say one thing.
-                Text(Wording.stateLine(title: title, status: status, avoiding: echoing))
+                // The name is already on the line above, so this line never
+                // repeats it: «Буфер обмена» over «Буфер обмена общий» was two
+                // lines to say one thing. One word from the glossary instead,
+                // the same word wherever the same state occurs.
+                Text(Wording.stateWord(status))
                     .font(.dsCaption)
                     .foregroundStyle(status.tone.text(palette))
                     .lineLimit(1)
@@ -319,7 +320,7 @@ struct FeatureRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .accessibilityLabel("Включить: \(title)")
+                .accessibilityLabel(L.t("featureRow.accessibility", title))
         }
     }
 }
@@ -463,7 +464,7 @@ struct EmptyState: View {
 
 // MARK: - 12. KeyField
 
-/// Key with a mask, "Показать", "Скопировать", "Сгенерировать".
+/// Key behind a mask, with Show, Copy and Generate beside it.
 struct KeyField: View {
     @Binding var text: String
     @Binding var revealed: Bool
@@ -483,10 +484,10 @@ struct KeyField: View {
             .textFieldStyle(.roundedBorder)
 
             HStack(spacing: Space.sm) {
-                Toggle("Показать", isOn: $revealed).toggleStyle(.button)
-                Button("Скопировать", action: onCopy).disabled(text.isEmpty)
+                Toggle(L.t("key.reveal"), isOn: $revealed).toggleStyle(.button)
+                Button(L.t("key.copy"), action: onCopy).disabled(text.isEmpty)
                 if let onGenerate {
-                    Button("Сгенерировать", action: onGenerate)
+                    Button(L.t("key.generate"), action: onGenerate)
                 }
                 Spacer()
             }
@@ -509,7 +510,9 @@ struct FingerprintLabel: View {
             .font(.dsMono)
             .foregroundStyle(palette.text)
             .textSelection(.enabled)
-            .accessibilityLabel("Отпечаток ключа: \(fingerprint.replacingOccurrences(of: " · ", with: ", "))")
+            .accessibilityLabel(
+                L.t("fingerprint.accessibility", fingerprint.replacingOccurrences(of: " · ", with: ", "))
+            )
     }
 }
 
@@ -596,7 +599,7 @@ struct StepDots: View {
             }
         }
         .animation(Motion.emphasis(Motion.long, reduced: motion.reduceMotion), value: current)
-        .accessibilityLabel("Шаг \(current + 1) из \(count)")
+        .accessibilityLabel(L.t("steps.accessibility", L.integer(current + 1), L.integer(count)))
     }
 }
 
@@ -620,13 +623,13 @@ struct Spinner: View {
                     angle = 360
                 }
             }
-            .accessibilityLabel("Идёт проверка")
+            .accessibilityLabel(L.t("spinner.accessibility"))
     }
 }
 
 // MARK: - Section label
 
-/// `section` role from §4.2: caps, semibold caption, used for "СОЕДИНЕНИЕ".
+/// `section` role from §4.2: caps, semibold caption.
 struct SectionLabel: View {
     let text: String
 

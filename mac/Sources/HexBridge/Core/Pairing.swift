@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 
 /// Machine pairing (DESIGN.md §9).
 ///
@@ -35,7 +36,7 @@ enum Pairing {
 
     // MARK: - URI
 
-    /// `hexbridge://pair?v=1&h=192.168.1.10&p=47702&k=<base64url>&n=<имя ПК>`
+    /// `hexbridge://pair?v=1&h=192.168.1.10&p=47702&k=<base64url>&n=<PC name>`
     static func parse(_ url: URL) -> Result<Payload, PairingError> {
         guard url.scheme?.lowercased() == scheme else { return .failure(.notAPairingLink) }
         guard url.host?.lowercased() == host else { return .failure(.notAPairingLink) }
@@ -62,7 +63,7 @@ enum Pairing {
             host: host,
             port: port,
             psk: psk,
-            machineName: values["n"] ?? "ПК"
+            machineName: values["n"] ?? L.t("pair.pcFallbackName")
         ))
     }
 
@@ -168,19 +169,19 @@ enum PairingError: Error, CustomStringConvertible, Equatable {
     var description: String {
         switch self {
         case .notAPairingLink:
-            return "Это не ссылка HexBridge. Ссылка начинается с hexbridge://pair"
+            return L.t("pairing.error.notALink")
         case .malformed:
-            return "Ссылка неполная — в ней нет адреса или порта"
+            return L.t("pairing.error.malformed")
         case .wrongVersion(let value):
-            return "Ссылка версии \(value), эта версия HexBridge понимает только \(Pairing.version)"
+            return L.t("pairing.error.version", value, L.integer(Pairing.version))
         case .badKey:
-            return "Ключ в ссылке не 32 байта в base64"
+            return L.t("pairing.error.badKey")
         case .exchangeUnreachable(let reason):
-            return "ПК не отвечает по этому адресу — \(reason)"
+            return L.t("pairing.error.unreachable", reason)
         case .exchangeRefused:
-            return "ПК не принял код. Проверьте, что мастер связывания на ПК ещё открыт"
+            return L.t("pairing.error.refused")
         case .exchangeBadAnswer:
-            return "ПК ответил, но не ссылкой связывания"
+            return L.t("pairing.error.badAnswer")
         }
     }
 }

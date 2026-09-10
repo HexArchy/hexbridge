@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import Observation
 import SwiftUI
 
@@ -12,9 +13,9 @@ import SwiftUI
 @MainActor
 final class MicrophoneFeature: Feature {
     let id = "microphone"
-    let title = "Микрофон"
+    var title: String { L.t("mic.title") }
     let symbolName = "waveform"
-    let summary = "Звук с этого Mac уходит на игровой ПК и подставляется играм как обычный микрофон."
+    var summary: String { L.t("mic.summary") }
 
     private unowned let host: FeatureHost
 
@@ -27,7 +28,7 @@ final class MicrophoneFeature: Feature {
     private(set) var remoteLost: UInt64 = 0
     private(set) var hostAlive = false
     private(set) var isMuted = false
-    private(set) var deviceName = "—"
+    private(set) var deviceName = L.t("unit.none")
     private(set) var uptime: TimeInterval = 0
     /// One minute of level history for the sparkline, one sample per 0.5 s.
     private(set) var history: [Double] = []
@@ -48,7 +49,7 @@ final class MicrophoneFeature: Feature {
 
     init(host: FeatureHost) {
         self.host = host
-        status = FeatureStatus(state: .off, tone: .off, headline: "Микрофон выключен")
+        status = FeatureStatus(state: .off, tone: .off, headline: L.t("mic.off.headline"))
     }
 
     // MARK: - Feature
@@ -109,13 +110,12 @@ final class MicrophoneFeature: Feature {
         } else if runtime.isRunning {
             failure = nil
         }
-        if let failure {
-            // The TCC denial arrives as a CoreAudio error; recognising it is
-            // what turns a dead end into a button (§10.3).
-            deniedAccess = failure.localizedCaseInsensitiveContains("доступ")
-                || failure.localizedCaseInsensitiveContains("privacy")
-                || failure.contains("560557673")
-        }
+        // The TCC denial is what turns a dead end into a button (§10.3), and it
+        // is asked for as a fact rather than recognised in a sentence: the
+        // sentence is now translated, and matching a translation is a bug
+        // waiting for the next language.
+        deniedAccess = runtime.microphoneDenied
+            || (failure?.contains("560557673") ?? false)
 
         historyTick += 1
         if historyTick >= 10 {
@@ -142,9 +142,9 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .off,
                 tone: .off,
-                headline: "Микрофон выключен",
-                detail: "Звук на игровой ПК не отправляется. Включите фичу, когда она понадобится.",
-                primaryAction: FeatureAction(title: "Включить микрофон") { [weak self] in
+                headline: L.t("mic.off.headline"),
+                detail: L.t("mic.off.detail"),
+                primaryAction: FeatureAction(title: L.t("mic.action.turnOn"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = true
                 }
             )
@@ -154,9 +154,9 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Микрофон не настроен",
-                detail: "Укажите адрес приёмника и общий ключ — это делается один раз.",
-                primaryAction: FeatureAction(title: "Настроить") { [weak self] in
+                headline: L.t("mic.unconfigured.headline"),
+                detail: L.t("mic.unconfigured.detail"),
+                primaryAction: FeatureAction(title: L.t("action.setUp")) { [weak self] in
                     self?.host.openPairing()
                 }
             )
@@ -166,10 +166,10 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Нет доступа к микрофону",
-                detail: "macOS не разрешает HexBridge читать вход. Разрешение выдаётся один раз в «Системных настройках».",
+                headline: L.t("mic.denied.headline"),
+                detail: L.t("mic.denied.detail"),
                 alert: failure,
-                primaryAction: FeatureAction(title: "Открыть настройки конфиденциальности") {
+                primaryAction: FeatureAction(title: L.t("mic.action.privacy")) {
                     NSWorkspace.shared.open(
                         URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
                     )
@@ -185,9 +185,9 @@ final class MicrophoneFeature: Feature {
                 return FeatureStatus(
                     state: .waiting,
                     tone: .warn,
-                    headline: "Игровой ПК недоступен",
-                    detail: "Звук пойдёт сам, как только ПК включится. Проверять ничего не нужно.",
-                    primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                    headline: L.t("mic.unreachable.headline"),
+                    detail: L.t("mic.unreachable.detail"),
+                    primaryAction: FeatureAction(title: L.t("action.checkLink")) { [weak self] in
                         self?.host.openLinkCheck()
                     }
                 )
@@ -196,10 +196,10 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Передача не запустилась",
+                headline: L.t("mic.failed.headline"),
                 detail: failure,
                 alert: failure,
-                primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                primaryAction: FeatureAction(title: L.t("action.checkLink")) { [weak self] in
                     self?.host.openLinkCheck()
                 }
             )
@@ -208,14 +208,14 @@ final class MicrophoneFeature: Feature {
         if !host.runtime.isRunning {
             // §7.0: `starting` lasts up to 10 s and then becomes an error.
             if let since = startingSince, Date().timeIntervalSince(since) < 10 {
-                return FeatureStatus(state: .starting, tone: .neutral, headline: "Запускается")
+                return FeatureStatus(state: .starting, tone: .neutral, headline: L.t("mic.starting.headline"))
             }
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Передача остановлена",
-                detail: "Захват звука не запущен.",
-                primaryAction: FeatureAction(title: "Запустить") { [weak self] in self?.start() }
+                headline: L.t("mic.stopped.headline"),
+                detail: L.t("mic.stopped.detail"),
+                primaryAction: FeatureAction(title: L.t("mic.action.start")) { [weak self] in self?.start() }
             )
         }
 
@@ -223,9 +223,10 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .live,
                 tone: .warn,
-                headline: "Микрофон заглушен",
-                detail: "Приёмник знает про мьют и держит соединение.",
-                primaryAction: FeatureAction(title: "Включить микрофон") { [weak self] in
+                headline: L.t("mic.muted.headline"),
+                detail: L.t("mic.muted.detail"),
+                wordOverride: .muted,
+                primaryAction: FeatureAction(title: L.t("mic.action.unmute")) { [weak self] in
                     self?.toggleMute()
                 }
             )
@@ -235,9 +236,9 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .waiting,
                 tone: .warn,
-                headline: "Ждёт Windows",
-                detail: "Звук отправляется на \(host.config.target), но приёмник не отвечает.",
-                primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                headline: L.t("mic.waiting.headline"),
+                detail: L.t("mic.waiting.detail", host.config.target),
+                primaryAction: FeatureAction(title: L.t("action.checkLink")) { [weak self] in
                     self?.host.openLinkCheck()
                 }
             )
@@ -249,19 +250,19 @@ final class MicrophoneFeature: Feature {
             return FeatureStatus(
                 state: .live,
                 tone: .warn,
-                headline: String(format: "Потери в сети — %.1f %%", percent).replacingOccurrences(of: ".", with: ","),
-                detail: "Звук восстанавливается, но местами слышны артефакты. Помогает проводное подключение или увеличение буфера в дополнительных настройках.",
-                primaryAction: FeatureAction(title: "Заглушить") { [weak self] in self?.toggleMute() }
+                headline: L.t("mic.loss.headline", L.percent(percent)),
+                detail: L.t("mic.loss.detail"),
+                primaryAction: FeatureAction(title: L.t("mic.action.mute")) { [weak self] in self?.toggleMute() }
             )
         }
 
-        let peer = host.config.peerName.map { " на \($0)" } ?? ""
+        let peer = host.config.peerName.flatMap { $0.isEmpty ? nil : $0 }
         return FeatureStatus(
             state: .live,
             tone: .ok,
-            headline: "Звук идёт",
-            detail: "Игры\(peer.isEmpty ? "" : peer) видят его как «Steam Streaming Microphone».",
-            primaryAction: FeatureAction(title: "Заглушить") { [weak self] in self?.toggleMute() }
+            headline: L.t("mic.live.headline"),
+            detail: peer.map { L.t("mic.live.detail.peer", $0) } ?? L.t("mic.live.detail"),
+            primaryAction: FeatureAction(title: L.t("mic.action.mute")) { [weak self] in self?.toggleMute() }
         )
     }
 
@@ -284,22 +285,18 @@ final class MicrophoneFeature: Feature {
     // MARK: - Formatting helpers used by both views
 
     var rttText: String {
-        guard hostAlive, let rttMs else { return "—" }
-        return String(format: "%.0f мс", rttMs)
+        guard hostAlive, let rttMs else { return L.t("unit.none") }
+        return L.milliseconds(rttMs)
     }
 
     var uptimeText: String {
-        guard uptime > 0 else { return "—" }
-        let seconds = Int(uptime)
-        if seconds < 60 { return "\(seconds) с" }
-        if seconds < 3600 { return "\(seconds / 60) мин" }
-        return String(format: "%d ч %02d мин", seconds / 3600, (seconds % 3600) / 60)
+        guard uptime > 0 else { return L.t("unit.none") }
+        return L.duration(uptime)
     }
 
     var lossText: String {
         let total = remoteReceived + remoteLost
-        guard total > 0 else { return "—" }
-        let percent = Double(remoteLost) * 100 / Double(total)
-        return String(format: "%.1f %%", percent).replacingOccurrences(of: ".", with: ",")
+        guard total > 0 else { return L.t("unit.none") }
+        return L.percent(Double(remoteLost) * 100 / Double(total))
     }
 }

@@ -1,10 +1,11 @@
+import HexBridgeText
 import SwiftUI
 
 /// Colour tokens from DESIGN.md §4.1.
 ///
 /// Two flat structs rather than asset catalogue colours: SwiftPM executables
 /// have no asset catalogue, and a plain struct is also the only form that lets
-/// the "Оформление" setting override the system appearance without the two
+/// the appearance setting override the system appearance without the two
 /// disagreeing (an `NSColor` dynamic provider resolves from `NSAppearance`,
 /// which `preferredColorScheme` does not change everywhere).
 ///
@@ -211,9 +212,9 @@ enum AppTheme: String, CaseIterable, Codable, Sendable {
 
     var title: String {
         switch self {
-        case .system: return "Системная"
-        case .light: return "Светлая"
-        case .dark: return "Тёмная"
+        case .system: return L.t("theme.system")
+        case .light: return L.t("theme.light")
+        case .dark: return L.t("theme.dark")
         }
     }
 
@@ -226,18 +227,31 @@ enum AppTheme: String, CaseIterable, Codable, Sendable {
     }
 }
 
-/// Applies the appearance preference and then publishes the matching palette.
+/// Applies the appearance and language preferences, then publishes the matching
+/// palette.
 ///
 /// Two nested views rather than one: `preferredColorScheme` travels up to the
 /// window and comes back down as `\.colorScheme`, so the palette can only be
 /// derived one level below where the preference is applied.
+///
+/// The language is applied with `.id`, which is blunt on purpose. Strings are
+/// resolved by calling `L.t` inside a body rather than by reading an observable,
+/// so SwiftUI has no way to know which views depend on the language and would
+/// leave most of them showing the old one. Changing the identity throws the
+/// subtree away and rebuilds it, which is exactly right for a change that
+/// rewrites every word on screen and happens once in the life of an install.
 struct Themed<Content: View>: View {
     let theme: AppTheme
+    let language: AppLanguage
     @ViewBuilder var content: Content
 
     var body: some View {
         PaletteBridge { content }
             .preferredColorScheme(theme.colorScheme)
+            // So that anything formatted by SwiftUI itself — a `Text(date)`, a
+            // `Stepper`'s own numbers — follows the same choice as our own text.
+            .environment(\.locale, L.locale)
+            .id(language)
     }
 }
 
@@ -250,28 +264,7 @@ private struct PaletteBridge<Content: View>: View {
     }
 }
 
-// MARK: - Russian plurals (§11.3)
-
-/// «1 пакет / 2 пакета / 5 пакетов». The document requires plural agreement to
-/// be a function rather than a noun glued to a number, because the glued form
-/// is what produces «1 репортов» in a UI nobody re-reads.
-enum Plural {
-    static func of(_ count: Int, _ one: String, _ few: String, _ many: String) -> String {
-        let mod100 = abs(count) % 100
-        let mod10 = abs(count) % 10
-        if mod100 >= 11 && mod100 <= 14 { return many }
-        switch mod10 {
-        case 1: return one
-        case 2, 3, 4: return few
-        default: return many
-        }
-    }
-
-    static func reports(_ count: Int) -> String {
-        "\(count) \(of(count, "репорт", "репорта", "репортов"))"
-    }
-
-    static func packets(_ count: Int) -> String {
-        "\(count) \(of(count, "пакет", "пакета", "пакетов"))"
-    }
-}
+// Plural agreement (§11.3) now lives in `HexBridgeText`: it is a property of a
+// language rather than of a design system, English needs it too, and it has to
+// follow the language the *user* chose rather than the one macOS is set to.
+// `L.plural("packets", n)` is the whole of the interface.

@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import HexBridgeText
 
 /// The single entry point for both faces of the binary.
 ///
@@ -17,6 +18,12 @@ enum HexBridgeMain {
         setvbuf(stdout, nil, _IOLBF, 0)
 
         let args = Arguments(Array(CommandLine.arguments.dropFirst()))
+
+        // The language before the first word. `probe` prints to the diagnostics
+        // pane as well as to a terminal, and a bad config is reported by an
+        // early subcommand too — both have to come out in the language the user
+        // chose, not in whatever the process happened to default to.
+        L.select(CLI.resolveConfig(args).config.appLanguage)
 
         CLI.runEarlySubcommand(args)  // exits by itself when it matches
 

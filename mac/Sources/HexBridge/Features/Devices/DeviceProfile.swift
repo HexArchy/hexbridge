@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 
 /// How one chosen device is remembered between launches.
 ///
@@ -67,10 +68,10 @@ enum DeviceCategory: String, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .gamepad: return "Контроллер"
-        case .keyboard: return "Клавиатура"
-        case .pointer: return "Мышь или трекпад"
-        case .other: return "HID-устройство"
+        case .gamepad: return L.t("device.category.gamepad")
+        case .keyboard: return L.t("device.category.keyboard")
+        case .pointer: return L.t("device.category.pointer")
+        case .other: return L.t("device.category.hid")
         }
     }
 
@@ -89,12 +90,9 @@ enum DeviceCategory: String, Codable, Sendable {
 
     var doubleInputWarning: String? {
         switch self {
-        case .keyboard:
-            return "Клавиатура остаётся подключённой к Mac: набранное будет печататься одновременно здесь и на Windows."
-        case .pointer:
-            return "Мышь остаётся подключённой к Mac: курсор будет двигаться одновременно здесь и на Windows."
-        case .gamepad, .other:
-            return nil
+        case .keyboard: return L.t("device.warning.keyboard")
+        case .pointer: return L.t("device.warning.pointer")
+        case .gamepad, .other: return nil
         }
     }
 }
@@ -114,8 +112,8 @@ enum DeviceEligibility: Equatable {
     var reason: String? {
         switch self {
         case .eligible: return nil
-        case .builtIn: return "Встроенное устройство Mac — не пробрасывается"
-        case .notUSB: return "Не USB — дескрипторы прочитать нельзя"
+        case .builtIn: return L.t("device.ineligible.builtIn")
+        case .notUSB: return L.t("device.ineligible.notUSB")
         }
     }
 

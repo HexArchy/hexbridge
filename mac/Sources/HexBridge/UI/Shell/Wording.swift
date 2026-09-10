@@ -1,27 +1,28 @@
 import Foundation
+import HexBridgeText
 
 /// The last stop between feature-authored text and the user.
 ///
 /// A feature writes its status for whoever is reading — and that is sometimes
 /// the log, sometimes the diagnostics report, sometimes a person who opened the
 /// menu bar popover to find out whether the microphone works. Those are not the
-/// same audience. `Network.NWError error 64 - Host is down`, `054C:0CE6` and
-/// «приёмник ещё не подтвердил, что собрал виртуальное устройство» are all true,
-/// all useful in a bug report, and all noise in a 340 pt popover.
+/// same audience. `Network.NWError error 64 - Host is down` and `054C:0CE6` are
+/// both true, both useful in a bug report, and both noise in a 340 pt popover.
 ///
-/// So this is the presentation layer's own vocabulary pass: it never changes
-/// what a feature *means*, only how much machinery leaks out with it. The
-/// untouched original still goes to the log and to «Скопировать отчёт», which
-/// is where it is worth having.
+/// What used to live here as well was a Russian jargon table: the features said
+/// «приёмник» and this layer rewrote it as «Windows» on the way to the screen.
+/// That is now settled where it belongs, in `Localizable.strings`, which the
+/// shared glossary governs on both platforms. What is left is the part that is
+/// about machinery rather than about language, and it is language-independent:
+/// a hex status code is noise in English too.
 enum Wording {
 
     // MARK: - Machinery out
 
     /// Feature text with the protocol filed off.
     ///
-    /// Three kinds of leak, in the order they are cheapest to fix:
-    /// USB ids, hexadecimal status codes, and the protocol's word for the
-    /// machine on the other end.
+    /// Two kinds of leak: USB ids and hexadecimal status codes, both of which
+    /// arrive interpolated from the system rather than written by us.
     static func plain(_ text: String) -> String {
         guard !text.isEmpty else { return text }
         if let human = humanError(text) { return human }
@@ -34,9 +35,6 @@ enum Wording {
                 options: .regularExpression
             )
         }
-        for (jargon, plain) in glossary {
-            result = result.replacingOccurrences(of: jargon, with: plain)
-        }
         return tidy(result)
     }
 
@@ -44,7 +42,7 @@ enum Wording {
     ///
     /// A status line is one line (§7.0). Everything a feature adds after the
     /// full stop is elaboration, and elaboration belongs on the pane it
-    /// elaborates, not in the sentence that answers "работает или нет".
+    /// elaborates, not in the sentence that answers "does it work or not".
     static func firstSentence(_ text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let stop = trimmed.firstIndex(where: { $0 == "." }) else { return trimmed }
@@ -62,12 +60,15 @@ enum Wording {
     /// still say something is wrong — but that «error 64» tells the user
     /// nothing they can use, and telling them three times over (heading,
     /// subtitle, red banner) tells them less than saying it once.
+    ///
+    /// Matched on the English text and on the POSIX number, because both are
+    /// what `\(error)` prints whatever language the app is running in.
     static func humanError(_ text: String) -> String? {
         guard looksMechanical(text) else { return nil }
-        for (marker, sentence) in errorMeanings where text.localizedCaseInsensitiveContains(marker) {
-            return sentence
+        for (marker, key) in errorMeanings where text.localizedCaseInsensitiveContains(marker) {
+            return L.t(key)
         }
-        return "Не удалось соединиться с игровым ПК"
+        return L.t("error.generic")
     }
 
     /// True when the string is a system error object printed with `\(error)`
@@ -79,162 +80,65 @@ enum Wording {
 
     // MARK: - Feature rows
 
-    /// The second line of a feature row: what is happening *now*.
+    /// The second line of a feature row in the popover.
     ///
-    /// The card already carries the feature's name above this line, so a
-    /// headline that starts with that name stutters — «Буфер обмена / Буфер
-    /// обмена общий», «Микрофон / Микрофон выключен». Dropping the repeated
-    /// word is enough in most states; when all that is left is a bare adjective
-    /// and nothing is wrong, the state word says it better.
-    /// - Parameter avoiding: a sentence already on screen above this row —
-    ///   the popover's summary is the worst feature's own headline, so without
-    ///   this the card that produced it repeats it word for word two lines
-    ///   below.
-    static func stateLine(title: String, status: FeatureStatus, avoiding echoed: String = "") -> String {
-        let headline = plain(status.headline)
-        guard !headline.isEmpty else { return stateWord(status) }
-        if !echoed.isEmpty, headline == plain(echoed) { return stateWord(status) }
-        guard let tail = droppingTitle(title, from: headline) else {
-            // Lower case throughout: this line is a caption under a name, and a
-            // column of three where some start with a capital and some do not
-            // reads as three unrelated things.
-            return lowercasingFirst(headline)
-        }
-        if tail.split(separator: " ").count == 1, status.state == .live, status.tone == .ok {
-            return stateWord(status)
-        }
-        return tail
-    }
-
-    /// The same five states, in the same five words, for every feature. §7.0:
-    /// the user learns the rules once.
+    /// One word, from the fixed list in docs/GLOSSARY.md, the same seven words
+    /// for every feature. The card already carries the feature's name in bold
+    /// directly above, so a headline here stutters — «Буфер обмена / Буфер
+    /// обмена общий» was two lines to say one thing — and three cards whose
+    /// second lines are three different shapes of sentence do not read as a
+    /// column at all.
     static func stateWord(_ status: FeatureStatus) -> String {
-        switch status.state {
-        case .off: return "выключено"
-        case .starting: return "запускается"
-        case .waiting: return "ждёт Windows"
-        case .live: return "работает"
-        case .error: return "не работает"
-        }
+        L.t("state.\(status.word.rawValue)")
     }
-
-    // MARK: - Actions
-
-    /// True when pressing this button would do exactly what the switch beside
-    /// it does.
-    ///
-    /// §6.1 already says the switch is the only way to turn a feature on and
-    /// off; this is that rule applied to the buttons a feature offers, so that
-    /// «Выключить общий буфер» never appears two centimetres from the switch
-    /// labelled with the same feature.
-    static func duplicatesSwitch(_ title: String) -> Bool {
-        switchLabels.contains(title)
-    }
-
-    private static let switchLabels: Set<String> = [
-        "Включить микрофон", "Выключить микрофон",
-        "Включить общий буфер", "Выключить общий буфер",
-        "Включить проброс", "Выключить проброс",
-    ]
 
     // MARK: - Tables
 
     private static let scrubs: [(pattern: String, replacement: String)] = [
         // «DualSense Wireless Controller» 054C:0CE6 → «DualSense Wireless Controller»
         (#"\s*\b[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}\b"#, ""),
-        // ", устройство отвечает 0xE00002C1" and any other bare hex code.
+        // ", the device answers 0xE00002C1" and any other bare hex code.
         (#",?\s*[^,.]*\b0x[0-9A-Fa-f]{4,}\b"#, ""),
-    ]
-
-    /// Protocol words that reached the surface. Longest first: «приёмнику»
-    /// has to be replaced before «приёмник» can eat its stem.
-    private static let glossary: [(String, String)] = [
-        ("приёмник ещё не подтвердил, что собрал виртуальное устройство", "Windows его пока не видит"),
-        ("output-репорты", "обратные команды"),
-        ("приёмника", "Windows"),
-        ("приёмнику", "Windows"),
-        ("приёмнике", "Windows"),
-        ("приёмником", "Windows"),
-        ("Приёмник", "Windows"),
-        ("приёмник", "Windows"),
-        ("репортов", "отчётов"),
-        ("репорты", "отчёты"),
     ]
 
     private static let mechanicalMarkers = [
         "NWError", "Errno", "OSStatus", "NSError", "Error Domain", "error 0x",
     ]
 
+    /// Marker → key. `Network.framework` localises the sentence but not the
+    /// number, so both forms of each meaning are listed.
     private static let errorMeanings: [(String, String)] = [
-        ("Host is down", "Игровой ПК не отвечает"),
-        ("Network is unreachable", "Нет сети"),
-        ("Connection refused", "Игровой ПК не принимает соединение"),
-        ("No route to host", "До игрового ПК нет маршрута"),
-        ("Operation timed out", "Игровой ПК не ответил вовремя"),
+        ("Host is down", "error.hostDown"),
+        ("error 64", "error.hostDown"),
+        ("Network is unreachable", "error.noNetwork"),
+        ("error 51", "error.noNetwork"),
+        ("error 50", "error.noNetwork"),
+        ("Connection refused", "error.refused"),
+        ("error 61", "error.refused"),
+        ("No route to host", "error.noRoute"),
+        ("error 65", "error.noRoute"),
+        ("Operation timed out", "error.timedOut"),
+        ("error 60", "error.timedOut"),
     ]
 
-    // MARK: - Plumbing
+    // MARK: - Said before an update, not after
 
-    /// Drops the feature's own name off the front of its headline, or nil when
-    /// the headline does not start with it.
-    ///
-    /// Compared by stem, because «Устройства» and «Устройство» are the same
-    /// word to a reader and two different words to `hasPrefix`.
-    private static func droppingTitle(_ title: String, from headline: String) -> String? {
-        let titleWords = title.split(separator: " ").map(stem)
-        let headlineWords = headline.split(separator: " ")
-        guard titleWords.count < headlineWords.count else { return nil }
-        for (index, word) in titleWords.enumerated() where stem(headlineWords[index]) != word {
-            return nil
-        }
-        let tail = headlineWords.dropFirst(titleWords.count).joined(separator: " ")
-        return lowercasingFirst(tail)
-    }
-
-    /// Crude Russian stemming: drop the inflectional tail so that «устройства»,
-    /// «устройство» and «устройств» compare equal. Good enough for matching a
-    /// feature's own name against its own headline, and used for nothing else.
-    private static func stem(_ word: some StringProtocol) -> String {
-        var text = word.lowercased().filter { $0.isLetter || $0 == "-" }
-        let endings: Set<Character> = ["а", "о", "ы", "и", "е", "я", "ю", "ь", "й", "у"]
-        while let last = text.last, endings.contains(last), text.count > 3 {
-            text.removeLast()
-        }
-        return text
-    }
-
-    private static func lowercasingFirst(_ text: String) -> String {
-        guard let first = text.first, first.isUppercase else { return text }
-        let word = String(text.prefix(while: { $0 != " " })).filter { $0.isLetter }
-        // A sentence loses its capital; a name keeps it.
-        guard !properNouns.contains(word) else { return text }
-        return first.lowercased() + text.dropFirst()
-    }
-
-    /// Said before an update, not after.
-    ///
     /// HexBridge is signed ad-hoc rather than with a Developer ID, and an
     /// ad-hoc signature has no stable identity: the code hash changes with
     /// every build, so after an update macOS treats this as a new application
     /// and TCC asks for the microphone again. Nothing has been reset and
     /// nothing is broken — but a permission prompt right after an update reads
     /// as damage unless it was announced first.
-    static let updateWillReaskForMicrophone =
-        "После обновления macOS ещё раз спросит доступ к микрофону. Это нормально: "
-        + "сборка подписана ad-hoc, и система считает обновлённое приложение новым. "
-        + "Нажмите «Разрешить» — настройки и ключ связывания при этом никуда не денутся."
-
-    /// Words that are capitalised because of what they are, not because of
-    /// where they stand in the sentence.
-    private static let properNouns: Set<String> = [
-        "Windows", "Mac", "macOS", "HexBridge", "Steam", "USB", "HID", "Bluetooth", "DualSense",
-    ]
+    static var updateWillReaskForMicrophone: String {
+        L.t("update.reasksForMicrophone")
+    }
 
     private static func tidy(_ text: String) -> String {
         text
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+([,.;:])"#, with: "$1", options: .regularExpression)
             .replacingOccurrences(of: #"«\s*»"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"“\s*”"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

@@ -1,3 +1,4 @@
+import HexBridgeText
 import SwiftUI
 
 /// The device block inside the popover (§7.1 point 3, §8.7).
@@ -7,10 +8,10 @@ import SwiftUI
 /// popover. Everything else is a one-line row, which is all an unrecognised
 /// wheel or HOTAS can honestly be given.
 ///
-/// Either way it is a picture or a name and nothing else. The rate in reports
-/// per second, the acknowledgement from the other machine, the USB ids — those
-/// answer "почему не работает", and that question is asked in the settings
-/// window, by somebody who has already seen here that it does not.
+/// Either way it is a picture or a name and nothing else. The update rate, the
+/// acknowledgement from the other machine, the USB ids — those answer "why does
+/// it not work", and that question is asked in the settings window, by somebody
+/// who has already seen here that it does not.
 struct DevicesCard: View {
     @Bindable var feature: DevicesFeature
 
@@ -70,7 +71,9 @@ struct DeviceLine: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(device.battery.map { "\(device.product), батарея \($0)" } ?? device.product)
+        .accessibilityLabel(
+            device.battery.map { L.t("dev.line.accessibility", device.product, $0) } ?? device.product
+        )
     }
 }
 
@@ -86,7 +89,7 @@ struct ActivityDot: View {
         Image(systemName: live ? "circle.fill" : "circle")
             .font(.system(size: 8))
             .foregroundStyle(tone.foreground(palette))
-            .accessibilityLabel(live ? "передаёт" : "молчит")
+            .accessibilityLabel(L.t(live ? "dev.activity.live" : "dev.activity.idle"))
     }
 
     /// Two seconds is the same "idle" threshold the visualisation uses.
@@ -111,7 +114,7 @@ struct DevicesSettingsPane: View {
                 // are not smeared across the pane. Both banners that used to
                 // stand here repeated what that card already says.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
+                    if let action = feature.status.primaryAction, !action.togglesFeature {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
@@ -136,16 +139,16 @@ struct DevicesSettingsPane: View {
     @ViewBuilder
     private var picker: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Что пробрасывать")
-            Text("Свободно \(feature.slotsLeft) из \(DeviceBridge.maxDevices).")
+            SectionLabel(text: L.t("dev.section.pick"))
+            Text(L.t("dev.slotsFree", L.plural("slots", feature.slotsLeft), L.integer(DeviceBridge.maxDevices)))
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
 
             if feature.available.isEmpty {
                 EmptyState(
                     symbolName: "cable.connector",
-                    title: "USB-устройств не видно",
-                    text: "Подключите контроллер, руль, педали или HOTAS кабелем USB.",
+                    title: L.t("dev.empty.title"),
+                    text: L.t("dev.empty.text"),
                     action: nil
                 )
             } else {
@@ -187,7 +190,7 @@ struct DevicePickerRow: View {
                         .font(.dsCaption)
                         .foregroundStyle(palette.warnText)
                 } else if row.crowdedOut {
-                    Text("Свободных номеров нет — отключите другое устройство")
+                    Text(L.t("dev.crowdedOut"))
                         .font(.dsCaption)
                         .foregroundStyle(palette.warnText)
                 } else if let warning = row.category.doubleInputWarning {
@@ -203,7 +206,7 @@ struct DevicePickerRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .disabled(!enabled)
-                .accessibilityLabel("Пробрасывать \(row.name)")
+                .accessibilityLabel(L.t("dev.row.forward.accessibility", row.name))
         }
     }
 
@@ -214,7 +217,7 @@ struct DevicePickerRow: View {
     /// ticking this box tells them apart by looking at the desk.
     private var subtitle: String {
         var parts = [row.category.label]
-        if let number = row.forwardedAs { parts.append("номер \(number)") }
+        if let number = row.forwardedAs { parts.append(L.t("dev.row.slot", L.integer(Int(number)))) }
         if row.manufacturer != "—", !row.manufacturer.isEmpty { parts.insert(row.manufacturer, at: 0) }
         return parts.joined(separator: " · ")
     }
@@ -241,7 +244,7 @@ struct DeviceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Устройство \(device.number) · \(device.product)")
+            SectionLabel(text: L.t("dev.card.title", L.integer(Int(device.number)), device.product))
 
             if device.canVisualise {
                 Card(padding: Space.md) {
@@ -281,31 +284,31 @@ struct DeviceCard: View {
             }
 
             HStack(spacing: Space.sm) {
-                MetricTile(caption: "батарея", value: device.battery ?? "—")
-                MetricTile(caption: "отчётов/с", value: String(format: "%.0f", device.reportRate))
-                MetricTile(caption: "передано", value: "\(device.reportsForwarded)")
-                MetricTile(caption: "команд назад", value: "\(device.outputsApplied)")
+                MetricTile(caption: L.t("dev.metric.battery"), value: device.battery ?? L.t("unit.none"))
+                MetricTile(caption: L.t("dev.metric.rate"), value: L.number(device.reportRate, decimals: 0))
+                MetricTile(caption: L.t("dev.metric.forwarded"), value: L.integer(device.reportsForwarded))
+                MetricTile(caption: L.t("dev.metric.commandsBack"), value: L.integer(device.outputsApplied))
             }
 
             // Two lines, both of which can fail and both of which the user can
-            // do something about: replug over USB, or check the link. «Устройство
-            // открыто» was a row that only ever said yes.
+            // do something about: replug over USB, or check the link. "Device is
+            // open" was a row that only ever said yes.
             Card(padding: Space.md) {
                 VStack(alignment: .leading, spacing: Space.sm) {
                     CheckRow(
-                        title: "Подключено кабелем USB",
+                        title: L.t("dev.check.usb"),
                         detail: device.transport,
                         state: device.transport == "USB" ? .ok : .failed
                     )
                     CheckRow(
-                        title: "Windows видит устройство",
-                        detail: device.attachAcknowledged ? "да" : "нет",
+                        title: L.t("dev.check.seen"),
+                        detail: L.t(device.attachAcknowledged ? "answer.yes" : "answer.no"),
                         state: !feature.isEnabled ? .pending : (device.attachAcknowledged ? .ok : .failed)
                     )
                     if device.outputsRejected > 0 {
                         CheckRow(
-                            title: "Вибрация и подсветка",
-                            detail: "не применяются",
+                            title: L.t("dev.check.rumble"),
+                            detail: L.t("dev.check.rumble.no"),
                             state: .failed
                         )
                     }
@@ -316,9 +319,9 @@ struct DeviceCard: View {
 
     private var caption: String {
         switch feature.mood(device) {
-        case .inactive: return "Схема оживёт, когда устройство подключат кабелем"
-        case .reading: return "Нажмите что-нибудь — схема ответит"
-        case .forwarding: return "Windows видит это устройство"
+        case .inactive: return L.t("dev.caption.inactive")
+        case .reading: return L.t("dev.caption.reading")
+        case .forwarding: return L.t("dev.caption.forwarding")
         }
     }
 }

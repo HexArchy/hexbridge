@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import IOKit
 import IOKit.hid
 import IOKit.usb
@@ -29,21 +30,31 @@ enum IOKitError {
         0xE00002F0: "kIOReturnNotFound",
     ]
 
-    /// Extra wording for the codes this project actually has to reason about.
+    /// What the codes this project has to reason about mean to a person, as a
+    /// string key rather than a sentence: `describe` goes in the log and stays
+    /// in one language, `reason` goes on screen and follows the interface.
     private static let hints: [UInt32: String] = [
-        0xE00002C1: "система запретила доступ (нет прав / не подписано)",
-        0xE00002C5: "устройство занято другим процессом эксклюзивно",
-        0xE00002E2: "операция не разрешена",
-        0xE00002CD: "устройство не открыто",
-        0xE00002C0: "устройство отключено",
+        0xE00002C1: "iokit.notPermitted",
+        0xE00002C5: "iokit.busy",
+        0xE00002E2: "iokit.notPermitted",
+        0xE00002CD: "iokit.notOpen",
+        0xE00002C0: "iokit.notAttached",
     ]
 
+    /// For the log and for `devices probe`: the number, the constant's name and
+    /// nothing translated.
     static func describe(_ code: IOReturn) -> String {
         let raw = UInt32(bitPattern: code)
         let hex = String(format: "0x%08X", raw)
         guard let name = names[raw] else { return hex }
-        if let hint = hints[raw] { return "\(hex) \(name) — \(hint)" }
         return "\(hex) \(name)"
+    }
+
+    /// For a banner. Nil when there is nothing worth saying to a person, which
+    /// is most codes — a bare `0xE00002DB` explains nothing and the glossary
+    /// keeps it off the screen.
+    static func reason(_ code: IOReturn) -> String? {
+        hints[UInt32(bitPattern: code)].map(L.t)
     }
 }
 
@@ -441,7 +452,7 @@ enum USBDescriptorReader {
     /// pulls the two descriptors the Windows side needs.
     static func read(startingAt hidService: io_service_t) -> (device: [UInt8]?, configuration: [UInt8]?, error: String?) {
         guard let usbDevice = usbParent(of: hidService) else {
-            return (nil, nil, "родительский IOUSBHostDevice не найден")
+            return (nil, nil, "no parent IOUSBHostDevice")
         }
         defer { IOObjectRelease(usbDevice) }
 

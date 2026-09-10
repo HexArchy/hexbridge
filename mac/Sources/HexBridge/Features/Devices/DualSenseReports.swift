@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 
 /// Pure byte-level codec for the DualSense HID reports.
 ///
@@ -155,17 +156,18 @@ struct GamepadState {
     }
 
     var batteryDescription: String {
-        // U+00A0 before the sign: §10.1 of the design document requires units
-        // to be glued to their number so a line break cannot separate them.
-        let percent = batteryPercent.map { "\($0)\u{00A0}%" } ?? "?"
+        // The U+00A0 before the sign lives in `unit.percent`: §10.1 of the
+        // design document requires units to be glued to their number so a line
+        // break cannot separate them.
+        let percent = batteryPercent.map { L.percent(Double($0), decimals: 0) } ?? "?"
         switch batteryStatus {
-        case 0x0: return "\(percent), разряжается"
-        case 0x1: return "\(percent), заряжается"
-        case 0x2: return "\(percent), заряжен"
-        case 0xa: return "перегрев"
-        case 0xb: return "переохлаждение"
-        case 0xf: return "ошибка батареи"
-        default: return "\(percent), статус 0x\(String(batteryStatus, radix: 16))"
+        case 0x0: return L.t("battery.discharging", percent)
+        case 0x1: return L.t("battery.charging", percent)
+        case 0x2: return L.t("battery.charged", percent)
+        case 0xa: return L.t("battery.overheated")
+        case 0xb: return L.t("battery.tooCold")
+        case 0xf: return L.t("battery.fault")
+        default: return L.t("battery.unknown", percent)
         }
     }
 

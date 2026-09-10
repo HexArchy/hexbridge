@@ -6,12 +6,12 @@ import SwiftUI
 /// decision, not a coding convenience: the user learns the rules once.
 ///
 /// ```
-/// off ──(вкл)──▶ starting ──▶ waiting ──▶ live
+/// off ──(on)───▶ starting ──▶ waiting ──▶ live
 ///  ▲                │            │          │
-///  └──(выкл)────────┴────────────┴──────────┘
+///  └──(off)─────────┴────────────┴──────────┘
 ///                   │
 ///                   ▼
-///                 error ──(исправить)──▶ starting
+///                 error ──(fixed)──▶ starting
 /// ```
 enum FeatureState: String, Sendable {
     /// Switched off by the user. Not a problem, and never shown as one.
@@ -85,7 +85,33 @@ enum Tone: Sendable {
 struct FeatureAction: Identifiable {
     let id = UUID()
     let title: String
+    /// True when pressing this button would do exactly what the feature's own
+    /// switch does. §6.1 says the switch is the only way to turn a feature on
+    /// and off, so a button that duplicates it is dropped rather than drawn two
+    /// centimetres away from it.
+    ///
+    /// A flag rather than a comparison against a list of button titles, which is
+    /// what this was: a list of titles stops working the moment there are two
+    /// sets of them.
+    var togglesFeature = false
     let perform: () -> Void
+
+    init(title: String, togglesFeature: Bool = false, perform: @escaping () -> Void) {
+        self.title = title
+        self.togglesFeature = togglesFeature
+        self.perform = perform
+    }
+}
+
+/// The word a feature's state is announced with in the popover.
+///
+/// Seven words, the same seven for every feature and the same seven on Windows;
+/// docs/GLOSSARY.md is the authority and holds both languages. `muted` and
+/// `notAvailable` are the two that do not follow from `FeatureState` on their
+/// own — the first is a `live` substate, the second is a thing this platform
+/// cannot do at all and must never be shown as a switch somebody could flip.
+enum StateWord: String, Sendable {
+    case off, starting, waiting, working, muted, notWorking, unavailable
 }
 
 /// Everything the shell is allowed to know about a feature.
@@ -96,13 +122,28 @@ struct FeatureAction: Identifiable {
 struct FeatureStatus {
     var state: FeatureState = .off
     var tone: Tone = .off
-    /// The single sentence that answers "работает или нет" (§7.0).
+    /// The single sentence that answers "does it work or not" (§7.0).
     var headline: String = ""
-    /// The second line: где, чем, почему. May be empty.
+    /// The second line: where, with what, why. May be empty.
     var detail: String = ""
     /// Shown instead of telemetry when the feature cannot work at all.
     var alert: String?
+    /// Overrides the word the popover announces this state with. Set only where
+    /// `state` and `tone` cannot say it — "muted" is the one case on macOS.
+    var wordOverride: StateWord?
     var primaryAction: FeatureAction?
+
+    /// The word this state is announced with in the popover.
+    var word: StateWord {
+        if let wordOverride { return wordOverride }
+        switch state {
+        case .off: return .off
+        case .starting: return .starting
+        case .waiting: return .waiting
+        case .live: return .working
+        case .error: return .notWorking
+        }
+    }
 
     /// §7.1: the summary in the header is the worst state among enabled
     /// features. This is the ordering that makes "worst" well defined.

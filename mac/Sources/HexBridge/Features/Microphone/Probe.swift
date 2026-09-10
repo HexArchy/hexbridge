@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 
 /// Captures for a few seconds and reports what CoreAudio actually delivers.
 ///
@@ -31,18 +32,22 @@ enum MicProbe {
 
         try probe.start(deviceSelector: deviceSelector)
 
-        log("устройство: \(probe.deviceName)")
-        log("формат входа: \(probe.inputFormatDescription)")
+        log(L.t("probe.device", probe.deviceName))
+        log(L.t("probe.format", probe.inputFormatDescription))
         Thread.sleep(forTimeInterval: seconds)
         probe.stop()
 
         lock.lock()
         defer { lock.unlock() }
         let expected = Int(seconds * 50)
-        log("кадров за \(Int(seconds)) с: \(frames) (ожидается ~\(expected))")
-        log("нечисловых сэмплов: \(badSamples)")
+        log(L.t("probe.frames", L.integer(Int(seconds)), L.integer(frames), L.integer(expected)))
+        log(L.t("probe.badSamples", L.integer(badSamples)))
         if frames > 0 && badSamples < frames * VoiceEncoder.frameSamples {
-            log(String(format: "диапазон: %.6f … %.6f", minimum, maximum))
+            log(L.t(
+                "probe.range",
+                L.number(Double(minimum), decimals: 6),
+                L.number(Double(maximum), decimals: 6)
+            ))
         }
     }
 }

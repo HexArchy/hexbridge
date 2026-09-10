@@ -275,7 +275,7 @@ final class HapticPlayer {
 
     private func start() -> Bool {
         guard let output = findOutput() else {
-            note("контроллер не виден как аудиоустройство — HD-хаптика недоступна")
+            note("the controller is not visible as an audio device — HD haptics are unavailable")
             return false
         }
 
@@ -291,7 +291,7 @@ final class HapticPlayer {
             componentFlagsMask: 0
         )
         guard let component = AudioComponentFindNext(nil, &description) else {
-            note("в системе нет HAL output unit")
+            note("the system has no HAL output unit")
             return false
         }
 

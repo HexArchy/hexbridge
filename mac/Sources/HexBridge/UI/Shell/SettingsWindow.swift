@@ -1,3 +1,4 @@
+import HexBridgeText
 import SwiftUI
 
 /// The settings window (§7.1, macOS).
@@ -24,7 +25,7 @@ struct SettingsWindow: View {
 
     private var panes: [Pane] {
         var list = [
-            Pane(id: "general", title: "Основное", symbol: "gearshape",
+            Pane(id: "general", title: L.t("settings.pane.general"), symbol: "gearshape",
                  content: AnyView(GeneralPane(model: model)))
         ]
         list += model.features.map { feature in
@@ -32,9 +33,9 @@ struct SettingsWindow: View {
                  content: feature.settingsPane())
         }
         list += [
-            Pane(id: "link", title: "Соединение", symbol: "network",
+            Pane(id: "link", title: L.t("settings.pane.link"), symbol: "network",
                  content: AnyView(ConnectionPane(model: model))),
-            Pane(id: "diagnostics", title: "Диагностика", symbol: "stethoscope",
+            Pane(id: "diagnostics", title: L.t("settings.pane.diagnostics"), symbol: "stethoscope",
                  content: AnyView(DiagnosticsPane(model: model))),
         ]
         return list
@@ -60,11 +61,11 @@ struct SettingsWindow: View {
 
     /// HIG: "Update the window's title to reflect the currently visible pane."
     private var paneTitle: String {
-        panes.first { $0.id == model.selectedPane }?.title ?? "Настройки"
+        panes.first { $0.id == model.selectedPane }?.title ?? L.t("settings.title")
     }
 }
 
-// MARK: - Общее
+// MARK: - General
 
 struct GeneralPane: View {
     @Bindable var model: AppModel
@@ -73,15 +74,16 @@ struct GeneralPane: View {
 
     var body: some View {
         Form {
-            Section("Запуск") {
-                Toggle("Запускать при входе в систему", isOn: $model.autostart)
+            Section(L.t("settings.general.startup")) {
+                Toggle(L.t("settings.general.openAtLogin"), isOn: $model.autostart)
                 Text(model.autostartNote)
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
             }
 
-            Section("Оформление") {
-                Picker("Тема", selection: Binding(get: { model.theme }, set: { model.theme = $0 })) {
+            Section(L.t("settings.general.appearance")) {
+                Picker(L.t("settings.general.theme"),
+                       selection: Binding(get: { model.theme }, set: { model.theme = $0 })) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
                         Text(theme.title).tag(theme)
                     }
@@ -89,7 +91,27 @@ struct GeneralPane: View {
                 .pickerStyle(.segmented)
             }
 
-            Section("Фичи") {
+            // Three options, no restart, and no warning that one is needed:
+            // `Themed` keys the whole view tree on this value, so the window
+            // rewrites itself between one frame and the next. The note under the
+            // picker says what «Системный» means and nothing else, because
+            // there is nothing else to say.
+            Section(L.t("settings.general.language.section")) {
+                Picker(L.t("settings.general.language"),
+                       selection: Binding(get: { model.language }, set: { model.language = $0 })) {
+                    ForEach(AppLanguage.available, id: \.self) { language in
+                        Text(title(of: language)).tag(language)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(L.t("settings.general.language.note"))
+                    .font(.dsCaption)
+                    .foregroundStyle(palette.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section(L.t("settings.general.features")) {
                 // No feature is named here either: this list is the contract.
                 ForEach(model.features, id: \.id) { feature in
                     Toggle(isOn: Binding(get: { feature.isEnabled }, set: { feature.isEnabled = $0 })) {
@@ -103,8 +125,8 @@ struct GeneralPane: View {
                 }
             }
 
-            Section("Обновления") {
-                Toggle("Проверять обновления раз в сутки", isOn: Binding(
+            Section(L.t("settings.general.updates")) {
+                Toggle(L.t("settings.general.checkDaily"), isOn: Binding(
                     get: { model.checksForUpdates },
                     set: { model.checksForUpdates = $0 }
                 ))
@@ -130,13 +152,16 @@ struct GeneralPane: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Button("Проверить сейчас") { model.updater.checkNow() }
+                Button(L.t("settings.general.checkNow")) { model.updater.checkNow() }
                     .disabled(!model.updater.isAvailable)
             }
 
-            Section("О программе") {
-                LabeledContent("Версия", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")
-                Text("«PlayStation» и «DualSense» — товарные знаки Sony Interactive Entertainment Inc. HexBridge не связан с Sony; изображение контроллера в приложении — собственная схематичная абстракция, а не воспроизведение продукта.")
+            Section(L.t("settings.general.about")) {
+                LabeledContent(
+                    L.t("settings.general.version"),
+                    value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+                )
+                Text(L.t("settings.general.trademarks"))
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
                     .fixedSize(horizontal: false, vertical: true)
@@ -146,9 +171,16 @@ struct GeneralPane: View {
         }
         .formStyle(.grouped)
     }
+
+    /// The three options name themselves: a language menu that says
+    /// «Английский» to a reader who does not read Russian is no help at all, so
+    /// each language is written the way its own speakers write it.
+    private func title(of language: AppLanguage) -> String {
+        L.t("language.\(language.rawValue)")
+    }
 }
 
-// MARK: - Соединение
+// MARK: - Connection
 
 struct ConnectionPane: View {
     @Bindable var model: AppModel
@@ -157,24 +189,24 @@ struct ConnectionPane: View {
 
     var body: some View {
         Form {
-            // §7.4 puts «Проверить связь» here, and this is the only place in
+            // §7.4 puts "Check the link" here, and this is the only place in
             // the app that has it: it is one check for all three features, so
             // repeating it in every card said the same thing three times.
             Section {
                 if model.config.paired == true, let peer = model.config.peerName {
-                    LabeledContent("Связан с", value: peer)
+                    LabeledContent(L.t("link.pairedWith"), value: peer)
                 }
-                TextField("Адрес игрового ПК", text: $model.target, prompt: Text("192.168.1.10:47702"))
-                TextField("Имя этого Mac", text: $model.nodeName)
+                TextField(L.t("link.address"), text: $model.target, prompt: Text(verbatim: "192.168.1.10:47702"))
+                TextField(L.t("link.macName"), text: $model.nodeName)
                 HStack {
-                    Button("Проверить связь") { model.openLinkCheck() }
-                    Button("Связать заново") { model.openPairing() }
+                    Button(L.t("action.checkLink")) { model.openLinkCheck() }
+                    Button(L.t("link.pairAgain")) { model.openPairing() }
                     Spacer()
                 }
             } header: {
-                Text("Игровой ПК")
+                Text(L.t("link.section.pc"))
             } footer: {
-                Text("Порт по умолчанию — 47702.")
+                Text(L.t("link.defaultPort"))
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
             }
@@ -187,31 +219,31 @@ struct ConnectionPane: View {
                     onGenerate: { model.generatePSK() }
                 )
                 if let fingerprint = model.fingerprint {
-                    LabeledContent("Отпечаток") {
+                    LabeledContent(L.t("link.fingerprint")) {
                         FingerprintLabel(fingerprint: fingerprint)
                     }
                 }
             } header: {
-                Text("Общий ключ")
+                Text(L.t("link.section.key"))
             } footer: {
-                Text("Должен совпадать на Mac и на ПК. Сверить проще по отпечатку.")
+                Text(L.t("link.key.footer"))
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
             }
 
-            DisclosureGroup("Дополнительно") {
-                Picker("Битрейт", selection: $model.bitrate) {
+            DisclosureGroup(L.t("link.advanced")) {
+                Picker(L.t("link.bitrate"), selection: $model.bitrate) {
                     ForEach([16000, 24000, 32000, 48000, 64000], id: \.self) { rate in
-                        Text("\(rate / 1000) кбит/с").tag(rate)
+                        Text(L.kilobits(perSecond: rate)).tag(rate)
                     }
                 }
                 Stepper(
-                    "Ожидаемые потери: \(model.expectedLossPercent) %",
+                    L.t("link.expectedLoss", L.percent(Double(model.expectedLossPercent), decimals: 0)),
                     value: $model.expectedLossPercent,
                     in: 0...50,
                     step: 5
                 )
-                .help("Выше значение — устойчивее звук и больше трафика.")
+                .help(L.t("link.expectedLoss.help"))
             }
 
             RestartBanner(model: model)
@@ -220,7 +252,7 @@ struct ConnectionPane: View {
     }
 }
 
-// MARK: - Диагностика
+// MARK: - Diagnostics
 
 struct DiagnosticsPane: View {
     @Bindable var model: AppModel
@@ -229,15 +261,15 @@ struct DiagnosticsPane: View {
 
     var body: some View {
         Form {
-            // «Проверить связь» is not repeated here: it lives on the
-            // «Соединение» pane, which is where §7.4 puts it and where somebody
+            // "Check the link" is not repeated here: it lives on the
+            // Connection pane, which is where §7.4 puts it and where somebody
             // looking for the address will already be.
-            Section("Проверки") {
+            Section(L.t("diag.section.checks")) {
                 HStack {
                     Button {
                         model.runProbe()
                     } label: {
-                        Label("Проверить микрофон", systemImage: "waveform.badge.magnifyingglass")
+                        Label(L.t("diag.checkMicrophone"), systemImage: "waveform.badge.magnifyingglass")
                             .labelStyle(.titleAndIcon)
                     }
                     .disabled(model.probeRunning)
@@ -255,24 +287,24 @@ struct DiagnosticsPane: View {
                 }
             }
 
-            Section("Файлы") {
-                LabeledContent("Журнал") {
+            Section(L.t("diag.section.files")) {
+                LabeledContent(L.t("diag.log")) {
                     HStack {
                         Text(LaunchAgent.logURL.path)
                             .font(.dsCaption)
                             .truncationMode(.head)
                             .lineLimit(1)
-                        Button("Показать") { model.revealLog() }
+                        Button(L.t("diag.reveal")) { model.revealLog() }
                     }
                 }
-                LabeledContent("Конфиг") {
+                LabeledContent(L.t("diag.config")) {
                     Text(model.runtime.configPath.path)
                         .font(.dsCaption)
                         .truncationMode(.head)
                         .lineLimit(1)
                 }
-                Button("Скопировать отчёт") { model.copyReport() }
-                    .help("Версии, конфиг без ключа и последние 200 строк журнала")
+                Button(L.t("diag.copyReport")) { model.copyReport() }
+                    .help(L.t("diag.copyReport.help"))
             }
 
             if let notice = model.noticeText {
@@ -280,7 +312,7 @@ struct DiagnosticsPane: View {
                     InlineAlert(
                         text: notice,
                         tone: .warn,
-                        action: FeatureAction(title: "Понятно") { model.noticeText = nil }
+                        action: FeatureAction(title: L.t("action.gotIt")) { model.noticeText = nil }
                     )
                 }
             }
@@ -301,9 +333,9 @@ struct RestartBanner: View {
         if model.needsRestart {
             Section {
                 InlineAlert(
-                    text: "Новые настройки применятся после перезапуска передачи.",
+                    text: L.t("restart.notice"),
                     tone: .warn,
-                    action: FeatureAction(title: "Перезапустить") {
+                    action: FeatureAction(title: L.t("restart.action")) {
                         model.saveNow()
                         model.restartPipeline()
                     }

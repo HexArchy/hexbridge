@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import Observation
 import SwiftUI
 
@@ -18,9 +19,9 @@ import SwiftUI
 @MainActor
 final class ClipboardFeature: Feature {
     let id = "clipboard"
-    let title = "Буфер обмена"
+    var title: String { L.t("clip.title") }
     let symbolName = "doc.on.clipboard"
-    let summary = "Скопированное на Mac появляется на игровом ПК и наоборот. Содержимое буфера — включая пароли — уходит на другую машину."
+    var summary: String { L.t("clip.summary") }
 
     /// The pasteboard is read four times a second. macOS has no change
     /// notification, so this is the whole mechanism; `changeCount` is cheap and
@@ -47,7 +48,7 @@ final class ClipboardFeature: Feature {
     init(host: FeatureHost, surface: ClipboardSurface = SystemPasteboard()) {
         self.host = host
         self.sync = ClipboardSync(surface: surface)
-        status = FeatureStatus(state: .off, tone: .off, headline: "Общий буфер выключен")
+        status = FeatureStatus(state: .off, tone: .off, headline: L.t("clip.off.headline"))
     }
 
     // MARK: - Feature
@@ -95,8 +96,9 @@ final class ClipboardFeature: Feature {
         running = false
 
         let bulk = host.runtime.bulk
-        // «принято: 0 — не нужно». With the feature off we must not pull somebody's
-        // clipboard across the wire, and a refusal is the only thing the ack can say.
+        // "already have it, do not send". With the feature off we must not pull
+        // somebody's clipboard across the wire, and a refusal is the only thing
+        // the acknowledgement can say.
         bulk.owns = { _ in true }
         bulk.onDelivered = nil
         bulk.onFinished = nil
@@ -196,9 +198,9 @@ final class ClipboardFeature: Feature {
             return FeatureStatus(
                 state: .off,
                 tone: .off,
-                headline: "Общий буфер выключен",
-                detail: "Ничего скопированного этот Mac никуда не отправляет.",
-                primaryAction: FeatureAction(title: "Включить общий буфер") { [weak self] in
+                headline: L.t("clip.off.headline"),
+                detail: L.t("clip.off.detail"),
+                primaryAction: FeatureAction(title: L.t("clip.action.turnOn"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = true
                 }
             )
@@ -208,9 +210,9 @@ final class ClipboardFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Общий буфер не настроен",
-                detail: "Укажите адрес приёмника и общий ключ — это делается один раз.",
-                primaryAction: FeatureAction(title: "Настроить") { [weak self] in
+                headline: L.t("clip.unconfigured.headline"),
+                detail: L.t("mic.unconfigured.detail"),
+                primaryAction: FeatureAction(title: L.t("action.setUp")) { [weak self] in
                     self?.host.openPairing()
                 }
             )
@@ -220,10 +222,10 @@ final class ClipboardFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Буфер обмена не передаётся",
+                headline: L.t("clip.failed.headline"),
                 detail: failure,
                 alert: failure,
-                primaryAction: FeatureAction(title: "Выключить общий буфер") { [weak self] in
+                primaryAction: FeatureAction(title: L.t("clip.action.turnOff"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = false
                 }
             )
@@ -233,22 +235,22 @@ final class ClipboardFeature: Feature {
             return FeatureStatus(
                 state: .waiting,
                 tone: .warn,
-                headline: "Ждёт запуска передачи",
-                detail: "Буфер обмена поедет по тому же каналу, что и звук. Пока канал не поднят, скопированное остаётся здесь.",
-                primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                headline: L.t("clip.waiting.headline"),
+                detail: L.t("clip.waiting.detail"),
+                primaryAction: FeatureAction(title: L.t("action.checkLink")) { [weak self] in
                     self?.host.openLinkCheck()
                 }
             )
         }
 
         if let flight {
-            let verb = flight.direction == .outgoing ? "Отправляем" : "Принимаем"
+            let key = flight.direction == .outgoing ? "clip.sending.headline" : "clip.receiving.headline"
             return FeatureStatus(
                 state: .live,
                 tone: .ok,
-                headline: "\(verb): \(flight.description)",
-                detail: String(format: "%.0f %%", flight.fraction * 100),
-                primaryAction: FeatureAction(title: "Выключить общий буфер") { [weak self] in
+                headline: L.t(key, flight.description),
+                detail: L.percent(flight.fraction * 100, decimals: 0),
+                primaryAction: FeatureAction(title: L.t("clip.action.turnOff"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = false
                 }
             )
@@ -257,9 +259,9 @@ final class ClipboardFeature: Feature {
         return FeatureStatus(
             state: .live,
             tone: .ok,
-            headline: "Буфер обмена общий",
+            headline: L.t("clip.live.headline"),
             detail: lastText,
-            primaryAction: FeatureAction(title: "Выключить общий буфер") { [weak self] in
+            primaryAction: FeatureAction(title: L.t("clip.action.turnOff"), togglesFeature: true) { [weak self] in
                 self?.isEnabled = false
             }
         )
@@ -269,31 +271,27 @@ final class ClipboardFeature: Feature {
 
     var lastText: String {
         guard let lastDescription, let lastAt, let lastDirection else {
-            return "Скопируйте что-нибудь — оно появится на другой машине."
+            return L.t("clip.last.none")
         }
-        let where_ = lastDirection == .outgoing ? "ушло на ПК" : "пришло с ПК"
-        return "Последнее: \(lastDescription), \(where_) \(Self.when(since: lastAt))."
+        let direction = L.t(lastDirection == .outgoing ? "clip.last.out" : "clip.last.in")
+        return L.t("clip.last.line", lastDescription, direction, Self.when(since: lastAt))
     }
 
     var lastDirectionText: String {
         switch lastDirection {
-        case .outgoing: return "с этого Mac на ПК"
-        case .incoming: return "с ПК на этот Mac"
-        case nil: return "—"
+        case .outgoing: return L.t("clip.direction.out")
+        case .incoming: return L.t("clip.direction.in")
+        case nil: return L.t("unit.none")
         }
     }
 
     var lastWhenText: String {
-        guard let lastAt else { return "—" }
+        guard let lastAt else { return L.t("unit.none") }
         return Self.when(since: lastAt)
     }
 
     private static func when(since date: Date) -> String {
-        let ago = Date().timeIntervalSince(date)
-        if ago < 10 { return "только что" }
-        if ago < 60 { return "\(Int(ago)) с назад" }
-        if ago < 3600 { return "\(Int(ago / 60)) мин назад" }
-        return "\(Int(ago / 3600)) ч назад"
+        L.ago(Date().timeIntervalSince(date))
     }
 
     // MARK: - Views

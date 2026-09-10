@@ -314,7 +314,7 @@ struct DiscoveryMatchTests {
         let choice = DiscoveryMatch.choose(
             ownTag: nil, hosts: [host("GAMING-PC", "192.168.1.10", Vectors.ourTag)])
 
-        #expect(choice.reason.contains("код"))
+        #expect(choice.reason == .noKeyOfOurOwn)
     }
 
     @Test("Совпадение без адреса — ещё не совпадение")
@@ -331,7 +331,7 @@ struct DiscoveryMatchTests {
         let choice = DiscoveryMatch.choose(ownTag: Vectors.ourTag, hosts: [])
 
         #expect(choice.verdict == .noMatch)
-        #expect(choice.reason.contains("не видно"))
+        #expect(choice.reason == .networkEmpty)
     }
 
     // MARK: - Хост переехал

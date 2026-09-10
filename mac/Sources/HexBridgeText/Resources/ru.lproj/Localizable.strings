@@ -1,0 +1,548 @@
+/* HexBridge — русские строки интерфейса.
+
+   Это не перевод, сделанный заново: интерфейс был написан по-русски, и здесь
+   лежит ровно та формулировка, которая уже стояла в коде. Английский файл рядом
+   — оригинал по смыслу и точка отсчёта для ключей: набор ключей в двух файлах
+   совпадает, и у каждого ключа одни и те же подстановки в одном и том же
+   порядке. За этим следит LocalizationTests.
+
+   Словарь общий с Windows и лежит в docs/GLOSSARY.md. Три правила из него легко
+   нарушить по невнимательности: семь слов состояния одни и те же для всех фич,
+   слов «приёмник» и «отправитель» в тексте для человека нет вовсе (человек
+   думает не про роли, а про то, где стоит микрофон), и нигде нет восклицательных
+   знаков и извинений. */
+
+/* MARK: - Единицы и числа */
+
+/* Везде U+00A0: число и единицу нельзя разносить по разным строкам. */
+"unit.percent" = "%@\U00A0%%";
+"unit.ms" = "%@\U00A0мс";
+"unit.kbits" = "%@\U00A0кбит/с";
+"unit.hz" = "%@\U00A0Гц";
+"unit.mb" = "%@\U00A0МБ";
+"unit.kb" = "%@\U00A0КБ";
+"unit.bytes" = "%@\U00A0Б";
+"unit.seconds" = "%@\U00A0с";
+"unit.minutes" = "%@\U00A0мин";
+"unit.hoursMinutes" = "%@\U00A0ч %@\U00A0мин";
+"unit.gain" = "%@×";
+"unit.none" = "—";
+
+"ago.justNow" = "только что";
+"ago.seconds" = "%@\U00A0с назад";
+"ago.minutes" = "%@\U00A0мин назад";
+"ago.hours" = "%@\U00A0ч назад";
+
+/* Кавычки вокруг имени устройства или машины. */
+"quoted" = "«%@»";
+
+"packets.one" = "%d пакет";
+"packets.few" = "%d пакета";
+"packets.many" = "%d пакетов";
+"packets.other" = "%d пакетов";
+
+"devices.one" = "%d устройство";
+"devices.few" = "%d устройства";
+"devices.many" = "%d устройств";
+"devices.other" = "%d устройств";
+
+"channels.one" = "%d канал";
+"channels.few" = "%d канала";
+"channels.many" = "%d каналов";
+"channels.other" = "%d каналов";
+
+"blocks.one" = "%d блок";
+"blocks.few" = "%d блока";
+"blocks.many" = "%d блоков";
+"blocks.other" = "%d блоков";
+
+"slots.one" = "%d место";
+"slots.few" = "%d места";
+"slots.many" = "%d мест";
+"slots.other" = "%d мест";
+
+/* MARK: - Семь слов состояния (GLOSSARY.md, «States»)
+
+   Строчными: в попапе они стоят под жирным именем фичи и читаются одной
+   колонкой. «здесь недоступно» — это не «выключено»: одно человек может
+   включить, другое эта платформа просто не умеет. */
+
+"state.off" = "выключено";
+"state.starting" = "запускается";
+"state.waiting" = "ждёт Windows";
+"state.working" = "работает";
+"state.muted" = "заглушен";
+"state.notWorking" = "не работает";
+"state.unavailable" = "здесь недоступно";
+
+/* MARK: - Общие глаголы */
+
+"action.setUp" = "Настроить";
+"action.checkLink" = "Проверить связь";
+"action.retry" = "Повторить";
+"action.gotIt" = "Понятно";
+"answer.yes" = "да";
+"answer.no" = "нет";
+
+/* MARK: - Оболочка */
+
+"app.summary.allOff" = "Всё выключено";
+"app.summary.allWorking" = "Всё работает";
+"app.peer.none" = "игровой ПК не выбран";
+
+"popover.settings" = "Настройки…";
+"popover.quit" = "Выйти";
+
+"window.pairing" = "Подключиться к ПК";
+
+/* MARK: - Настройки, разделы */
+
+"settings.title" = "Настройки";
+"settings.pane.general" = "Основное";
+"settings.pane.link" = "Соединение";
+"settings.pane.diagnostics" = "Диагностика";
+
+/* MARK: - Настройки, «Основное» */
+
+"settings.general.startup" = "Запуск";
+"settings.general.openAtLogin" = "Запускать при входе в систему";
+"settings.general.appearance" = "Оформление";
+"settings.general.theme" = "Тема";
+"settings.general.language.section" = "Язык";
+"settings.general.language" = "Язык интерфейса";
+"settings.general.language.note" = "Смена применяется сразу. «Системный» — это язык, на который настроена macOS.";
+"settings.general.features" = "Фичи";
+"settings.general.updates" = "Обновления";
+"settings.general.checkDaily" = "Проверять обновления раз в сутки";
+"settings.general.checkNow" = "Проверить сейчас";
+"settings.general.about" = "О программе";
+"settings.general.version" = "Версия";
+"settings.general.trademarks" = "«PlayStation» и «DualSense» — товарные знаки Sony Interactive Entertainment Inc. HexBridge не связан с Sony; изображение контроллера в приложении — собственная схематичная абстракция, а не воспроизведение продукта.";
+
+"theme.system" = "Системная";
+"theme.light" = "Светлая";
+"theme.dark" = "Тёмная";
+
+"language.system" = "Системный";
+"language.en" = "English";
+"language.ru" = "Русский";
+
+"autostart.loaded" = "Агент %@ загружен.";
+"autostart.nextLogin" = "Запустится при следующем входе в систему.";
+"autostart.offButRunning" = "Автозапуск выключен, текущий процесс продолжит работать.";
+"autostart.off" = "Автозапуск выключен.";
+"autostart.failed" = "автозапуск: %@";
+
+"update.notBundled" = "Эта сборка запущена не из HexBridge.app — обновлять нечего. Соберите приложение через mac/scripts/build-app.sh.";
+"update.notBundled.short" = "Эта сборка запущена не из HexBridge.app, обновляться ей нечем.";
+"update.version" = "Версия %@. Ставится только по вашей команде.";
+"update.lastCheck" = "Последняя проверка: %@.";
+"update.noVersion" = "не из бандла";
+"update.reasksForMicrophone" = "После обновления macOS ещё раз спросит доступ к микрофону. Это нормально: сборка подписана ad-hoc, и система считает обновлённое приложение новым. Нажмите «Разрешить» — настройки и ключ связывания при этом никуда не денутся.";
+
+/* MARK: - Настройки, «Соединение» */
+
+"link.section.pc" = "Игровой ПК";
+"link.pairedWith" = "Связан с";
+"link.address" = "Адрес игрового ПК";
+"link.macName" = "Имя этого Mac";
+"link.pairAgain" = "Связать заново";
+"link.defaultPort" = "Порт по умолчанию — 47702.";
+"link.section.key" = "Общий ключ";
+"link.fingerprint" = "Отпечаток";
+"link.key.footer" = "Должен совпадать на Mac и на ПК. Сверить проще по отпечатку.";
+"link.advanced" = "Дополнительно";
+"link.bitrate" = "Битрейт";
+"link.expectedLoss" = "Ожидаемые потери: %@";
+"link.expectedLoss.help" = "Выше значение — устойчивее звук и больше трафика.";
+
+/* MARK: - Настройки, «Диагностика» */
+
+"diag.section.checks" = "Проверки";
+"diag.checkMicrophone" = "Проверить микрофон";
+"diag.section.files" = "Файлы";
+"diag.log" = "Журнал";
+"diag.reveal" = "Показать";
+"diag.config" = "Конфиг";
+"diag.copyReport" = "Скопировать отчёт";
+"diag.copyReport.help" = "Версии, конфиг без ключа и последние 200 строк журнала";
+"diag.reportCopied" = "Отчёт скопирован в буфер обмена.";
+
+"restart.notice" = "Новые настройки применятся после перезапуска передачи.";
+"restart.action" = "Перезапустить";
+
+/* MARK: - Сам отчёт диагностики */
+
+"report.title" = "HexBridge — отчёт диагностики";
+"report.date" = "дата";
+"report.macos" = "macOS";
+"report.language" = "язык";
+"report.config" = "конфиг";
+"report.address" = "адрес";
+"report.key" = "ключ";
+"report.key.missing" = "не задан";
+"report.key.present" = "задан, отпечаток %@";
+"report.input" = "устройство ввода";
+"report.input.systemDefault" = "системное по умолчанию";
+"report.input.value" = "%@ (сейчас: %@)";
+"report.audio" = "звук";
+"report.audio.value" = "%@, ожидаемые потери %@";
+"report.features" = "фичи";
+"report.log" = "последние строки журнала:";
+
+/* MARK: - Проверка микрофона (видна в «Диагностике») */
+
+"probe.running" = "проверяю три секунды…";
+"probe.failed" = "ошибка: %@";
+"probe.device" = "устройство: %@";
+"probe.format" = "формат входа: %@";
+"probe.frames" = "кадров за %@ с: %@ (ожидается ~%@)";
+"probe.badSamples" = "нечисловых сэмплов: %@";
+"probe.range" = "диапазон: %@ … %@";
+
+/* MARK: - Мастер связывания */
+
+"pair.title.choose" = "Подключиться к ПК";
+"pair.title.code" = "Ввести код";
+"pair.title.check" = "Проверка связи";
+"pair.title.done" = "Готово";
+"pair.subtitle.choose" = "Ключ создаётся на игровом ПК и переносится сюда целиком вместе с адресом. На Mac ничего генерировать не нужно.";
+"pair.subtitle.code" = "Введите двенадцать символов, которые HexBridge показал на экране ПК, и адрес ПК в сети.";
+"pair.subtitle.check" = "Шесть проверок подряд. Каждая говорит, что именно работает, а что нет.";
+
+"pair.back" = "Назад";
+"pair.checking" = "Идёт проверка…";
+"pair.checkAgain" = "Проверить ещё раз";
+"pair.close" = "Закрыть";
+
+"pair.link.section" = "Ссылка с ПК";
+"pair.link.text" = "Самый короткий путь: скопируйте ссылку с экрана ПК и вставьте её сюда. Ссылка несёт и адрес, и ключ, и имя машины.";
+"pair.link.paste" = "Вставить";
+"pair.link.apply" = "Связать";
+
+"pair.code.section" = "Короткий код";
+"pair.code.text" = "Если ссылку скопировать некуда — на ПК есть код из двенадцати символов.";
+"pair.code.enter" = "Ввести код";
+"pair.code.fromScreen" = "Код с экрана ПК";
+"pair.code.address" = "Адрес ПК в сети";
+"pair.code.hint" = "HexBridge на ПК показывает этот адрес рядом с кодом. Обмен идёт на порт %@ и живёт три минуты.";
+"pair.code.asking" = "Спрашиваю ПК…";
+"pair.code.fetch" = "Получить ключ";
+"pair.code.warning" = "Обмен по короткому коду на стороне Windows пишется отдельно и на момент сборки этой версии ещё не существовал. Если ПК не отвечает — это ожидаемо; воспользуйтесь ссылкой.";
+
+"pair.discovery.section" = "Автопоиск в сети";
+"pair.discovery.searching" = "Ищу HexBridge в локальной сети…";
+"pair.discovery.idle" = "Mac находит игровой ПК сам, если тот в той же сети и HexBridge на нём запущен.";
+"pair.discovery.failed" = "Поиск не работает: %@. Ссылка и код работают как обычно.";
+"pair.discovery.stop" = "Остановить поиск";
+"pair.discovery.start" = "Искать";
+"pair.discovery.choose" = "Выбрать";
+"pair.discovery.confirm" = "Найденный ПК ещё нужно подтвердить кодом с его экрана — сам по себе Mac подключается только к ПК, с которым уже связан.";
+
+"pair.noCamera" = "Сканирования QR камерой в этой версии нет. Оно требует разрешения на камеру и появится вместе с экраном QR на стороне Windows — до тех пор кнопки, которая ничего не делает, здесь не будет.";
+
+"pair.done.peer" = "Звук идёт на «%@».";
+"pair.done.generic" = "Связь настроена.";
+"pair.done.hint" = "В играх выбирайте микрофон Steam Streaming Microphone.";
+"pair.done.tick" = "Проверка пройдена";
+
+"pair.applied" = "Связано с «%@» — %@.";
+"pair.notALink" = "Ссылка не распознана как код связывания HexBridge.";
+"pair.pcFallbackName" = "ПК";
+
+"pairing.error.notALink" = "Это не ссылка HexBridge. Ссылка начинается с hexbridge://pair";
+"pairing.error.malformed" = "Ссылка неполная — в ней нет адреса или порта";
+"pairing.error.version" = "Ссылка версии %@, эта версия HexBridge понимает только %@";
+"pairing.error.badKey" = "Ключ в ссылке не 32 байта в base64";
+"pairing.error.unreachable" = "ПК не отвечает по этому адресу — %@";
+"pairing.error.refused" = "ПК не принял код. Проверьте, что мастер связывания на ПК ещё открыт";
+"pairing.error.badAnswer" = "ПК ответил, но не ссылкой связывания";
+
+/* MARK: - Автопоиск */
+
+"discovery.ours" = "это ваш ПК";
+"discovery.unpaired" = "ещё ни с кем не связан";
+"discovery.stranger" = "связан с другим Mac";
+"discovery.found" = "Игровой ПК найден в сети: %@.";
+"discovery.moved" = "Игровой ПК переехал на %@. Адрес обновлён сам, связывать заново не нужно.";
+
+/* MARK: - Проверка связи */
+
+"check.row.resolve" = "Адрес разрешается";
+"check.row.packets" = "Пакеты доходят";
+"check.row.keys" = "Ключи совпадают";
+"check.row.accepts" = "Windows принимает поток";
+"check.row.audio" = "Звук проходит насквозь";
+"check.row.devices" = "Проброшенные устройства";
+
+"check.notChecked" = "не проверено";
+"check.noAddress" = "адрес не задан";
+"check.noAddress.why" = "Укажите адрес игрового ПК в разделе «Соединение».";
+"check.unresolved" = "имя не разрешается";
+"check.unresolved.why" = "«%@» не превращается в IP-адрес. Проверьте написание или укажите адрес цифрами.";
+"check.packets.ok" = "пакеты доходят";
+"check.silent" = "ответа нет за три секунды";
+"check.silent.why" = "Пакеты уходят на %@:%@, но подтверждений оттуда нет. Проверьте, что на игровом ПК запущен HexBridge и что порт UDP %@ открыт.";
+"check.keys.unproven.why" = "Ключи проверяются по ответу с ПК. Ответа нет, поэтому проверить нечего. Отпечаток ключа на этом Mac: %@";
+"check.keys.mismatch" = "ключи не совпадают";
+"check.keys.mismatch.why" = "Пакеты доходят до Windows, но расшифровать их там не получается — на Mac и на ПК записаны разные ключи. Отпечаток на этом Mac: %@";
+"check.stream.detail" = "%@, потери %@";
+"check.stream.none.why" = "Windows отвечает, но ни одного пакета со звуком не досчиталась. Включите микрофон и повторите проверку.";
+"check.audio.notInProtocol" = "нет в протоколе";
+"check.audio.why" = "Сквозная проверка требует, чтобы Windows присылала свой уровень звука. В текущей версии протокола такого поля нет — проверьте звук в самой игре.";
+"check.devices.off" = "проброс выключен";
+"check.devices.none" = "ничего не выбрано";
+"check.devices.none.why" = "По умолчанию не пробрасывается ничего. Выберите устройства в настройках — по одному, явно.";
+"check.devices.ok" = "%@ — Windows подтвердила";
+"check.devices.silent" = "от Windows нет ответа про %@";
+"check.devices.silent.why" = "Устройство прочитано на Mac, но с ПК подтверждения нет — виртуальное устройство на Windows, скорее всего, не создано.";
+"check.devices.absent" = "выбранные устройства не подключены";
+"check.devices.absent.why" = "Подключите выбранные устройства к Mac кабелем USB. По Bluetooth проброс не работает: Windows нужны USB-дескрипторы.";
+"check.badPort" = "неверный порт";
+
+"check.verdict.ok" = "Всё работает";
+"check.verdict.noAddress" = "Адрес игрового ПК не задан";
+"check.verdict.unresolved" = "Адрес не разрешается";
+"check.verdict.noAnswer" = "Windows не отвечает";
+"check.verdict.keys" = "Ключи не совпадают";
+"check.verdict.audio" = "Звук не доходит до Windows";
+"check.verdict.devices" = "Устройства не проброшены";
+
+"check.result.peer" = "Звук идёт на «%@». В играх выбирайте микрофон Steam Streaming Microphone.";
+"check.result.generic" = "Windows отвечает.";
+"check.result.failed" = "Ниже раскрыт только тот пункт, который не прошёл.";
+
+/* MARK: - Микрофон */
+
+"mic.title" = "Микрофон";
+"mic.summary" = "Звук с этого Mac уходит на игровой ПК и подставляется играм как обычный микрофон.";
+
+"mic.off.headline" = "Микрофон выключен";
+"mic.off.detail" = "Звук на игровой ПК не отправляется. Включите фичу, когда она понадобится.";
+"mic.off.emptyText" = "Звук на игровой ПК не отправляется.";
+"mic.action.turnOn" = "Включить микрофон";
+"mic.action.unmute" = "Включить микрофон";
+"mic.action.mute" = "Заглушить";
+"mic.action.start" = "Запустить";
+"mic.action.privacy" = "Открыть настройки конфиденциальности";
+
+"mic.unconfigured.headline" = "Микрофон не настроен";
+"mic.unconfigured.detail" = "Укажите адрес игрового ПК и общий ключ — это делается один раз.";
+
+"mic.denied.headline" = "Нет доступа к микрофону";
+"mic.denied.detail" = "macOS не разрешает HexBridge читать вход. Разрешение выдаётся один раз в «Системных настройках».";
+
+"mic.unreachable.headline" = "Игровой ПК недоступен";
+"mic.unreachable.detail" = "Звук пойдёт сам, как только ПК включится. Проверять ничего не нужно.";
+
+"mic.failed.headline" = "Передача не запустилась";
+"mic.starting.headline" = "Запускается";
+"mic.stopped.headline" = "Передача остановлена";
+"mic.stopped.detail" = "Захват звука не запущен.";
+
+"mic.muted.headline" = "Микрофон заглушен";
+"mic.muted.detail" = "Windows знает про мьют и держит соединение.";
+
+"mic.waiting.headline" = "Ждёт Windows";
+"mic.waiting.detail" = "Звук отправляется на %@, но оттуда никто не отвечает.";
+
+"mic.loss.headline" = "Потери в сети — %@";
+"mic.loss.detail" = "Звук восстанавливается, но местами слышны артефакты. Помогает проводное подключение или увеличение буфера в дополнительных настройках.";
+
+"mic.live.headline" = "Звук идёт";
+"mic.live.detail" = "Игры видят его как «Steam Streaming Microphone».";
+"mic.live.detail.peer" = "Игры на %@ видят его как «Steam Streaming Microphone».";
+
+"mic.mute.accessibility" = "Заглушить микрофон";
+"mic.unmute.accessibility" = "Включить микрофон";
+
+"mic.unpaired.title" = "Mac и игровой ПК ещё не связаны";
+"mic.unpaired.text" = "Это занимает около минуты и делается один раз.";
+"mic.unpaired.action" = "Начать настройку";
+
+"mic.section.telemetry" = "Телеметрия";
+"mic.metric.packets" = "пакетов/с";
+"mic.metric.latency" = "задержка";
+"mic.metric.latency.help" = "Время до игрового ПК и обратно. Оценка: точная цифра требует синхронных часов на обеих машинах.";
+"mic.metric.uptime" = "аптайм";
+"mic.metric.loss" = "потери";
+"mic.section.level" = "Уровень";
+"mic.gain" = "Усиление";
+"mic.section.input" = "Вход";
+"mic.device" = "Устройство";
+"mic.device.systemDefault" = "Системный по умолчанию";
+"mic.device.row" = "%@ — %@";
+"mic.capturingNow" = "Сейчас захватывается";
+
+/* MARK: - Буфер обмена */
+
+"clip.title" = "Буфер обмена";
+"clip.summary" = "Скопированное на Mac появляется на игровом ПК и наоборот. Содержимое буфера — включая пароли — уходит на другую машину.";
+
+"clip.off.headline" = "Общий буфер выключен";
+"clip.off.detail" = "Ничего скопированного этот Mac никуда не отправляет.";
+"clip.off.emptyText" = "Скопированное на этом Mac никуда не уходит.";
+"clip.action.turnOn" = "Включить общий буфер";
+"clip.action.turnOff" = "Выключить общий буфер";
+
+"clip.unconfigured.headline" = "Общий буфер не настроен";
+"clip.failed.headline" = "Буфер обмена не передаётся";
+
+"clip.waiting.headline" = "Ждёт запуска передачи";
+"clip.waiting.detail" = "Буфер обмена поедет по тому же каналу, что и звук. Пока канал не поднят, скопированное остаётся здесь.";
+
+"clip.sending.headline" = "Отправляем: %@";
+"clip.receiving.headline" = "Принимаем: %@";
+"clip.live.headline" = "Буфер обмена общий";
+
+"clip.last.none" = "Скопируйте что-нибудь — оно появится на другой машине.";
+"clip.last.line" = "Последнее: %@, %@ %@.";
+"clip.last.out" = "ушло на ПК";
+"clip.last.in" = "пришло с ПК";
+"clip.direction.out" = "с этого Mac на ПК";
+"clip.direction.in" = "с ПК на этот Mac";
+
+"clip.privacy" = "Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG.";
+"clip.progress.blocks" = "%@ из %@";
+"clip.section.last" = "Последняя передача";
+"clip.metric.sent" = "отправлено";
+"clip.metric.received" = "принято";
+"clip.metric.when" = "когда";
+"clip.footer.none" = "Пока ничего не передавалось. Записывается вид и размер объекта, не содержимое.";
+"clip.footer.last" = "%@ — %@. Записывается вид и размер объекта, не содержимое.";
+
+"clip.item.text" = "текст, %@";
+"clip.item.image" = "изображение, %@";
+"clip.item.data" = "данные, %@";
+
+/* MARK: - Устройства */
+
+"dev.title" = "Устройства";
+"dev.summary" = "Выбранные USB-устройства остаются подключёнными к Mac: HexBridge читает их, не забирая устройство у системы и у Steam.";
+
+"dev.off.headline" = "Проброс выключен";
+"dev.off.reading.headline" = "Устройства читаются, проброс выключен";
+"dev.off.detail.nothing" = "Ни одно устройство на ПК не пробрасывается.";
+"dev.off.detail.chosen" = "Выбрано %@, но проброс выключен.";
+"dev.off.detail.reading" = "%@. Windows их пока не видит.";
+"dev.action.turnOn" = "Включить проброс";
+"dev.action.turnOff" = "Выключить проброс";
+
+"dev.nothingChosen.headline" = "Ничего не выбрано";
+"dev.nothingChosen.detail" = "По умолчанию не пробрасывается ничего. Отметьте нужные устройства в списке ниже — по одному.";
+
+"dev.absent.headline" = "Выбранные устройства не подключены";
+"dev.absent.detail" = "Подключите их к Mac кабелем USB. По Bluetooth проброс не работает: Windows нужны USB-дескрипторы, а их отдаёт только USB-стек.";
+
+"dev.error.headline" = "Устройство не читается";
+
+"dev.waiting.headline" = "Ждёт Windows";
+"dev.partial.headline" = "Windows подтвердила не всё";
+"dev.waiting.detail" = "%@ — Windows пока не собрала виртуальное устройство.";
+
+"dev.blocked.headline" = "Вибрация и подсветка не проходят";
+"dev.blocked.detail" = "macOS не пропускает к устройству обратные команды от этого приложения. Кнопки, стики и сенсоры работают, вибрация и подсветка — нет.";
+
+"dev.crowded.headline" = "Проброшено %@ из %@";
+"dev.crowded.detail" = "Больше четырёх одновременно протокол не несёт. Не поместились: %@.";
+
+"dev.live.oneDevice" = "Устройство проброшено";
+"dev.live.headline" = "Проброшено %@";
+"dev.live.detail" = "Windows видит %@.";
+
+"dev.section.pick" = "Что пробрасывать";
+"dev.slotsFree" = "Свободно %@ из %@.";
+"dev.empty.title" = "USB-устройств не видно";
+"dev.empty.text" = "Подключите контроллер, руль, педали или HOTAS кабелем USB.";
+"dev.crowdedOut" = "Свободных мест нет — отключите другое устройство";
+"dev.row.slot" = "место %@";
+"dev.row.forward.accessibility" = "Пробрасывать %@";
+
+"dev.card.title" = "Устройство %@ · %@";
+"dev.metric.battery" = "батарея";
+"dev.metric.rate" = "обновлений/с";
+"dev.metric.forwarded" = "передано";
+"dev.metric.commandsBack" = "команд назад";
+"dev.check.usb" = "Подключено кабелем USB";
+"dev.check.seen" = "Windows видит устройство";
+"dev.check.rumble" = "Вибрация и подсветка";
+"dev.check.rumble.no" = "не применяются";
+"dev.caption.inactive" = "Схема оживёт, когда устройство подключат кабелем";
+"dev.caption.reading" = "Нажмите что-нибудь — схема ответит";
+"dev.caption.forwarding" = "Windows видит это устройство";
+"dev.line.accessibility" = "%@, батарея %@";
+"dev.activity.live" = "передаёт";
+"dev.activity.idle" = "молчит";
+
+"device.category.gamepad" = "Контроллер";
+"device.category.keyboard" = "Клавиатура";
+"device.category.pointer" = "Мышь или трекпад";
+"device.category.hid" = "HID-устройство";
+"device.warning.keyboard" = "Клавиатура остаётся подключённой к Mac: набранное будет печататься одновременно здесь и на ПК.";
+"device.warning.pointer" = "Мышь остаётся подключённой к Mac: курсор будет двигаться одновременно здесь и на ПК.";
+"device.ineligible.builtIn" = "Встроенное устройство Mac — не пробрасывается";
+"device.ineligible.notUSB" = "Не USB — дескрипторы прочитать нельзя";
+
+"battery.discharging" = "%@, разряжается";
+"battery.charging" = "%@, заряжается";
+"battery.charged" = "%@, заряжен";
+"battery.overheated" = "перегрев";
+"battery.tooCold" = "переохлаждение";
+"battery.fault" = "ошибка батареи";
+"battery.unknown" = "%@";
+
+/* MARK: - Общие элементы */
+
+"key.reveal" = "Показать";
+"key.copy" = "Скопировать";
+"key.generate" = "Сгенерировать";
+
+"meter.muted" = "заглушено";
+"meter.peak" = "пик %@ dBFS";
+"meter.silence" = "тишина";
+"meter.accessibility" = "Уровень: %@";
+
+"fingerprint.accessibility" = "Отпечаток ключа: %@";
+"steps.accessibility" = "Шаг %@ из %@";
+"spinner.accessibility" = "Идёт проверка";
+"featureRow.accessibility" = "Включить: %@";
+"statusCard.accessibility" = "%@. %@";
+
+/* MARK: - Сбои, сказанные человеку
+
+   GLOSSARY.md: без кодов ошибок и никаких «Не удалось…» — говорим, что именно
+   не происходит. Нетронутый оригинал по-прежнему уходит в журнал. */
+
+"error.generic" = "Не удалось соединиться с игровым ПК";
+"error.hostDown" = "Игровой ПК не отвечает";
+"error.noNetwork" = "Нет сети";
+"error.refused" = "Игровой ПК не принимает соединение";
+"error.noRoute" = "До игрового ПК нет маршрута";
+"error.timedOut" = "Игровой ПК не ответил вовремя";
+
+"config.error.noAddress" = "не задан адрес игрового ПК";
+"config.error.badKey" = "общий ключ должен быть 32 байта в base64 — сгенерируйте через `hexbridge keygen`";
+"config.saveFailed" = "не удалось записать конфиг: %@";
+
+"capture.error.denied" = "доступ к микрофону не выдан (Системные настройки → Конфиденциальность и безопасность → Микрофон)";
+"capture.error.deviceNotFound" = "устройство ввода не найдено: %@";
+"capture.error.selectDevice" = "не удалось выбрать устройство ввода";
+"capture.error.noFormat" = "у устройства ввода нет пригодного формата";
+"capture.error.converter" = "не удалось создать конвертер в 48 кГц моно";
+"capture.error.engine" = "звуковой движок не запустился: %@";
+
+"runtime.error.notStarted" = "передача не запущена";
+"sender.error.descriptorTooBig" = "описание устройства не помещается в один пакет";
+"bulk.error.empty" = "нечего передавать: объект пуст";
+"bulk.error.tooLarge" = "объект больше 16 МБ — это уже передача файлов, а не буфер обмена";
+
+"devices.error.subscribe" = "не удалось подписаться на подключение и отключение USB";
+"devices.error.open" = "не удалось открыть «%@»";
+"devices.error.descriptors" = "«%@»: описание устройства прочитано не полностью";
+"devices.error.featureReport" = "часть состояния устройства прочитать не удалось";
+"devices.error.write" = "устройство не принимает команды";
+
+"iokit.notPermitted" = "система запретила доступ";
+"iokit.busy" = "устройство занято другой программой";
+"iokit.notOpen" = "устройство не открыто";
+"iokit.notAttached" = "устройство отключено";

@@ -1,11 +1,13 @@
+import HexBridgeText
 import SwiftUI
 
 /// The microphone block inside the menu bar popover (§7.1 point 2).
 ///
-/// A moving bar and a mute button. The bar answers "звук идёт или нет" before
-/// anybody has read a word, and mute is the one thing people open this popover
-/// to press — everything else the microphone knows (пакетов/с, RTT, потери) is
-/// diagnostics and lives one window away, in the settings pane.
+/// A moving bar and a mute button. The bar answers "is sound going through"
+/// before anybody has read a word, and mute is the one thing people open this
+/// popover to press — everything else the microphone knows (packets per second,
+/// round trip, loss) is diagnostics and lives one window away, in the settings
+/// pane.
 struct MicrophoneCard: View {
     @Bindable var feature: MicrophoneFeature
 
@@ -31,8 +33,10 @@ struct MicrophoneCard: View {
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut("m", modifiers: .command)
-                .help(feature.isMuted ? "Включить микрофон" : "Заглушить")
-                .accessibilityLabel(feature.isMuted ? "Включить микрофон" : "Заглушить микрофон")
+                .help(feature.isMuted ? L.t("mic.action.unmute") : L.t("mic.action.mute"))
+                .accessibilityLabel(
+                    feature.isMuted ? L.t("mic.unmute.accessibility") : L.t("mic.mute.accessibility")
+                )
             }
         }
     }
@@ -57,7 +61,7 @@ struct MicrophoneSettingsPane: View {
                 // switch's counterpart in its empty state, so the status card
                 // keeps only what the empty state cannot say.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
+                    if let action = feature.status.primaryAction, !action.togglesFeature {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
@@ -67,16 +71,16 @@ struct MicrophoneSettingsPane: View {
                 if !feature.isEnabled {
                     EmptyState(
                         symbolName: "mic.slash",
-                        title: "Микрофон выключен",
-                        text: "Звук на игровой ПК не отправляется.",
-                        action: FeatureAction(title: "Включить микрофон") { feature.isEnabled = true }
+                        title: L.t("mic.off.headline"),
+                        text: L.t("mic.off.emptyText"),
+                        action: FeatureAction(title: L.t("mic.action.turnOn")) { feature.isEnabled = true }
                     )
                 } else if !(model?.config.isConfigured ?? false) {
                     EmptyState(
                         symbolName: "link.badge.plus",
-                        title: "Mac и игровой ПК ещё не связаны",
-                        text: "Это занимает около минуты и делается один раз.",
-                        action: FeatureAction(title: "Начать настройку") { host.openPairing() }
+                        title: L.t("mic.unpaired.title"),
+                        text: L.t("mic.unpaired.text"),
+                        action: FeatureAction(title: L.t("mic.unpaired.action")) { host.openPairing() }
                     )
                 } else {
                     telemetry
@@ -91,13 +95,13 @@ struct MicrophoneSettingsPane: View {
 
     private var telemetry: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Телеметрия")
+            SectionLabel(text: L.t("mic.section.telemetry"))
             HStack(spacing: Space.sm) {
-                MetricTile(caption: "пакетов/с", value: "\(feature.packetsPerSecond)")
-                MetricTile(caption: "задержка", value: feature.rttText,
-                           help: "Время до игрового ПК и обратно. Оценка: нужны синхронные часы на обеих машинах.")
-                MetricTile(caption: "аптайм", value: feature.uptimeText)
-                MetricTile(caption: "потери", value: feature.lossText)
+                MetricTile(caption: L.t("mic.metric.packets"), value: L.integer(feature.packetsPerSecond))
+                MetricTile(caption: L.t("mic.metric.latency"), value: feature.rttText,
+                           help: L.t("mic.metric.latency.help"))
+                MetricTile(caption: L.t("mic.metric.uptime"), value: feature.uptimeText)
+                MetricTile(caption: L.t("mic.metric.loss"), value: feature.lossText)
             }
             Sparkline(samples: feature.history, tone: feature.status.tone == .ok ? .ok : .warn)
                 .frame(height: 44)
@@ -106,13 +110,13 @@ struct MicrophoneSettingsPane: View {
 
     private var levels: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Уровень")
+            SectionLabel(text: L.t("mic.section.level"))
             LevelMeter(peak: feature.peak, muted: feature.isMuted)
             if let model {
                 HStack {
-                    Text("Усиление").font(.dsLabel).foregroundStyle(palette.textDim)
+                    Text(L.t("mic.gain")).font(.dsLabel).foregroundStyle(palette.textDim)
                     Slider(value: Binding(get: { model.gain }, set: { model.gain = $0 }), in: 0.1...8)
-                    Text(String(format: "%.2f×", model.gain))
+                    Text(L.t("unit.gain", L.number(model.gain, decimals: 2)))
                         .font(.dsLabel.monospacedDigit())
                         .foregroundStyle(palette.text)
                         .frame(width: 56, alignment: .trailing)
@@ -125,17 +129,18 @@ struct MicrophoneSettingsPane: View {
     private var input: some View {
         if let model {
             VStack(alignment: .leading, spacing: Space.sm) {
-                SectionLabel(text: "Вход")
-                Picker("Устройство", selection: Binding(
+                SectionLabel(text: L.t("mic.section.input"))
+                Picker(L.t("mic.device"), selection: Binding(
                     get: { model.inputDeviceSelector },
                     set: { model.inputDeviceSelector = $0 }
                 )) {
-                    Text("Системный по умолчанию").tag("")
+                    Text(L.t("mic.device.systemDefault")).tag("")
                     ForEach(model.devices, id: \.uid) { device in
-                        Text("\(device.name) — \(device.inputChannels) ch").tag(device.uid)
+                        Text(L.t("mic.device.row", device.name, L.plural("channels", device.inputChannels)))
+                            .tag(device.uid)
                     }
                 }
-                LabeledContent("Сейчас захватывается") {
+                LabeledContent(L.t("mic.capturingNow")) {
                     Text(feature.deviceName).font(.dsLabel).foregroundStyle(palette.text)
                 }
                 .font(.dsLabel)

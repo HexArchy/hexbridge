@@ -12,14 +12,48 @@ public enum DiscoveryVerdict: Equatable, Sendable {
     case unpaired
 }
 
+/// Why the verdict came out the way it did.
+///
+/// A value rather than a sentence. This target is the same file on both
+/// platforms and knows nothing about either interface's language; the app turns
+/// one of these into words, and `sentence` below is for the command line and for
+/// the log, which stay in English on purpose.
+public enum DiscoveryReason: Equatable, Sendable {
+    /// The browser has not been started, so nothing has been decided yet.
+    case notSearching
+    /// This Mac has no key of its own, so it has no tag to compare.
+    case noKeyOfOurOwn
+    /// A host published our tag, at this address.
+    case tagMatched(String)
+    /// Nothing is visible on the network at all.
+    case networkEmpty
+    /// Hosts are visible, none of them ours.
+    case onlyStrangers(Int)
+
+    /// English, for `hexbridge discover` and for the log.
+    public var sentence: String {
+        switch self {
+        case .notSearching:
+            return "the network search is not running"
+        case .noKeyOfOurOwn:
+            return "this Mac is not paired with any PC yet — it needs the short code from the PC screen"
+        case .tagMatched(let target):
+            return "the tag matched: \(target)"
+        case .networkEmpty:
+            return "no HexBridge is visible on this network"
+        case .onlyStrangers(let count):
+            return "\(count) HexBridge visible on this network, none of them ours"
+        }
+    }
+}
+
 /// The outcome of one pass over the browse results.
 public struct DiscoveryChoice: Equatable, Sendable {
     public var verdict: DiscoveryVerdict
     public var host: DiscoveredHost?
-    /// One sentence the interface can show as is.
-    public var reason: String
+    public var reason: DiscoveryReason
 
-    public init(verdict: DiscoveryVerdict, host: DiscoveredHost? = nil, reason: String) {
+    public init(verdict: DiscoveryVerdict, host: DiscoveredHost? = nil, reason: DiscoveryReason) {
         self.verdict = verdict
         self.host = host
         self.reason = reason
@@ -28,10 +62,9 @@ public struct DiscoveryChoice: Equatable, Sendable {
     public var shouldConnect: Bool { verdict == .connect }
 
     /// Before the browser has been started there is nothing to decide, and
-    /// saying «ни один хост не наш» then would be a lie about a search that
-    /// never happened.
-    public static let idle = DiscoveryChoice(
-        verdict: .noMatch, host: nil, reason: "Поиск в сети не запущен.")
+    /// saying "none of these hosts is ours" then would be a lie about a search
+    /// that never happened.
+    public static let idle = DiscoveryChoice(verdict: .noMatch, host: nil, reason: .notSearching)
 }
 
 /// The one rule autodiscovery exists to enforce, with no socket anywhere near
@@ -47,7 +80,7 @@ public struct DiscoveryChoice: Equatable, Sendable {
 /// It still gets the list — that is what saves typing an address — but turning a
 /// row of that list into a pairing needs the short code off the host's screen.
 /// Without that rule the first stranger's host on the network would become
-/// «свой», which is the whole thing being guarded against.
+/// "ours", which is the whole thing being guarded against.
 ///
 /// Mirrored in `win/src/HexBridge.Core/Discovery.cs`; the two are held together
 /// by the same vectors on both sides.
@@ -57,7 +90,7 @@ public enum DiscoveryMatch {
             return DiscoveryChoice(
                 verdict: .unpaired,
                 host: nil,
-                reason: "Этот Mac ещё не связан ни с одним ПК — нужен короткий код с экрана ПК."
+                reason: .noKeyOfOurOwn
             )
         }
 
@@ -66,15 +99,13 @@ public enum DiscoveryMatch {
             // resolved yet is not a match yet, and taking it would blank out a
             // target that works.
             guard !host.address.isEmpty else { continue }
-            return DiscoveryChoice(verdict: .connect, host: host, reason: "Метка совпала: \(host.target)")
+            return DiscoveryChoice(verdict: .connect, host: host, reason: .tagMatched(host.target))
         }
 
         return DiscoveryChoice(
             verdict: .noMatch,
             host: nil,
-            reason: hosts.isEmpty
-                ? "В сети не видно ни одного HexBridge."
-                : "В сети \(hosts.count) HexBridge, но ни один из них не наш."
+            reason: hosts.isEmpty ? .networkEmpty : .onlyStrangers(hosts.count)
         )
     }
 

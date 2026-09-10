@@ -1,4 +1,5 @@
 import AppKit
+import HexBridgeText
 import MenuBarExtraAccess
 import SwiftUI
 
@@ -20,7 +21,7 @@ struct HexBridgeApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            Themed(theme: model.theme) {
+            Themed(theme: model.theme, language: model.language) {
                 PopoverView(model: model)
             }
             .environment(\.motionSettings, MotionSettings.shared)
@@ -52,7 +53,7 @@ struct HexBridgeApp: App {
         }
 
         Settings {
-            Themed(theme: model.theme) {
+            Themed(theme: model.theme, language: model.language) {
                 SettingsWindow(model: model)
             }
             .environment(\.motionSettings, MotionSettings.shared)
@@ -62,8 +63,8 @@ struct HexBridgeApp: App {
         // The pairing wizard is a window of its own, not a popover step: a
         // popover closes on the first click outside it, and pairing involves
         // reading a code off another screen (§9.3).
-        Window("Подключиться к ПК", id: WindowRouter.pairingWindowID) {
-            Themed(theme: model.theme) {
+        Window(L.t("window.pairing"), id: WindowRouter.pairingWindowID) {
+            Themed(theme: model.theme, language: model.language) {
                 PairingWindow(model: model)
             }
             .environment(\.motionSettings, MotionSettings.shared)
@@ -83,12 +84,13 @@ struct HexBridgeApp: App {
         WindowRouter.shared.installScriptingHook { popoverPresented = true }
     }
 
-    /// Ровно один экземпляр: побеждает свежезапущенный.
+    /// Exactly one instance: the one that has just been launched wins.
     ///
-    /// Без этого приложение открывается сколько угодно раз, и каждая копия
-    /// держит свой захват звука и свой значок в строке меню. Копия, поднятая
-    /// launchd, будет перезапущена им и снимет ручную — процесс сходится к
-    /// одному экземпляру, а не зацикливается.
+    /// Without this the app opens as many times as it is asked to, and every
+    /// copy holds its own audio capture and its own menu bar icon. A copy
+    /// started by launchd will be restarted by launchd and will take the
+    /// hand-started one down — the process converges on a single instance
+    /// rather than looping.
     private static func terminateOtherInstances() {
         guard let me = Bundle.main.bundleIdentifier else { return }
         let others = NSRunningApplication
@@ -100,7 +102,8 @@ struct HexBridgeApp: App {
             app.terminate()
         }
 
-        // Даём им уйти по-хорошему; звуковой захват освобождается не мгновенно.
+        // Give them a chance to leave cleanly; audio capture is not released
+        // instantly.
         let deadline = Date().addingTimeInterval(2)
         while Date() < deadline, others.contains(where: { !$0.isTerminated }) {
             Thread.sleep(forTimeInterval: 0.05)
@@ -127,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The app bundle is LSUIElement, but the bare binary from
         // `.build/release` is not: without this it grabs a Dock icon and focus.
         NSApp.setActivationPolicy(.accessory)
-        print("hexbridge: интерфейс запущен, pid \(getpid())")
+        print("hexbridge: interface up, pid \(getpid())")
         MainActor.assumeIsolated {
             AppBootstrap.model?.onLaunch()
         }
@@ -141,12 +144,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for url in urls {
                 if case .success(let payload) = Pairing.parse(url) {
                     model.apply(payload)
-                    model.note("Связано с «\(payload.machineName)» — \(payload.target).")
+                    model.note(L.t("pair.applied", payload.machineName, payload.target))
                     WindowRouter.shared.open(.pairing)
                     return
                 }
             }
-            model.note("Ссылка не распознана как код связывания HexBridge.")
+            model.note(L.t("pair.notALink"))
         }
     }
 
@@ -155,6 +158,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppBootstrap.model?.saveNow()
             AppBootstrap.model?.runtime.stop()
         }
-        print("hexbridge: интерфейс завершён")
+        print("hexbridge: interface finished")
     }
 }

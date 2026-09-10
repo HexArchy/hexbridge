@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 
 /// What a bulk object is for. The kind is what lets one reliable channel carry
 /// several features: the clipboard today, file transfer later, with no new
@@ -431,7 +432,7 @@ final class BulkChannel: @unchecked Sendable {
             deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
                 transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
             )))
-            onNote?("bulk: объект уже есть — не тянем")
+            onNote?("bulk: the object is already here, not pulling it")
             return
         }
 
@@ -475,9 +476,9 @@ final class BulkChannel: @unchecked Sendable {
                     state.hashFailures += 1
                     if state.hashFailures >= maxHashFailures {
                         incoming.removeValue(forKey: transferID)
-                        note = "bulk: объект трижды пришёл битым — отказываемся"
+                        note = "bulk: the object arrived corrupt three times, giving up"
                     } else {
-                        note = "bulk: хеш не сошёлся, просим объект заново (попытка \(state.hashFailures))"
+                        note = "bulk: hash mismatch, asking for the object again (attempt \(state.hashFailures))"
                         state.forget()
                         state.lastAckAt = now
                         packets.append((.bulkAck, BulkCodec.encode(ack: state.buildAck(accepted: true))))
@@ -567,7 +568,7 @@ final class BulkChannel: @unchecked Sendable {
                 if transfer.offerAttempts >= Bulk.maxOfferAttempts {
                     outgoing.removeValue(forKey: transfer.id)
                     results.append(transfer.result(.noAnswer))
-                    notes.append("bulk: приёмник не ответил на десять предложений")
+                    notes.append("bulk: ten offers went unanswered")
                     continue
                 }
 
@@ -594,7 +595,7 @@ final class BulkChannel: @unchecked Sendable {
             if now.timeIntervalSince(transfer.lastAckAt) > Bulk.sendingSilenceTimeout {
                 outgoing.removeValue(forKey: transfer.id)
                 results.append(transfer.result(.stalled))
-                notes.append("bulk: подтверждения прекратились")
+                notes.append("bulk: acknowledgements stopped")
                 continue
             }
 
@@ -826,9 +827,9 @@ enum BulkError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .empty:
-            return "нечего передавать: объект пуст"
-        case .tooLarge(let size):
-            return "объект больше 16 МиБ (\(size / (1024 * 1024)) МиБ) — это уже передача файлов"
+            return L.t("bulk.error.empty")
+        case .tooLarge:
+            return L.t("bulk.error.tooLarge")
         }
     }
 }

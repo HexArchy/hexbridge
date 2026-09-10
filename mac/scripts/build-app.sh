@@ -9,7 +9,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP="${1:-build/HexBridge.app}"
-IDENTIFIER="ru.hexarch.hexbridge"
+# Переопределяется только для отладочной копии, которую надо запустить рядом с
+# установленным агентом: идентификатор бандла — это и то, по чему приложение
+# снимает свои прежние экземпляры, и то, к чему привязано разрешение на
+# микрофон. Копия с другим идентификатором не трогает ни то, ни другое.
+IDENTIFIER="${HEXBRIDGE_IDENTIFIER:-ru.hexarch.hexbridge}"
 # CFBundleShortVersionString is what the user reads; CFBundleVersion is what
 # Sparkle compares, and it has to increase with every release or an update is
 # offered to nobody. A tag drives both in CI (see .github/workflows/release.yml).
@@ -31,9 +35,32 @@ swift build -c release --disable-keychain --disable-netrc
 
 echo "==> собираю $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
 
 cp .build/release/HexBridge "$APP/Contents/MacOS/HexBridge"
+
+# Обе языковые таблицы — в Contents/Resources, туда, где их кладёт любое другое
+# приложение macOS и где Bundle.main находит их само.
+#
+# Не в виде SwiftPM-бандла: аксессор Bundle.module ищет ресурсы рядом с
+# исполняемым файлом и в каталоге сборки пакета, а Contents/Resources не является
+# ни тем, ни другим — и при неудаче он не возвращает nil, а убивает процесс.
+# Поэтому строки едут отдельно, а HexBridgeText ищет их сам (StringsBundle).
+for LPROJ in Sources/HexBridgeText/Resources/*.lproj; do
+    cp -R "$LPROJ" "$APP/Contents/Resources/"
+done
+echo "==> строки: $(ls -d "$APP"/Contents/Resources/*.lproj | xargs -n1 basename | tr '\n' ' ')"
+
+# Текст запроса на микрофон показывает система, а не мы, и берёт она его по
+# языку macOS, а не по выбранному в приложении. Английский — в Info.plist,
+# русский — здесь; переключатель в настройках на этот диалог не влияет, и это
+# ровно то поведение, которого пользователь от системного диалога ждёт.
+cat > "$APP/Contents/Resources/ru.lproj/InfoPlist.strings" <<'PLIST_STRINGS'
+"NSMicrophoneUsageDescription" = "HexBridge передаёт звук микрофона на игровой ПК во время стрима.";
+PLIST_STRINGS
+cat > "$APP/Contents/Resources/en.lproj/InfoPlist.strings" <<'PLIST_STRINGS'
+"NSMicrophoneUsageDescription" = "HexBridge sends microphone audio to the gaming PC while you stream.";
+PLIST_STRINGS
 
 # Sparkle is a framework with XPC services nested inside it; it has to travel in
 # the bundle, and the binary has to be able to find it there.
@@ -56,6 +83,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>$IDENTIFIER</string>
     <key>CFBundleName</key>
     <string>HexBridge</string>
+    <!-- Интерфейс двуязычный: английский по умолчанию, русский вторым. Сами
+         строки лежат в Contents/Resources/<lang>.lproj/Localizable.strings, а
+         выбор языка — в конфиге приложения; здесь только то, что нужно знать
+         системе. -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ru</string>
+    </array>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -67,7 +105,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>HexBridge передаёт звук микрофона на игровой ПК во время стрима.</string>
+    <string>HexBridge sends microphone audio to the gaming PC while you stream.</string>
     <!-- Обновления (docs/UPDATES.md). SUPublicEDKey — публичная половина ключа
          подписи: Sparkle проверяет EdDSA-подпись архива сама, поверх подписи кода,
          поэтому ad-hoc сборка обновляется без сертификата Developer ID.

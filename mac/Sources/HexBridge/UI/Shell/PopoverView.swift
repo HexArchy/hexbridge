@@ -1,3 +1,4 @@
+import HexBridgeText
 import SwiftUI
 
 /// The menu bar popover (§7.1, macOS).
@@ -5,7 +6,7 @@ import SwiftUI
 /// HIG says "display a menu — not a popover" and then makes an exception for
 /// functionality that is too complex for a menu. This is that exception: a
 /// live level meter and a live controller outline are the two things that
-/// answer "работает или нет" in under two seconds, and `NSMenu` cannot draw
+/// answer "does it work or not" in under two seconds, and `NSMenu` cannot draw
 /// either. The reasoning is recorded in DESIGN.md §1.1 so it is not relitigated.
 ///
 /// The shell walks `model.features` and asks each one for its card. It does not
@@ -14,7 +15,7 @@ import SwiftUI
 /// One rule governs everything below the summary: **a card carries one state
 /// and no more than one action, and the action appears only when there is
 /// something to do.** The popover used to end up with a button in every card —
-/// the same «Проверить связь» twice over, and a «Выключить общий буфер» two
+/// the same "Check the link" twice over, and a "Turn the shared clipboard off" two
 /// centimetres from the switch that does exactly that. So the cards no longer
 /// carry buttons at all: the switch is the on/off, and the one remedy worth
 /// offering is offered once, underneath, by `AppModel.popoverAction`.
@@ -34,10 +35,7 @@ struct PopoverView: View {
             CappedScroll(maxHeight: Metrics.popoverMaxHeight - 120) {
                 VStack(alignment: .leading, spacing: Space.sm) {
                     ForEach(model.features, id: \.id) { feature in
-                        // The summary above is one of these cards' own
-                        // headlines; the card it came from says it in fewer
-                        // words rather than saying it again.
-                        FeatureCard(feature: feature, summary: model.summary.headline)
+                        FeatureCard(feature: feature)
                     }
                 }
             }
@@ -51,7 +49,7 @@ struct PopoverView: View {
                 InlineAlert(
                     text: Wording.plain(notice),
                     tone: .warn,
-                    action: FeatureAction(title: "Понятно") { model.noticeText = nil }
+                    action: FeatureAction(title: L.t("action.gotIt")) { model.noticeText = nil }
                 )
             }
 
@@ -95,7 +93,7 @@ struct PopoverView: View {
             } label: {
                 // §1.1: macOS 27 hides menu item images by default. Asking for
                 // both parts explicitly keeps the icon wherever it is allowed.
-                Label("Настройки…", systemImage: "gearshape")
+                Label(L.t("popover.settings"), systemImage: "gearshape")
                     .labelStyle(.titleAndIcon)
             }
             .buttonStyle(.link)
@@ -103,7 +101,7 @@ struct PopoverView: View {
 
             Spacer()
 
-            Button("Выйти") { model.quit() }
+            Button(L.t("popover.quit")) { model.quit() }
                 .buttonStyle(.link)
         }
         .font(.dsCaption)
@@ -120,7 +118,6 @@ struct PopoverView: View {
 /// explaining itself.
 private struct FeatureCard: View {
     let feature: any Feature
-    let summary: String
 
     @Environment(\.palette) private var palette
     @Environment(\.motionSettings) private var motion
@@ -132,7 +129,6 @@ private struct FeatureCard: View {
                     title: feature.title,
                     symbolName: feature.symbolName,
                     status: feature.status,
-                    echoing: summary,
                     isEnabled: Binding(
                         get: { feature.isEnabled },
                         set: { feature.isEnabled = $0 }

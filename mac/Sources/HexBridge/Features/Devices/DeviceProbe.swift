@@ -44,13 +44,13 @@ enum DeviceProbe {
 
     static func run(seconds: Double = 3, selector: String? = nil, log: (String) -> Void) {
         guard let device = pick(selector) else {
-            log("HID-устройств не найдено. Подключите контроллер, руль или другой USB-девайс и повторите.")
+            log("No HID devices found. Plug in a controller, a wheel or another USB device and try again.")
             return
         }
 
         let eligibility = DeviceEligibility.of(device)
         if let reason = eligibility.reason {
-            log("ВНИМАНИЕ: \(reason). Проброс этого устройства невозможен, но диагностика ниже всё равно выполнится.")
+            log("NOTE: \(reason). This device cannot be forwarded, but the diagnostics below still run.")
         }
 
         describe(device, log: log)
@@ -58,9 +58,9 @@ enum DeviceProbe {
 
         let openResult = device.open()
         log("")
-        log("открытие (kIOHIDOptionsTypeNone): \(IOKitError.describe(openResult))")
+        log("open (kIOHIDOptionsTypeNone): \(IOKitError.describe(openResult))")
         guard openResult == kIOReturnSuccess else {
-            log("без открытия ни чтение, ни запись невозможны — дальше идти незачем")
+            log("without an open device there is neither reading nor writing — no point going on")
             return
         }
         defer { device.close() }
@@ -84,9 +84,9 @@ enum DeviceProbe {
             testOutput(device, motion: stats, log: log)
         } else {
             log("")
-            log("— тест записи output-репорта —")
-            log("Пропущен: содержимое output-репорта зависит от модели, а профиля для этой нет.")
-            log("Проброс от этого не страдает — DEV_OUT переносит репорт как есть, не заглядывая внутрь.")
+            log("— output report write test —")
+            log("Skipped: the contents of an output report depend on the model, and there is no profile for this one.")
+            log("Forwarding is unaffected — DEV_OUT carries the report as it is, without looking inside.")
         }
     }
 
@@ -95,19 +95,19 @@ enum DeviceProbe {
     private static func describe(_ device: HIDDevice, log: (String) -> Void) {
         let profile = DeviceProfile.of(vendorID: device.vendorID, productID: device.productID)
         log("")
-        log("устройство:      \(device.displayName)")
-        log("производитель:   \(device.manufacturer)")
-        log("тип:             \(device.category.label)")
-        log("профиль:         \(profile?.name ?? "нет — пробрасывается как есть, разбор состояния недоступен")")
-        log("транспорт:       \(device.transport)")
+        log("device:          \(device.displayName)")
+        log("manufacturer:    \(device.manufacturer)")
+        log("kind:            \(device.category.label)")
+        log("profile:         \(profile?.name ?? "none — forwarded as is, state cannot be decoded")")
+        log("transport:       \(device.transport)")
         log("VID/PID:         0x\(hex16(device.vendorID)) / 0x\(hex16(device.productID))")
-        log("версия:          0x\(hex16(device.versionNumber))")
-        log("серийный номер:  \(device.serialNumber ?? "нет (iSerial = 0)")")
-        log("идентификатор:   \(device.identity)")
-        log("locationID:      0x\(String(device.locationID, radix: 16, uppercase: true))  интерфейс \(device.interfaceNumber)")
-        log("размер репортов: input \(device.maxInputReportSize), output \(device.maxOutputReportSize), feature \(device.maxFeatureReportSize)")
+        log("version:         0x\(hex16(device.versionNumber))")
+        log("serial number:   \(device.serialNumber ?? "none (iSerial = 0)")")
+        log("identity:        \(device.identity)")
+        log("locationID:      0x\(String(device.locationID, radix: 16, uppercase: true))  interface \(device.interfaceNumber)")
+        log("report sizes:    input \(device.maxInputReportSize), output \(device.maxOutputReportSize), feature \(device.maxFeatureReportSize)")
         if device.category.warnsAboutDoubleInput {
-            log("ДВОЙНОЙ ВВОД:    \(device.category.doubleInputWarning ?? "")")
+            log("DOUBLE INPUT:    \(device.category.doubleInputWarning ?? "")")
         }
     }
 
@@ -115,12 +115,12 @@ enum DeviceProbe {
 
     private static func readDescriptors(_ device: HIDDevice, log: (String) -> Void) {
         log("")
-        log("— дескрипторы (без открытия устройства и без прав) —")
+        log("— descriptors (no open, no privileges) —")
 
         if let report = device.reportDescriptor {
-            log("HID report descriptor: \(report.count) байт  \(preview(report))")
+            log("HID report descriptor: \(report.count) bytes  \(preview(report))")
         } else {
-            log("HID report descriptor: свойство \(kIOHIDReportDescriptorKey) недоступно")
+            log("HID report descriptor: property \(kIOHIDReportDescriptorKey) is not available")
         }
 
         let usb = device.usbDescriptors()
@@ -128,24 +128,24 @@ enum DeviceProbe {
             log("USB: \(error)")
         }
         if let descriptor = usb.device {
-            log("device descriptor:     \(descriptor.count) байт   \(preview(descriptor))")
+            log("device descriptor:     \(descriptor.count) bytes   \(preview(descriptor))")
             if descriptor.count >= 18 {
                 let vid = Int(descriptor[8]) | (Int(descriptor[9]) << 8)
                 let pid = Int(descriptor[10]) | (Int(descriptor[11]) << 8)
                 let bcd = Int(descriptor[12]) | (Int(descriptor[13]) << 8)
-                log("  из дескриптора: idVendor 0x\(hex16(vid)), idProduct 0x\(hex16(pid)), bcdDevice 0x\(hex16(bcd)), iSerial \(descriptor[16])")
+                log("  from the descriptor: idVendor 0x\(hex16(vid)), idProduct 0x\(hex16(pid)), bcdDevice 0x\(hex16(bcd)), iSerial \(descriptor[16])")
             }
         } else {
-            log("device descriptor:     не прочитан")
+            log("device descriptor:     not read")
         }
         if let descriptor = usb.configuration {
-            log("config descriptor:     \(descriptor.count) байт  \(preview(descriptor))")
+            log("config descriptor:     \(descriptor.count) bytes  \(preview(descriptor))")
         } else {
-            log("config descriptor:     не прочитан")
+            log("config descriptor:     not read")
         }
 
         let total = (device.reportDescriptor?.count ?? 0) + (usb.device?.count ?? 0) + (usb.configuration?.count ?? 0)
-        log("итого для DEV_ATTACH:  \(total) байт")
+        log("total for DEV_ATTACH:  \(total) bytes")
     }
 
     // MARK: - Input
@@ -244,33 +244,33 @@ enum DeviceProbe {
 
     private static func readInput(_ stats: InputStats, profile: DeviceProfile?, seconds: Double, log: (String) -> Void) {
         log("")
-        log("— чтение input-репортов, \(Int(seconds)) с —")
+        log("— reading input reports, \(Int(seconds)) s —")
 
         Thread.sleep(forTimeInterval: seconds)
 
         let snapshot = stats.snapshot()
         guard snapshot.count > 0 else {
-            log("репортов не пришло. Контроллер открыт, но данные не идут — проверьте кабель.")
+            log("no reports arrived. The device is open but nothing is coming — check the cable.")
             return
         }
 
         // The measured window is first-to-last report, not the sleep: the first
         // report arrives some unknown time after scheduling.
         let rate = snapshot.seconds > 0 ? Double(snapshot.count - 1) / snapshot.seconds : 0
-        log(String(format: "репортов: %d за %.3f с → %.1f Гц", snapshot.count, snapshot.seconds, rate))
-        log("длины репортов: \(snapshot.lengths.map(String.init).joined(separator: ", "))")
+        log(String(format: "reports: %d in %.3f s → %.1f Hz", snapshot.count, snapshot.seconds, rate))
+        log("report lengths: \(snapshot.lengths.map(String.init).joined(separator: ", "))")
         log("report id: \(snapshot.ids.map { "0x" + hexByte($0) }.joined(separator: ", "))")
         if profile != nil {
-            log("пропусков в счётчике: \(snapshot.gaps)")
+            log("gaps in the counter: \(snapshot.gaps)")
         }
 
         guard let parse = profile?.parse else {
-            log("последний репорт: \(preview(snapshot.last, limit: 32))")
-            log("Разбор состояния недоступен: профиля для этой модели нет. На проброс это не влияет.")
+            log("last report: \(preview(snapshot.last, limit: 32))")
+            log("State cannot be decoded: there is no profile for this model. Forwarding is unaffected.")
             return
         }
         guard let state = parse(snapshot.last) else {
-            log("разобрать репорт не удалось: \(preview(snapshot.last))")
+            log("the report could not be decoded: \(preview(snapshot.last))")
             return
         }
         printState(state, log: log)
@@ -279,23 +279,23 @@ enum DeviceProbe {
     private static func printState(_ state: GamepadState, log: (String) -> Void) {
         let left = state.left.normalized
         let right = state.right.normalized
-        log(String(format: "стик L:  x %+.2f  y %+.2f  (сырьё %3d %3d)", left.x, left.y, state.left.x, state.left.y))
-        log(String(format: "стик R:  x %+.2f  y %+.2f  (сырьё %3d %3d)", right.x, right.y, state.right.x, state.right.y))
-        log("триггеры: L2 \(state.l2)  R2 \(state.r2)")
+        log(String(format: "stick L: x %+.2f  y %+.2f  (raw %3d %3d)", left.x, left.y, state.left.x, state.left.y))
+        log(String(format: "stick R: x %+.2f  y %+.2f  (raw %3d %3d)", right.x, right.y, state.right.x, state.right.y))
+        log("triggers: L2 \(state.l2)  R2 \(state.r2)")
         log("d-pad: \(state.dpad.label)  (\(state.dpad))")
         let pressed = state.buttons.labels
-        log("кнопки: \(pressed.isEmpty ? "ничего не нажато" : pressed.joined(separator: " "))")
+        log("buttons: \(pressed.isEmpty ? "nothing pressed" : pressed.joined(separator: " "))")
         if state.vendorButtons != 0 {
-            log("доп. кнопки (Edge): 0x\(hexByte(state.vendorButtons))")
+            log("extra buttons (Edge): 0x\(hexByte(state.vendorButtons))")
         }
-        log("гироскоп:      x \(state.gyro.x)  y \(state.gyro.y)  z \(state.gyro.z)")
-        log("акселерометр:  x \(state.accel.x)  y \(state.accel.y)  z \(state.accel.z)")
-        log("таймстамп сенсоров: \(state.timestamp)")
+        log("gyro:          x \(state.gyro.x)  y \(state.gyro.y)  z \(state.gyro.z)")
+        log("accelerometer: x \(state.accel.x)  y \(state.accel.y)  z \(state.accel.z)")
+        log("sensor timestamp: \(state.timestamp)")
         for (index, point) in state.touch.enumerated() {
-            let description = point.active ? "x \(point.x)  y \(point.y)  id \(point.id)" : "нет касания"
-            log("тачпад \(index + 1): \(description)")
+            let description = point.active ? "x \(point.x)  y \(point.y)  id \(point.id)" : "no touch"
+            log("touchpad \(index + 1): \(description)")
         }
-        log("батарея: \(state.batteryDescription)  (уровень \(state.batteryLevel), статус 0x\(String(state.batteryStatus, radix: 16)))")
+        log("battery: \(state.batteryDescription)  (level \(state.batteryLevel), status 0x\(String(state.batteryStatus, radix: 16)))")
     }
 
     // MARK: - Feature reports
@@ -306,35 +306,35 @@ enum DeviceProbe {
     /// profile's business — a generic HID device has no such list.
     private static func readFeatureReports(_ device: HIDDevice, profile: DeviceProfile?, log: (String) -> Void) {
         log("")
-        log("— feature-репорты —")
+        log("— feature reports —")
 
         guard let profile, !profile.featureReports.isEmpty else {
-            log("Профиля для этой модели нет — снимки feature-репортов не отправляются.")
+            log("There is no profile for this model — no feature report snapshots are sent.")
             return
         }
 
-        let names: [UInt8: String] = [0x20: "прошивка", 0x09: "MAC-адреса", 0x05: "калибровка гироскопа"]
+        let names: [UInt8: String] = [0x20: "firmware", 0x09: "MAC addresses", 0x05: "gyro calibration"]
         let wanted = profile.featureReports.map {
-            (id: $0.id, length: $0.length, what: names[$0.id] ?? "снимок")
+            (id: $0.id, length: $0.length, what: names[$0.id] ?? "snapshot")
         }
 
         for report in wanted {
             let result = device.featureReport(id: report.id, length: report.length)
             guard result.status == kIOReturnSuccess else {
-                log("0x\(hexByte(report.id)) \(report.what): ОШИБКА \(IOKitError.describe(result.status))")
+                log("0x\(hexByte(report.id)) \(report.what): FAILED \(IOKitError.describe(result.status))")
                 continue
             }
-            log("0x\(hexByte(report.id)) \(report.what): \(result.data.count) байт (ожидается \(report.length))  \(preview(result.data))")
+            log("0x\(hexByte(report.id)) \(report.what): \(result.data.count) bytes (expected \(report.length))  \(preview(result.data))")
 
             if report.id == 0x20, result.data.count >= 20 {
                 let date = ascii(result.data[1..<12])
                 let time = ascii(result.data[12..<20])
-                log("     сборка прошивки: \(date) \(time)")
+                log("     firmware build: \(date) \(time)")
             }
             if report.id == 0x09, result.data.count >= 7 {
                 // Stored little-endian, so the printed MAC is the reverse.
                 let mac = (1...6).reversed().map { hexByte(result.data[$0]) }.joined(separator: ":")
-                log("     MAC контроллера: \(mac)")
+                log("     controller MAC: \(mac)")
             }
         }
     }
@@ -344,36 +344,36 @@ enum DeviceProbe {
     /// The question this whole subcommand was written for.
     private static func testOutput(_ device: HIDDevice, motion: InputStats, log: (String) -> Void) {
         log("")
-        log("— тест записи output-репорта 0x02 —")
-        log("СМОТРИТЕ НА КОНТРОЛЛЕР: дальше подсветка и вибрация должны меняться.")
+        log("— output report 0x02 write test —")
+        log("WATCH THE CONTROLLER: the lighting and the rumble should change from here on.")
 
         var output = GamepadOutput()
         output.lightbar = .init(red: 255, green: 0, blue: 0)
         let report = output.encoded()
-        log("длина репорта: \(report.count) байт (ID 0x\(hexByte(report[0])) + \(report.count - 1))")
+        log("report length: \(report.count) bytes (ID 0x\(hexByte(report[0])) + \(report.count - 1))")
 
         let first = device.setOutputReport(report)
         log("IOHIDDeviceSetReport → \(IOKitError.describe(first))")
 
         guard first == kIOReturnSuccess else {
             log("")
-            log("ЗАПИСЬ ЗАБЛОКИРОВАНА. Адаптивные триггеры, подсветка и вибрация недоступны.")
+            log("WRITING IS BLOCKED. Adaptive triggers, lighting and rumble are unavailable.")
             return
         }
 
         // A returned success still only means the transaction was accepted, so
         // the rest of this is paced for a human to watch.
-        log("СЕЙЧАС: подсветка должна быть КРАСНОЙ (1 с)")
+        log("NOW: the light bar should be RED (1 s)")
         Thread.sleep(forTimeInterval: 1)
 
         var status: [IOReturn] = [first]
-        for (color, name) in [(GamepadOutput.Color(red: 0, green: 255, blue: 0), "ЗЕЛЁНОЙ"),
-                              (GamepadOutput.Color(red: 0, green: 0, blue: 255), "СИНЕЙ")] {
+        for (color, name) in [(GamepadOutput.Color(red: 0, green: 255, blue: 0), "GREEN"),
+                              (GamepadOutput.Color(red: 0, green: 0, blue: 255), "BLUE")] {
             var step = GamepadOutput()
             step.lightbar = color
             let result = device.setOutputReport(step.encoded())
             status.append(result)
-            log("СЕЙЧАС: подсветка должна быть \(name) (1 с) — \(IOKitError.describe(result))")
+            log("NOW: the light bar should be \(name) (1 s) — \(IOKitError.describe(result))")
             Thread.sleep(forTimeInterval: 1)
         }
 
@@ -388,7 +388,7 @@ enum DeviceProbe {
         buzz.lightbar = .init(red: 0, green: 0, blue: 255)
         let rumbleResult = device.setOutputReport(buzz.encoded())
         status.append(rumbleResult)
-        log("СЕЙЧАС: короткая ВИБРАЦИЯ, 0.4 с — \(IOKitError.describe(rumbleResult))")
+        log("NOW: a short RUMBLE, 0.4 s — \(IOKitError.describe(rumbleResult))")
         motion.resetMotion()
         Thread.sleep(forTimeInterval: 0.4)
         let shaking = motion.motionDeviation()
@@ -400,31 +400,31 @@ enum DeviceProbe {
         calm.playerLEDs = 0b00100  // middle LED, the "player 1" pattern
         let restore = device.setOutputReport(calm.encoded())
         status.append(restore)
-        log("вибрация выключена, подсветка приглушена — \(IOKitError.describe(restore))")
+        log("rumble off, light bar dimmed — \(IOKitError.describe(restore))")
 
         log("")
         log(String(
-            format: "гироскоп в покое: σ %.1f (%d репортов), под вибрацией: σ %.1f (%d репортов)",
+            format: "gyro at rest: σ %.1f (%d reports), under rumble: σ %.1f (%d reports)",
             quiet.sigma, quiet.samples, shaking.sigma, shaking.samples
         ))
         // A return code only proves the USB stack took the packet. The motors
         // moving the gyro proves the controller acted on it.
         let confirmed = shaking.samples > 10 && shaking.sigma > max(50, quiet.sigma * 4)
         if confirmed {
-            log("вибрация подтверждена приборно: гироскоп зафиксировал тряску от моторов.")
+            log("rumble confirmed by instrument: the gyro registered the shake from the motors.")
         } else {
-            log("тряски по гироскопу не видно — либо контроллер лежал в руке, либо мотор не отработал.")
+            log("the gyro saw no shake — either the controller was lying still, or the motor did nothing.")
         }
 
         let failures = status.filter { $0 != kIOReturnSuccess }
         log("")
         if failures.isEmpty {
-            log("ЗАПИСЬ РАБОТАЕТ: все \(status.count) вызовов SetReport вернули успех\(confirmed ? ", эффект подтверждён" : "").")
+            log("WRITING WORKS: all \(status.count) SetReport calls succeeded\(confirmed ? ", and the effect was confirmed" : "").")
             if !confirmed {
-                log("Если подсветка при этом не менялась — код принят, но эффекта нет; сообщите об этом.")
+                log("If the light bar did not change: the report was accepted but had no effect — please report that.")
             }
         } else {
-            log("ЧАСТИЧНО: \(failures.count) из \(status.count) вызовов SetReport не прошли.")
+            log("PARTIAL: \(failures.count) of \(status.count) SetReport calls failed.")
         }
     }
 
@@ -447,12 +447,12 @@ enum DeviceProbe {
     /// nothing at all rather than measuring slightly less.
     static func haptics(seconds: Double = 2, selector: String? = nil, log: (String) -> Void) {
         guard let device = pick(selector) else {
-            log("HID-устройств не найдено. Подключите контроллер по USB и повторите.")
+            log("No HID devices found. Plug a controller in over USB and try again.")
             return
         }
 
         let profile = DeviceProfile.of(vendorID: device.vendorID, productID: device.productID)
-        log("устройство:      \(device.displayName)  (\(device.identity))")
+        log("device:          \(device.displayName)  (\(device.identity))")
         log("locationID:      0x\(String(device.locationID, radix: 16, uppercase: true))")
 
         let player = HapticPlayer(
@@ -460,25 +460,25 @@ enum DeviceProbe {
         )
         guard let output = player.findOutput() else {
             log("")
-            log("Аудиоустройства для этого контроллера в системе нет.")
-            log("HD-хаптика играется через CoreAudio, поэтому без него путь недоступен:")
-            log("проверьте, что контроллер подключён кабелем, а не по Bluetooth.")
+            log("The system has no audio device for this controller.")
+            log("HD haptics are played through CoreAudio, so without it there is no path:")
+            log("check that the controller is on a cable rather than on Bluetooth.")
             return
         }
-        log("аудиовыход:      \(output.name), каналов \(output.channels)")
-        log("каналы хаптики:  \(output.channels - 2) и \(output.channels - 1)")
+        log("audio output:    \(output.name), \(output.channels) channels")
+        log("haptic channels: \(output.channels - 2) and \(output.channels - 1)")
 
         guard profile?.kind == .dualSense else {
             log("")
-            log("Профиля для этой модели нет: снять мьют с актуаторов нечем, и гироскоп читать нечем.")
-            log("Блоки проигрались бы, но подтвердить эффект приборно не получится.")
+            log("No profile for this model: nothing can unmute the actuators and nothing can read the gyro.")
+            log("The blocks would play, but the effect could not be confirmed by instrument.")
             return
         }
 
         let openResult = device.open()
-        log("открытие:        \(IOKitError.describe(openResult))")
+        log("open:            \(IOKitError.describe(openResult))")
         guard openResult == kIOReturnSuccess else {
-            log("Без открытия устройства ни снять мьют, ни прочитать гироскоп нельзя.")
+            log("Without an open device the actuators cannot be unmuted and the gyro cannot be read.")
             return
         }
         defer { device.close() }
@@ -493,9 +493,9 @@ enum DeviceProbe {
         }
 
         let unmute = device.setOutputReport(DualSenseReport.audioHapticsEnable)
-        log("снятие мьюта:    \(IOKitError.describe(unmute))")
+        log("unmute:          \(IOKitError.describe(unmute))")
         log("")
-        log("ДЕРЖИТЕ КОНТРОЛЛЕР В РУКЕ: дальше в рукоятках должно ощущаться гудение.")
+        log("HOLD THE CONTROLLER: you should feel a hum in the grips from here on.")
 
         // Baseline first: whatever the controller does while nothing is playing.
         Thread.sleep(forTimeInterval: 0.4)
@@ -523,38 +523,38 @@ enum DeviceProbe {
         Thread.sleep(forTimeInterval: 0.3)
 
         log("")
-        log("блоков отправлено: \(pass.blocks), проиграно \(status.blocksPlayed), "
-            + "потеряно \(status.blocksLost), опоздало \(status.blocksDropped)")
-        log("недоборов буфера:  \(status.underruns)")
+        log("blocks sent: \(pass.blocks), played \(status.blocksPlayed), "
+            + "lost \(status.blocksLost), too late \(status.blocksDropped)")
+        log("buffer underruns:  \(status.underruns)")
         if let error = after.lastError {
-            log("ошибка аудио:      \(error)")
+            log("audio error:       \(error)")
         }
         log(String(
-            format: "гироскоп в покое: σ %.1f (%d репортов), под хаптикой: σ %.1f (%d репортов)",
+            format: "gyro at rest: σ %.1f (%d reports), under haptics: σ %.1f (%d reports)",
             quiet.sigma, quiet.samples, shaking.sigma, shaking.samples
         ))
 
         let noticed = after.blocksLost - status.blocksLost
         log("")
-        log("— потеря блоков —")
-        log("выброшен каждый 8-й: дошло \(lossy.blocks - lossy.dropped) из \(lossy.blocks), "
-            + "приёмник насчитал потерь \(noticed)")
-        log(String(format: "гироскоп при потерях: σ %.1f (%d репортов)",
+        log("— block loss —")
+        log("every 8th dropped: \(lossy.blocks - lossy.dropped) of \(lossy.blocks) arrived, "
+            + "the player counted \(noticed) lost")
+        log(String(format: "gyro under loss: σ %.1f (%d reports)",
                    shakenWithLoss.sigma, shakenWithLoss.samples))
         log(noticed == UInt64(lossy.dropped)
-            ? "Пропуски опознаны по нумерации и заполнены тишиной, поток не рассыпался."
-            : "ВНИМАНИЕ: пропуски посчитаны неверно — проверьте нумерацию блоков.")
+            ? "The gaps were spotted from the numbering and filled with silence; the stream held together."
+            : "WARNING: the gaps were counted wrong — check the block numbering.")
 
         let confirmed = shaking.samples > 10 && shaking.sigma > max(20, quiet.sigma * 4)
         log("")
         if confirmed {
-            log("ХАПТИКА ПОДТВЕРЖДЕНА ПРИБОРНО: гироскоп зафиксировал тряску от актуаторов.")
+            log("HAPTICS CONFIRMED BY INSTRUMENT: the gyro registered the shake from the actuators.")
         } else if status.blocksPlayed == 0 {
-            log("НЕ РАБОТАЕТ: ни один блок не дошёл до аудиоустройства.")
+            log("NOT WORKING: not one block reached the audio device.")
         } else {
-            log("Блоки проиграны, но гироскоп тряски не увидел.")
-            log("Обычно это значит одно из двух: контроллер лежал на столе — положите его в руку,")
-            log("или мьют актуаторов не снялся — смотрите код возврата выше.")
+            log("The blocks played, but the gyro saw no shake.")
+            log("That usually means one of two things: the controller was lying on the desk — hold it,")
+            log("or the actuators were never unmuted — see the return code above.")
         }
     }
 
@@ -635,7 +635,7 @@ enum DeviceProbe {
     static func list(log: (String) -> Void) {
         let devices = DeviceProbe.physical(HIDDevice.findAll().filter { !$0.isBuiltIn })
         guard !devices.isEmpty else {
-            log("HID-устройств не найдено")
+            log("No HID devices found")
             return
         }
         for (index, device) in devices.enumerated() {
@@ -643,11 +643,11 @@ enum DeviceProbe {
             let note = eligibility.reason.map { "   [\($0)]" } ?? ""
             let profile = DeviceProfile.of(vendorID: device.vendorID, productID: device.productID)
             log("\(index)  \(device.displayName)  \(device.transport)\(note)")
-            log("   \(device.identity)  \(device.category.label)\(profile.map { " · профиль \($0.name)" } ?? "")")
-            log("   VID/PID 0x\(hex16(device.vendorID))/0x\(hex16(device.productID))  версия 0x\(hex16(device.versionNumber))  locationID 0x\(String(device.locationID, radix: 16))")
-            log("   репорты: input \(device.maxInputReportSize), output \(device.maxOutputReportSize), feature \(device.maxFeatureReportSize)  дескриптор \(device.reportDescriptor?.count ?? 0) байт")
+            log("   \(device.identity)  \(device.category.label)\(profile.map { " · profile \($0.name)" } ?? "")")
+            log("   VID/PID 0x\(hex16(device.vendorID))/0x\(hex16(device.productID))  version 0x\(hex16(device.versionNumber))  locationID 0x\(String(device.locationID, radix: 16))")
+            log("   reports: input \(device.maxInputReportSize), output \(device.maxOutputReportSize), feature \(device.maxFeatureReportSize)  descriptor \(device.reportDescriptor?.count ?? 0) bytes")
             if let warning = device.category.doubleInputWarning, eligibility == .eligible {
-                log("   ВНИМАНИЕ: \(warning)")
+                log("   NOTE: \(warning)")
             }
         }
     }
@@ -665,14 +665,14 @@ enum DeviceProbe {
     /// reaches us at all, so it prints the decoded values rather than hex.
     static func monitor(selector: String? = nil, log: (String) -> Void) {
         guard let device = pick(selector) else {
-            log("HID-устройств не найдено. Подключите устройство по USB.")
+            log("No HID devices found. Plug a device in over USB.")
             return
         }
         let profile = DeviceProfile.of(vendorID: device.vendorID, productID: device.productID)
 
         let openResult = device.open()
         guard openResult == kIOReturnSuccess else {
-            log("открыть не удалось: \(IOKitError.describe(openResult))")
+            log("could not open: \(IOKitError.describe(openResult))")
             return
         }
         defer { device.close() }
@@ -686,7 +686,7 @@ enum DeviceProbe {
             thread.stop()
         }
 
-        log("\(device.displayName) через \(device.transport). Ctrl-C для выхода.")
+        log("\(device.displayName) over \(device.transport). Ctrl-C to leave.")
 
         var previousCount = 0
         var previousAt = DispatchTime.now()
@@ -700,7 +700,7 @@ enum DeviceProbe {
             previousAt = now
 
             guard let parse = profile?.parse else {
-                let line = String(format: "%5.0f Гц │ %@", rate, preview(snapshot.last, limit: 24))
+                let line = String(format: "%5.0f Hz │ %@", rate, preview(snapshot.last, limit: 24))
                 print(line.padding(toLength: max(line.count, 96), withPad: " ", startingAt: 0), terminator: "\r")
                 fflush(stdout)
                 continue
@@ -710,7 +710,7 @@ enum DeviceProbe {
             let right = state.right.normalized
             let pressed = state.buttons.labels.joined(separator: " ")
             let line = String(
-                format: "%5.0f Гц │ L %+.2f %+.2f │ R %+.2f %+.2f │ L2 %3d R2 %3d │ %@ │ %@",
+                format: "%5.0f Hz │ L %+.2f %+.2f │ R %+.2f %+.2f │ L2 %3d R2 %3d │ %@ │ %@",
                 rate, left.x, left.y, right.x, right.y, state.l2, state.r2,
                 state.dpad.label, pressed.isEmpty ? "—" : pressed
             )

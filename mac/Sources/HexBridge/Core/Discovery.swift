@@ -1,15 +1,16 @@
 import Foundation
 import HexBridgeDiscovery
+import HexBridgeText
 import Network
 import Observation
 
 /// Bonjour search for a HexBridge host on the local network (PROTOCOL.md,
-/// «Автопоиск хоста»).
+/// "host autodiscovery").
 ///
 /// The browser finds every HexBridge on the link. Which of them this Mac is
 /// allowed to talk to is not decided here — that is `DiscoveryMatch`, and it
-/// decides on the tag alone. This file's job ends at «вот что видно в сети и вот
-/// их метки».
+/// decides on the tag alone. This file's job ends at "here is what is visible on
+/// the network, and here are their tags".
 ///
 /// Everything runs on `queue`, callbacks included: `NWBrowser` delivers results
 /// to whichever queue it was started on, and the resolve below finishes on
@@ -325,7 +326,7 @@ final class ReceiverDiscovery {
     }
 
     /// True when this row is the host this Mac is paired with. The only thing
-    /// in the interface allowed to say «свой».
+    /// in the interface allowed to call a host ours.
     func isOurs(_ host: DiscoveredHost) -> Bool {
         DiscoveryTag.same(ownTag, host.tag)
     }
@@ -336,8 +337,8 @@ final class ReceiverDiscovery {
     /// cannot see the neighbour's HexBridge has no way to understand why the one
     /// host on screen is not the one being connected to.
     func note(for host: DiscoveredHost) -> String {
-        if DiscoveryTag.same(ownTag, host.tag) { return "это ваш ПК" }
-        if host.tag == nil { return "ещё ни с кем не связан" }
-        return "связан с другим Mac"
+        if DiscoveryTag.same(ownTag, host.tag) { return L.t("discovery.ours") }
+        if host.tag == nil { return L.t("discovery.unpaired") }
+        return L.t("discovery.stranger")
     }
 }

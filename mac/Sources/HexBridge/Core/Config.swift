@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 
 struct Config: Codable {
     /// `host:port` of the Windows receiver, or of the VPS relay.
@@ -46,6 +47,12 @@ struct Config: Codable {
     /// an older config still decodes.
     var theme: String?
 
+    /// Interface language: `system` / `en` / `ru`. Optional for the same reason
+    /// as everything else here — a config written before the app was bilingual
+    /// must still decode — and `system` when absent, which is what the first
+    /// launch on any machine gets.
+    var language: String?
+
     /// Name of the paired Windows machine, learned during pairing (§9). Used
     /// in status texts — «Звук идёт на GAMING-PC» — and nowhere else.
     var peerName: String?
@@ -73,7 +80,9 @@ struct Config: Codable {
 
     var appTheme: AppTheme { theme.flatMap(AppTheme.init(rawValue:)) ?? .system }
 
-    /// The one question «настроено или нет» (§7.2, state «Не настроен»).
+    var appLanguage: AppLanguage { language.flatMap(AppLanguage.init(rawValue:)) ?? .system }
+
+    /// The one question "set up or not" (§7.2, the «не настроен» state).
     var isConfigured: Bool {
         !target.isEmpty && (try? symmetricKey()) != nil
     }
@@ -153,9 +162,9 @@ enum ConfigError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .missingTarget:
-            return "не задан target (host:port приёмника или релея)"
+            return L.t("config.error.noAddress")
         case .badKey:
-            return "psk должен быть 32 байта в base64 — сгенерируйте через `hexbridge keygen`"
+            return L.t("config.error.badKey")
         }
     }
 }

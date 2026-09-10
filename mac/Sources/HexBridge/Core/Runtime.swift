@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 import Network
 
 /// Owns the capture → encode → send pipeline.
@@ -47,7 +48,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
     /// Raised by the views that draw a device or show the picker. The bridge is
     /// kept alive while it is non-zero even with the passthrough switched off:
-    /// §7.3 requires the "подключён, но не проброшен" state to show a live
+    /// §7.3 requires the "plugged in but not forwarded" state to show a live
     /// outline, and the picker cannot list devices without a running scan.
     private var deviceObservers = 0
     private var helloTimer: DispatchSourceTimer?
@@ -75,7 +76,17 @@ final class BridgeRuntime: @unchecked Sendable {
     // MARK: - Lifecycle
 
     var isRunning: Bool { capture != nil }
-    var deviceName: String { capture?.deviceName ?? "—" }
+    var deviceName: String { capture?.deviceName ?? L.t("unit.none") }
+
+    /// True when the last attempt to start capture was refused by TCC.
+    ///
+    /// A fact rather than a sentence on purpose. The microphone feature has to
+    /// tell "macOS said no" apart from every other reason capture did not
+    /// start, because only the first one has a button to offer (§10.3), and it
+    /// used to do that by looking for the word «доступ» inside the error text —
+    /// which stopped being a stable thing to look for the moment that text
+    /// acquired a second language.
+    private(set) var microphoneDenied = false
     var inputFormatDescription: String { capture?.inputFormatDescription ?? "—" }
 
     var muted: Bool {
@@ -266,6 +277,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
     private func startCapture() throws {
         guard let sender, let encoder else { throw RuntimeError.notStarted }
+        microphoneDenied = false
 
         // The closure keeps `sender` and `encoder` alive on its own: the audio
         // thread must never reach through `self` for them, or a `stop()` racing
@@ -277,7 +289,12 @@ final class BridgeRuntime: @unchecked Sendable {
                 sender.sendAudio(packet)
             }
         }
-        try capture.start(deviceSelector: config.inputDevice)
+        do {
+            try capture.start(deviceSelector: config.inputDevice)
+        } catch CaptureError.permissionDenied {
+            microphoneDenied = true
+            throw CaptureError.permissionDenied
+        }
         self.capture = capture
     }
 
@@ -294,7 +311,7 @@ enum RuntimeError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .notStarted:
-            return "передача не запущена"
+            return L.t("runtime.error.notStarted")
         }
     }
 }

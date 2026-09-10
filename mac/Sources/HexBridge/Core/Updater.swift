@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import Observation
 import Sparkle
 
@@ -58,14 +59,14 @@ final class Updater {
     /// The version on screen in the settings.
     var currentVersion: String {
         let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        return short ?? "не из бандла"
+        return short ?? L.t("update.noVersion")
     }
 
     init(automaticallyChecks: Bool) {
         if Self.feedIsConfigured {
             // `startingUpdater: true` schedules the first check itself, honouring
             // the interval and the last-check date Sparkle keeps in defaults —
-            // which is what makes «раз в сутки» survive a restart.
+            // which is what makes "once a day" survive a restart.
             controller = SPUStandardUpdaterController(
                 startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
             )
@@ -86,10 +87,10 @@ final class Updater {
         updater.updateCheckInterval = Self.checkInterval
     }
 
-    /// «Проверить сейчас» — the manual check, with Sparkle's own UI.
+    /// "Check now" — the manual check, with Sparkle's own UI.
     func checkNow() {
         guard let controller else {
-            lastError = "Эта сборка запущена не из HexBridge.app, обновляться ей нечем."
+            lastError = L.t("update.notBundled.short")
             return
         }
         lastError = nil

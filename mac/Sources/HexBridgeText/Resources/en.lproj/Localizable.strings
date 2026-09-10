@@ -1,0 +1,548 @@
+/* HexBridge — English interface strings.
+
+   English is the default language of the app and this file is the original; the
+   Russian file next to it is the wording the interface shipped with before it
+   became bilingual. Both files hold exactly the same keys, and every key here
+   has the same substitutions in the same order over there — LocalizationTests
+   fails the build if either stops being true.
+
+   The vocabulary is fixed by docs/GLOSSARY.md, which the Windows side follows
+   too. Three rules from it are easy to break by accident: the seven state words
+   are the same seven words for every feature, "sender" and "receiver" never
+   appear (people think about where the microphone is, not about roles), and
+   there are no exclamation marks and no apologies anywhere. */
+
+/* MARK: - Units and numbers */
+
+/* U+00A0 throughout: a number and its unit must not be split across two lines. */
+"unit.percent" = "%@\U00A0%%";
+"unit.ms" = "%@\U00A0ms";
+"unit.kbits" = "%@\U00A0kbit/s";
+"unit.hz" = "%@\U00A0Hz";
+"unit.mb" = "%@\U00A0MB";
+"unit.kb" = "%@\U00A0KB";
+"unit.bytes" = "%@\U00A0B";
+"unit.seconds" = "%@\U00A0s";
+"unit.minutes" = "%@\U00A0min";
+"unit.hoursMinutes" = "%@\U00A0h %@\U00A0min";
+"unit.gain" = "%@×";
+"unit.none" = "—";
+
+"ago.justNow" = "just now";
+"ago.seconds" = "%@\U00A0s ago";
+"ago.minutes" = "%@\U00A0min ago";
+"ago.hours" = "%@\U00A0h ago";
+
+/* Quotation marks around a device or machine name. */
+"quoted" = "“%@”";
+
+"packets.one" = "%d packet";
+"packets.few" = "%d packets";
+"packets.many" = "%d packets";
+"packets.other" = "%d packets";
+
+"devices.one" = "%d device";
+"devices.few" = "%d devices";
+"devices.many" = "%d devices";
+"devices.other" = "%d devices";
+
+"channels.one" = "%d channel";
+"channels.few" = "%d channels";
+"channels.many" = "%d channels";
+"channels.other" = "%d channels";
+
+"blocks.one" = "%d block";
+"blocks.few" = "%d blocks";
+"blocks.many" = "%d blocks";
+"blocks.other" = "%d blocks";
+
+"slots.one" = "%d slot";
+"slots.few" = "%d slots";
+"slots.many" = "%d slots";
+"slots.other" = "%d slots";
+
+/* MARK: - The seven state words (GLOSSARY.md, "States")
+
+   Lower case: in the popover they sit under a bold feature name and read as one
+   column. "not available here" is deliberately not "off" — one is a switch the
+   user can flip, the other is something this platform cannot do. */
+
+"state.off" = "off";
+"state.starting" = "starting";
+"state.waiting" = "waiting for the PC";
+"state.working" = "working";
+"state.muted" = "muted";
+"state.notWorking" = "not working";
+"state.unavailable" = "not available here";
+
+/* MARK: - Shared verbs */
+
+"action.setUp" = "Set up";
+"action.checkLink" = "Check the link";
+"action.retry" = "Try again";
+"action.gotIt" = "Got it";
+"answer.yes" = "yes";
+"answer.no" = "no";
+
+/* MARK: - Shell */
+
+"app.summary.allOff" = "Everything is off";
+"app.summary.allWorking" = "Everything works";
+"app.peer.none" = "no gaming PC chosen";
+
+"popover.settings" = "Settings…";
+"popover.quit" = "Quit";
+
+"window.pairing" = "Connect to a PC";
+
+/* MARK: - Settings, panes */
+
+"settings.title" = "Settings";
+"settings.pane.general" = "General";
+"settings.pane.link" = "Connection";
+"settings.pane.diagnostics" = "Diagnostics";
+
+/* MARK: - Settings, General */
+
+"settings.general.startup" = "Startup";
+"settings.general.openAtLogin" = "Open at login";
+"settings.general.appearance" = "Appearance";
+"settings.general.theme" = "Theme";
+"settings.general.language.section" = "Language";
+"settings.general.language" = "Interface language";
+"settings.general.language.note" = "The change applies straight away. “System” follows the language macOS is set to.";
+"settings.general.features" = "Features";
+"settings.general.updates" = "Updates";
+"settings.general.checkDaily" = "Look for updates once a day";
+"settings.general.checkNow" = "Check now";
+"settings.general.about" = "About";
+"settings.general.version" = "Version";
+"settings.general.trademarks" = "“PlayStation” and “DualSense” are trademarks of Sony Interactive Entertainment Inc. HexBridge is not affiliated with Sony; the controller drawing in this app is a schematic abstraction of our own, not a reproduction of the product.";
+
+"theme.system" = "System";
+"theme.light" = "Light";
+"theme.dark" = "Dark";
+
+"language.system" = "System";
+"language.en" = "English";
+"language.ru" = "Русский";
+
+"autostart.loaded" = "The %@ agent is loaded.";
+"autostart.nextLogin" = "It will start at your next login.";
+"autostart.offButRunning" = "Autostart is off; the process now running keeps going.";
+"autostart.off" = "Autostart is off.";
+"autostart.failed" = "autostart: %@";
+
+"update.notBundled" = "This build was not started from HexBridge.app, so there is nothing to update. Build the app with mac/scripts/build-app.sh.";
+"update.notBundled.short" = "This build was not started from HexBridge.app, so it has nothing to update itself with.";
+"update.version" = "Version %@. Installed only when you say so.";
+"update.lastCheck" = "Last check: %@.";
+"update.noVersion" = "not from a bundle";
+"update.reasksForMicrophone" = "After an update macOS will ask for microphone access once more. That is normal: the build is signed ad-hoc, so the system treats the updated app as a new one. Choose Allow — your settings and your pairing key stay where they are.";
+
+/* MARK: - Settings, Connection */
+
+"link.section.pc" = "Gaming PC";
+"link.pairedWith" = "Paired with";
+"link.address" = "Address of the gaming PC";
+"link.macName" = "Name of this Mac";
+"link.pairAgain" = "Pair again";
+"link.defaultPort" = "The default port is 47702.";
+"link.section.key" = "Pairing key";
+"link.fingerprint" = "Fingerprint";
+"link.key.footer" = "It has to be the same on the Mac and on the PC. Comparing the fingerprints is easier than comparing the keys.";
+"link.advanced" = "Advanced";
+"link.bitrate" = "Bitrate";
+"link.expectedLoss" = "Expected packet loss: %@";
+"link.expectedLoss.help" = "Higher means steadier sound and more traffic.";
+
+/* MARK: - Settings, Diagnostics */
+
+"diag.section.checks" = "Checks";
+"diag.checkMicrophone" = "Check the microphone";
+"diag.section.files" = "Files";
+"diag.log" = "Log";
+"diag.reveal" = "Show";
+"diag.config" = "Config";
+"diag.copyReport" = "Copy report";
+"diag.copyReport.help" = "Versions, the config without the key, and the last 200 lines of the log";
+"diag.reportCopied" = "The report is on the clipboard.";
+
+"restart.notice" = "The new settings take effect once the stream restarts.";
+"restart.action" = "Restart";
+
+/* MARK: - The diagnostics report itself */
+
+"report.title" = "HexBridge — diagnostics report";
+"report.date" = "date";
+"report.macos" = "macOS";
+"report.language" = "language";
+"report.config" = "config";
+"report.address" = "address";
+"report.key" = "key";
+"report.key.missing" = "not set";
+"report.key.present" = "set, fingerprint %@";
+"report.input" = "input device";
+"report.input.systemDefault" = "system default";
+"report.input.value" = "%@ (now: %@)";
+"report.audio" = "audio";
+"report.audio.value" = "%@, expected loss %@";
+"report.features" = "features";
+"report.log" = "last lines of the log:";
+
+/* MARK: - Microphone probe (shown in Diagnostics) */
+
+"probe.running" = "checking for three seconds…";
+"probe.failed" = "error: %@";
+"probe.device" = "input device: %@";
+"probe.format" = "input format: %@";
+"probe.frames" = "frames in %@ s: %@ (about %@ expected)";
+"probe.badSamples" = "samples that are not numbers: %@";
+"probe.range" = "range: %@ … %@";
+
+/* MARK: - Pairing wizard */
+
+"pair.title.choose" = "Connect to a PC";
+"pair.title.code" = "Enter the code";
+"pair.title.check" = "Checking the link";
+"pair.title.done" = "Done";
+"pair.subtitle.choose" = "The key is made on the gaming PC and travels here whole, together with the address. Nothing has to be generated on the Mac.";
+"pair.subtitle.code" = "Type the twelve characters HexBridge is showing on the PC screen, and the address of the PC on the network.";
+"pair.subtitle.check" = "Six checks in a row. Each one says what works and what does not.";
+
+"pair.back" = "Back";
+"pair.checking" = "Checking…";
+"pair.checkAgain" = "Check again";
+"pair.close" = "Close";
+
+"pair.link.section" = "Link from the PC";
+"pair.link.text" = "The shortest way in: copy the link from the PC screen and paste it here. The link carries the address, the key and the name of the machine.";
+"pair.link.paste" = "Paste";
+"pair.link.apply" = "Pair";
+
+"pair.code.section" = "Short code";
+"pair.code.text" = "If there is nowhere to copy the link to, the PC also shows a twelve-character code.";
+"pair.code.enter" = "Enter the code";
+"pair.code.fromScreen" = "Code from the PC screen";
+"pair.code.address" = "Address of the PC on the network";
+"pair.code.hint" = "HexBridge on the PC shows this address next to the code. The exchange runs on port %@ and lasts three minutes.";
+"pair.code.asking" = "Asking the PC…";
+"pair.code.fetch" = "Get the key";
+"pair.code.warning" = "The short-code exchange on the Windows side is being written separately and did not exist when this version was built. If the PC does not answer, that is expected — use the link instead.";
+
+"pair.discovery.section" = "Search on the network";
+"pair.discovery.searching" = "Looking for HexBridge on the local network…";
+"pair.discovery.idle" = "The Mac finds the gaming PC by itself, as long as it is on the same network with HexBridge running.";
+"pair.discovery.failed" = "The search is not working: %@. The link and the code work as usual.";
+"pair.discovery.stop" = "Stop searching";
+"pair.discovery.start" = "Search";
+"pair.discovery.choose" = "Choose";
+"pair.discovery.confirm" = "A PC found this way still has to be confirmed with the code from its screen — on its own, the Mac only talks to a PC it is already paired with.";
+
+"pair.noCamera" = "Scanning a QR code with the camera is not in this version. It needs camera permission and will arrive together with the QR screen on the Windows side — until then there will be no button here that does nothing.";
+
+"pair.done.peer" = "Sound is going to “%@”.";
+"pair.done.generic" = "The link is set up.";
+"pair.done.hint" = "In games, choose the Steam Streaming Microphone.";
+"pair.done.tick" = "Check passed";
+
+"pair.applied" = "Paired with “%@” — %@.";
+"pair.notALink" = "That link is not a HexBridge pairing code.";
+"pair.pcFallbackName" = "PC";
+
+"pairing.error.notALink" = "This is not a HexBridge link. A link starts with hexbridge://pair";
+"pairing.error.malformed" = "The link is incomplete — it carries no address or no port";
+"pairing.error.version" = "The link is version %@, and this HexBridge understands only %@";
+"pairing.error.badKey" = "The key in the link is not 32 bytes of base64";
+"pairing.error.unreachable" = "The PC does not answer at that address — %@";
+"pairing.error.refused" = "The PC did not take the code. Check that the pairing wizard on the PC is still open";
+"pairing.error.badAnswer" = "The PC answered, but not with a pairing link";
+
+/* MARK: - Autodiscovery */
+
+"discovery.ours" = "this is your PC";
+"discovery.unpaired" = "not paired with anyone yet";
+"discovery.stranger" = "paired with another Mac";
+"discovery.found" = "The gaming PC is on the network: %@.";
+"discovery.moved" = "The gaming PC moved to %@. The address updated itself; there is nothing to pair again.";
+
+/* MARK: - Link check */
+
+"check.row.resolve" = "The address resolves";
+"check.row.packets" = "Packets get through";
+"check.row.keys" = "The keys match";
+"check.row.accepts" = "The PC is taking the stream";
+"check.row.audio" = "Sound goes all the way";
+"check.row.devices" = "Forwarded devices";
+
+"check.notChecked" = "not checked";
+"check.noAddress" = "no address set";
+"check.noAddress.why" = "Set the address of the gaming PC under “Connection”.";
+"check.unresolved" = "the name does not resolve";
+"check.unresolved.why" = "“%@” does not turn into an IP address. Check the spelling, or write the address in numbers.";
+"check.packets.ok" = "packets get through";
+"check.silent" = "no answer in three seconds";
+"check.silent.why" = "Packets are going to %@:%@, but nothing comes back. Check that HexBridge is running on the gaming PC and that UDP port %@ is open.";
+"check.keys.unproven.why" = "The keys are judged by the PC's answer. There is no answer, so there is nothing to compare. The key fingerprint on this Mac: %@";
+"check.keys.mismatch" = "the keys are different";
+"check.keys.mismatch.why" = "Packets reach the PC, but nothing there can decrypt them — the Mac and the PC hold different keys. The fingerprint on this Mac: %@";
+"check.stream.detail" = "%@, loss %@";
+"check.stream.none.why" = "The PC answers, but has not counted a single packet of sound. Turn the microphone on and check again.";
+"check.audio.notInProtocol" = "not in the protocol";
+"check.audio.why" = "Checking sound end to end needs the PC to report its own level. The current protocol has no such field — listen in the game itself.";
+"check.devices.off" = "forwarding is off";
+"check.devices.none" = "nothing chosen";
+"check.devices.none.why" = "Nothing is forwarded by default. Choose the devices in settings — one at a time, explicitly.";
+"check.devices.ok" = "%@ — the PC confirmed";
+"check.devices.silent" = "no word from the PC about %@";
+"check.devices.silent.why" = "The device is read on the Mac, but the PC has not confirmed it — the virtual device on Windows was most likely never built.";
+"check.devices.absent" = "the chosen devices are not plugged in";
+"check.devices.absent.why" = "Plug the chosen devices into the Mac over USB. Bluetooth does not work for forwarding: the PC needs USB descriptors.";
+"check.badPort" = "the port is not valid";
+
+"check.verdict.ok" = "Everything works";
+"check.verdict.noAddress" = "No address for the gaming PC";
+"check.verdict.unresolved" = "The address does not resolve";
+"check.verdict.noAnswer" = "The PC does not answer";
+"check.verdict.keys" = "The keys do not match";
+"check.verdict.audio" = "Sound is not reaching the PC";
+"check.verdict.devices" = "The devices are not forwarded";
+
+"check.result.peer" = "Sound is going to “%@”. In games, choose the Steam Streaming Microphone.";
+"check.result.generic" = "The PC answers.";
+"check.result.failed" = "Only the check that did not pass is expanded below.";
+
+/* MARK: - Microphone */
+
+"mic.title" = "Microphone";
+"mic.summary" = "Sound from this Mac goes to the gaming PC and reaches games there as an ordinary microphone.";
+
+"mic.off.headline" = "The microphone is off";
+"mic.off.detail" = "No sound is being sent to the gaming PC. Turn the feature on when you need it.";
+"mic.off.emptyText" = "No sound is being sent to the gaming PC.";
+"mic.action.turnOn" = "Turn the microphone on";
+"mic.action.unmute" = "Unmute";
+"mic.action.mute" = "Mute";
+"mic.action.start" = "Start";
+"mic.action.privacy" = "Open privacy settings";
+
+"mic.unconfigured.headline" = "The microphone is not set up";
+"mic.unconfigured.detail" = "Give it the address of the gaming PC and the pairing key — this is done once.";
+
+"mic.denied.headline" = "No access to the microphone";
+"mic.denied.detail" = "macOS is not letting HexBridge read the input. The permission is granted once, in System Settings.";
+
+"mic.unreachable.headline" = "The gaming PC is not reachable";
+"mic.unreachable.detail" = "Sound will start on its own as soon as the PC comes up. There is nothing to check.";
+
+"mic.failed.headline" = "The stream did not start";
+"mic.starting.headline" = "Starting";
+"mic.stopped.headline" = "The stream is stopped";
+"mic.stopped.detail" = "Audio capture is not running.";
+
+"mic.muted.headline" = "The microphone is muted";
+"mic.muted.detail" = "The PC knows about the mute and is holding the connection.";
+
+"mic.waiting.headline" = "Waiting for the PC";
+"mic.waiting.detail" = "Sound is going to %@, but nothing there is answering.";
+
+"mic.loss.headline" = "Packet loss — %@";
+"mic.loss.detail" = "Sound is being reconstructed, but there are audible artefacts here and there. A wired connection helps, and so does a bigger buffer under Advanced.";
+
+"mic.live.headline" = "Sound is going through";
+"mic.live.detail" = "Games see it as “Steam Streaming Microphone”.";
+"mic.live.detail.peer" = "Games on %@ see it as “Steam Streaming Microphone”.";
+
+"mic.mute.accessibility" = "Mute the microphone";
+"mic.unmute.accessibility" = "Unmute the microphone";
+
+"mic.unpaired.title" = "The Mac and the gaming PC are not paired yet";
+"mic.unpaired.text" = "It takes about a minute and is done once.";
+"mic.unpaired.action" = "Start setting up";
+
+"mic.section.telemetry" = "Telemetry";
+"mic.metric.packets" = "packets/s";
+"mic.metric.latency" = "latency";
+"mic.metric.latency.help" = "Time to the gaming PC and back. An estimate: an exact figure would need synchronised clocks on both machines.";
+"mic.metric.uptime" = "uptime";
+"mic.metric.loss" = "loss";
+"mic.section.level" = "Level";
+"mic.gain" = "Gain";
+"mic.section.input" = "Input";
+"mic.device" = "Device";
+"mic.device.systemDefault" = "System default";
+"mic.device.row" = "%@ — %@";
+"mic.capturingNow" = "Capturing now";
+
+/* MARK: - Clipboard */
+
+"clip.title" = "Clipboard";
+"clip.summary" = "What you copy on the Mac appears on the gaming PC and the other way round. The contents of the clipboard — passwords included — leave for the other machine.";
+
+"clip.off.headline" = "The shared clipboard is off";
+"clip.off.detail" = "Nothing copied on this Mac is sent anywhere.";
+"clip.off.emptyText" = "Nothing copied on this Mac leaves it.";
+"clip.action.turnOn" = "Turn the shared clipboard on";
+"clip.action.turnOff" = "Turn the shared clipboard off";
+
+"clip.unconfigured.headline" = "The shared clipboard is not set up";
+"clip.failed.headline" = "The clipboard is not getting through";
+
+"clip.waiting.headline" = "Waiting for the stream to start";
+"clip.waiting.detail" = "The clipboard travels on the same channel as the sound. Until that channel is up, what you copy stays here.";
+
+"clip.sending.headline" = "Sending: %@";
+"clip.receiving.headline" = "Receiving: %@";
+"clip.live.headline" = "The clipboard is shared";
+
+"clip.last.none" = "Copy something — it will turn up on the other machine.";
+"clip.last.line" = "Last: %@, %@ %@.";
+"clip.last.out" = "went to the PC";
+"clip.last.in" = "came from the PC";
+"clip.direction.out" = "from this Mac to the PC";
+"clip.direction.in" = "from the PC to this Mac";
+
+"clip.privacy" = "Anything copied on either machine goes to the other — passwords included. Text and PNG images are carried.";
+"clip.progress.blocks" = "%@ of %@";
+"clip.section.last" = "Last transfer";
+"clip.metric.sent" = "sent";
+"clip.metric.received" = "received";
+"clip.metric.when" = "when";
+"clip.footer.none" = "Nothing has been transferred yet. The kind and the size of an object are recorded, never the contents.";
+"clip.footer.last" = "%@ — %@. The kind and the size of an object are recorded, never the contents.";
+
+"clip.item.text" = "text, %@";
+"clip.item.image" = "image, %@";
+"clip.item.data" = "data, %@";
+
+/* MARK: - Devices */
+
+"dev.title" = "Devices";
+"dev.summary" = "The USB devices you choose stay connected to the Mac: HexBridge reads them without taking them away from the system or from Steam.";
+
+"dev.off.headline" = "Forwarding is off";
+"dev.off.reading.headline" = "The devices are being read, forwarding is off";
+"dev.off.detail.nothing" = "No device is being forwarded to the PC.";
+"dev.off.detail.chosen" = "%@ chosen, but forwarding is off.";
+"dev.off.detail.reading" = "%@. The PC does not see them yet.";
+"dev.action.turnOn" = "Turn forwarding on";
+"dev.action.turnOff" = "Turn forwarding off";
+
+"dev.nothingChosen.headline" = "Nothing is chosen";
+"dev.nothingChosen.detail" = "Nothing is forwarded by default. Tick the devices you want in the list below — one at a time.";
+
+"dev.absent.headline" = "The chosen devices are not plugged in";
+"dev.absent.detail" = "Plug them into the Mac over USB. Forwarding does not work over Bluetooth: the PC needs USB descriptors, and only the USB stack hands those out.";
+
+"dev.error.headline" = "The device cannot be read";
+
+"dev.waiting.headline" = "Waiting for the PC";
+"dev.partial.headline" = "The PC has not confirmed everything";
+"dev.waiting.detail" = "%@ — the PC has not built the virtual device yet.";
+
+"dev.blocked.headline" = "Rumble and lighting are not getting through";
+"dev.blocked.detail" = "macOS is not letting this app send commands back to the device. Buttons, sticks and sensors work; rumble and lighting do not.";
+
+"dev.crowded.headline" = "%@ of %@ forwarded";
+"dev.crowded.detail" = "The protocol carries no more than four at a time. These did not fit: %@.";
+
+"dev.live.oneDevice" = "The device is forwarded";
+"dev.live.headline" = "%@ forwarded";
+"dev.live.detail" = "The PC sees %@.";
+
+"dev.section.pick" = "What to forward";
+"dev.slotsFree" = "%@ of %@ free.";
+"dev.empty.title" = "No USB devices in sight";
+"dev.empty.text" = "Plug in a controller, a wheel, pedals or a HOTAS over USB.";
+"dev.crowdedOut" = "No slots left — unplug another device";
+"dev.row.slot" = "slot %@";
+"dev.row.forward.accessibility" = "Forward %@";
+
+"dev.card.title" = "Device %@ · %@";
+"dev.metric.battery" = "battery";
+"dev.metric.rate" = "updates/s";
+"dev.metric.forwarded" = "forwarded";
+"dev.metric.commandsBack" = "commands back";
+"dev.check.usb" = "Plugged in over USB";
+"dev.check.seen" = "The PC sees the device";
+"dev.check.rumble" = "Rumble and lighting";
+"dev.check.rumble.no" = "not applied";
+"dev.caption.inactive" = "The drawing comes alive when the device is plugged in over a cable";
+"dev.caption.reading" = "Press something — the drawing will answer";
+"dev.caption.forwarding" = "The PC sees this device";
+"dev.line.accessibility" = "%@, battery %@";
+"dev.activity.live" = "sending";
+"dev.activity.idle" = "silent";
+
+"device.category.gamepad" = "Controller";
+"device.category.keyboard" = "Keyboard";
+"device.category.pointer" = "Mouse or trackpad";
+"device.category.hid" = "HID device";
+"device.warning.keyboard" = "The keyboard stays connected to the Mac: what you type will be typed here and on the PC at the same time.";
+"device.warning.pointer" = "The mouse stays connected to the Mac: the pointer will move here and on the PC at the same time.";
+"device.ineligible.builtIn" = "Built into the Mac — not forwarded";
+"device.ineligible.notUSB" = "Not USB — its descriptors cannot be read";
+
+"battery.discharging" = "%@, discharging";
+"battery.charging" = "%@, charging";
+"battery.charged" = "%@, charged";
+"battery.overheated" = "too hot";
+"battery.tooCold" = "too cold";
+"battery.fault" = "battery fault";
+"battery.unknown" = "%@";
+
+/* MARK: - Shared components */
+
+"key.reveal" = "Show";
+"key.copy" = "Copy";
+"key.generate" = "Generate";
+
+"meter.muted" = "muted";
+"meter.peak" = "peak %@ dBFS";
+"meter.silence" = "silence";
+"meter.accessibility" = "Level: %@";
+
+"fingerprint.accessibility" = "Key fingerprint: %@";
+"steps.accessibility" = "Step %@ of %@";
+"spinner.accessibility" = "Checking";
+"featureRow.accessibility" = "Turn on: %@";
+"statusCard.accessibility" = "%@. %@";
+
+/* MARK: - Failures worded for a person
+
+   GLOSSARY.md: no error codes, and never "Failed to…" — say what is not
+   happening. The untouched original still goes to the log. */
+
+"error.generic" = "Cannot reach the gaming PC";
+"error.hostDown" = "The gaming PC is not answering";
+"error.noNetwork" = "There is no network";
+"error.refused" = "The gaming PC is refusing the connection";
+"error.noRoute" = "There is no route to the gaming PC";
+"error.timedOut" = "The gaming PC did not answer in time";
+
+"config.error.noAddress" = "the address of the gaming PC is not set";
+"config.error.badKey" = "the pairing key has to be 32 bytes of base64 — make one with `hexbridge keygen`";
+"config.saveFailed" = "the config could not be written: %@";
+
+"capture.error.denied" = "microphone access has not been granted (System Settings → Privacy & Security → Microphone)";
+"capture.error.deviceNotFound" = "input device not found: %@";
+"capture.error.selectDevice" = "the input device could not be selected";
+"capture.error.noFormat" = "the input device offers no format we can use";
+"capture.error.converter" = "the converter to 48 kHz mono could not be built";
+"capture.error.engine" = "the audio engine did not start: %@";
+
+"runtime.error.notStarted" = "the stream is not running";
+"sender.error.descriptorTooBig" = "the description of the device does not fit in one packet";
+"bulk.error.empty" = "there is nothing to send: the object is empty";
+"bulk.error.tooLarge" = "the object is larger than 16 MB — that is file transfer, not a clipboard";
+
+"devices.error.subscribe" = "USB plug and unplug events could not be subscribed to";
+"devices.error.open" = "“%@” could not be opened";
+"devices.error.descriptors" = "“%@”: the device description could not be read in full";
+"devices.error.featureReport" = "part of the device state could not be read";
+"devices.error.write" = "the device is not taking commands";
+
+"iokit.notPermitted" = "the system refused access";
+"iokit.busy" = "another program is holding the device for itself";
+"iokit.notOpen" = "the device is not open";
+"iokit.notAttached" = "the device has been unplugged";

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 
 /// One thing the clipboard can hold, in the only two shapes this feature carries:
 /// UTF-8 text and a PNG. Everything else on the pasteboard is left alone.
@@ -18,21 +19,12 @@ struct ClipboardItem {
     /// and nothing else: the description travels over the wire and lands in a
     /// log, and the clipboard is where passwords live.
     var describe: String {
+        let size = L.bytes(bytes.count)
         switch format {
-        case .utf8Text: return "текст, \(Self.size(bytes.count))"
-        case .png: return "изображение, \(Self.size(bytes.count))"
-        case .opaque: return "данные, \(Self.size(bytes.count))"
+        case .utf8Text: return L.t("clip.item.text", size)
+        case .png: return L.t("clip.item.image", size)
+        case .opaque: return L.t("clip.item.data", size)
         }
-    }
-
-    static func size(_ bytes: Int) -> String {
-        if bytes >= 1024 * 1024 {
-            return String(format: "%.1f МБ", Double(bytes) / (1024 * 1024))
-        }
-        if bytes >= 1024 {
-            return String(format: "%.1f КБ", Double(bytes) / 1024)
-        }
-        return "\(bytes) Б"
     }
 }
 

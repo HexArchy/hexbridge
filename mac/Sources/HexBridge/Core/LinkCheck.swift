@@ -1,9 +1,10 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 import Network
 import Observation
 
-/// The "Проверить связь" run from DESIGN.md §9.4.
+/// The "Check the link" run from DESIGN.md §9.4.
 ///
 /// Six lines, appearing one after another with at least 250 ms between them:
 /// six results arriving at once are a wall of text nobody reads, six results
@@ -27,14 +28,18 @@ final class LinkCheck {
     private(set) var verdict: String?
     private(set) var verdictTone: Tone = .neutral
 
-    private static let blank: [Row] = [
-        Row(id: 0, title: "Адрес разрешается"),
-        Row(id: 1, title: "Пакеты доходят"),
-        Row(id: 2, title: "Ключи совпадают"),
-        Row(id: 3, title: "Приёмник принимает поток"),
-        Row(id: 4, title: "Звук проходит насквозь"),
-        Row(id: 5, title: "Проброшенные устройства"),
-    ]
+    /// Rebuilt on every run rather than held as a constant: the titles are
+    /// words, and the language they are in can change between two runs.
+    private static var blank: [Row] {
+        [
+            Row(id: 0, title: L.t("check.row.resolve")),
+            Row(id: 1, title: L.t("check.row.packets")),
+            Row(id: 2, title: L.t("check.row.keys")),
+            Row(id: 3, title: L.t("check.row.accepts")),
+            Row(id: 4, title: L.t("check.row.audio")),
+            Row(id: 5, title: L.t("check.row.devices")),
+        ]
+    }
 
     private var task: Task<Void, Never>?
 
@@ -42,6 +47,17 @@ final class LinkCheck {
         task?.cancel()
         task = nil
         running = false
+    }
+
+    /// Throws away a finished run. Called when the interface language changes:
+    /// the verdict and the six rows are sentences in the language they were
+    /// worded in, and nothing would re-run the check on its own.
+    func clear() {
+        cancel()
+        rows = Self.blank
+        verdict = nil
+        verdictTone = .neutral
+        finished = false
     }
 
     /// `live` is the running pipeline, when there is one. Reusing it matters:
@@ -76,9 +92,9 @@ final class LinkCheck {
         do {
             parts = try config.endpointParts()
         } catch {
-            await set(0, .failed, detail: "адрес не задан", explanation: "Укажите адрес приёмника в разделе «Соединение».")
+            await set(0, .failed, detail: L.t("check.noAddress"), explanation: L.t("check.noAddress.why"))
             await failRest(from: 1)
-            conclude(bad: "Адрес приёмника не задан")
+            conclude(bad: L.t("check.verdict.noAddress"))
             return
         }
 
@@ -86,9 +102,10 @@ final class LinkCheck {
         await mark(0, .running)
         let resolved = await Self.resolve(host: parts.host)
         guard let resolved else {
-            await set(0, .failed, detail: "имя не разрешается", explanation: "«\(parts.host)» не превращается в IP-адрес. Проверьте написание или укажите адрес цифрами.")
+            await set(0, .failed, detail: L.t("check.unresolved"),
+                      explanation: L.t("check.unresolved.why", parts.host))
             await failRest(from: 1)
-            conclude(bad: "Адрес не разрешается")
+            conclude(bad: L.t("check.verdict.unresolved"))
             return
         }
         await set(0, .ok, detail: resolved)
@@ -105,81 +122,95 @@ final class LinkCheck {
 
         switch probe {
         case .pong(let rtt, let received, let lost):
-            await set(1, .ok, detail: String(format: "%.0f мс", rtt))
-            await set(2, .ok, detail: Pairing.fingerprint(ofBase64Key: config.psk) ?? "—")
+            await set(1, .ok, detail: L.milliseconds(rtt))
+            await set(2, .ok, detail: Pairing.fingerprint(ofBase64Key: config.psk) ?? L.t("unit.none"))
 
-            // 4. The receiver's own counters, echoed back inside the PONG.
+            // 4. The PC's own counters, echoed back inside the PONG.
             if received > 0 {
                 let percent = lost + received > 0 ? Double(lost) * 100 / Double(lost + received) : 0
-                await set(3, .ok, detail: String(format: "%llu пакетов, потери %.1f %%", received, percent))
+                await set(3, .ok, detail: L.t(
+                    "check.stream.detail",
+                    L.plural("packets", Int(received)),
+                    L.percent(percent)
+                ))
             } else {
-                await set(3, .failed, detail: "0 пакетов",
-                          explanation: "Приёмник отвечает, но ни одного аудиопакета не досчитался. Включите микрофон и повторите проверку.")
+                await set(3, .failed, detail: L.plural("packets", 0),
+                          explanation: L.t("check.stream.none.why"))
             }
 
         case .silent:
-            await set(1, .failed, detail: "ответа нет за 3 с",
-                      explanation: "Пакеты уходят на \(parts.host):\(parts.port), но подтверждений оттуда нет. Проверьте, что на игровом ПК запущен HexBridge и что порт UDP \(parts.port) открыт.")
+            await set(1, .failed, detail: L.t("check.silent"),
+                      explanation: L.t(
+                          "check.silent.why",
+                          parts.host,
+                          L.integer(Int(parts.port)),
+                          L.integer(Int(parts.port))
+                      ))
             // Without an answer there is nothing to decrypt, so the key cannot
-            // be judged either way. Saying "не совпадают" here would be a lie.
-            await set(2, .failed, detail: "не проверено",
-                      explanation: "Ключи проверяются по ответу приёмника. Ответа нет, поэтому проверить нечего. Отпечаток ключа на этом Mac: \(Pairing.fingerprint(ofBase64Key: config.psk) ?? "—")")
-            await set(3, .failed, detail: "—")
+            // be judged either way. Saying "they do not match" would be a lie.
+            await set(2, .failed, detail: L.t("check.notChecked"),
+                      explanation: L.t("check.keys.unproven.why", fingerprint(config)))
+            await set(3, .failed, detail: L.t("unit.none"))
 
         case .badKey:
-            await set(1, .ok, detail: "пакеты доходят")
-            await set(2, .failed, detail: "ключи не совпадают",
-                      explanation: "Пакеты доходят до Windows, но расшифровать их не получается — на Mac и на ПК записаны разные ключи. Отпечаток на этом Mac: \(Pairing.fingerprint(ofBase64Key: config.psk) ?? "—")")
-            await set(3, .failed, detail: "—")
+            await set(1, .ok, detail: L.t("check.packets.ok"))
+            await set(2, .failed, detail: L.t("check.keys.mismatch"),
+                      explanation: L.t("check.keys.mismatch.why", fingerprint(config)))
+            await set(3, .failed, detail: L.t("unit.none"))
 
         case .misconfigured(let reason):
             await set(1, .failed, detail: reason)
-            await set(2, .failed, detail: "не проверено")
-            await set(3, .failed, detail: "—")
+            await set(2, .failed, detail: L.t("check.notChecked"))
+            await set(3, .failed, detail: L.t("unit.none"))
         }
 
         // 5. End-to-end audio. Honest: the protocol carries no level from the
         // receiver, so this cannot be proven from the Mac alone.
-        await set(4, .pending, detail: "нет в протоколе",
-                  explanation: "Сквозная проверка требует, чтобы приёмник присылал свой уровень звука. В текущей версии протокола такого поля нет — проверьте звук в самой игре.")
+        await set(4, .pending, detail: L.t("check.audio.notInProtocol"),
+                  explanation: L.t("check.audio.why"))
 
         // 6. Forwarded devices.
         if !config.forwardsDevices {
-            await set(5, .pending, detail: "проброс выключен")
+            await set(5, .pending, detail: L.t("check.devices.off"))
         } else if config.selectedDevices.isEmpty {
-            await set(5, .pending, detail: "ничего не выбрано",
-                      explanation: "По умолчанию не пробрасывается ничего. Выберите устройства в настройках — по одному, явно.")
+            await set(5, .pending, detail: L.t("check.devices.none"),
+                      explanation: L.t("check.devices.none.why"))
         } else if let devices, !devices.devices.isEmpty {
             let names = devices.devices.map(\.product).joined(separator: ", ")
             let silent = devices.devices.filter { !$0.attachAcknowledged }
             if silent.isEmpty {
-                await set(5, .ok, detail: "\(names) — приёмник подтвердил")
+                await set(5, .ok, detail: L.t("check.devices.ok", names))
             } else {
-                await set(5, .failed, detail: "приёмник молчит про \(silent.map(\.product).joined(separator: ", "))",
-                          explanation: "Устройство прочитано на Mac, но приёмник не прислал DEV_ACK — виртуальное устройство на Windows, скорее всего, не создано.")
+                await set(5, .failed,
+                          detail: L.t("check.devices.silent", silent.map(\.product).joined(separator: ", ")),
+                          explanation: L.t("check.devices.silent.why"))
             }
         } else {
-            await set(5, .failed, detail: "выбранные устройства не подключены",
-                      explanation: "Подключите выбранные устройства к Mac кабелем USB. По Bluetooth проброс не работает: приёмнику нужны USB-дескрипторы.")
+            await set(5, .failed, detail: L.t("check.devices.absent"),
+                      explanation: L.t("check.devices.absent.why"))
         }
 
         let failures = rows.filter { $0.state == .failed }
         if failures.isEmpty {
-            conclude(ok: "Всё работает")
+            conclude(ok: L.t("check.verdict.ok"))
         } else if let first = failures.first {
             conclude(bad: firstFailureHeadline(first))
         }
     }
 
+    private func fingerprint(_ config: Config) -> String {
+        Pairing.fingerprint(ofBase64Key: config.psk) ?? L.t("unit.none")
+    }
+
     private func firstFailureHeadline(_ row: Row) -> String {
-        // §9.4: the heading is never "Ошибка", it is the concrete thing that
+        // §9.4: the heading is never "Error", it is the concrete thing that
         // did not work.
         switch row.id {
-        case 0: return "Адрес не разрешается"
-        case 1: return "Windows не отвечает"
-        case 2: return "Ключи не совпадают"
-        case 3: return "Звук не доходит до Windows"
-        case 5: return "Устройства не проброшены"
+        case 0: return L.t("check.verdict.unresolved")
+        case 1: return L.t("check.verdict.noAnswer")
+        case 2: return L.t("check.verdict.keys")
+        case 3: return L.t("check.verdict.audio")
+        case 5: return L.t("check.verdict.devices")
         default: return row.title
         }
     }
@@ -218,7 +249,7 @@ final class LinkCheck {
     private func failRest(from id: Int) async {
         for index in rows.indices where rows[index].id >= id {
             rows[index].state = .failed
-            rows[index].detail = "не проверено"
+            rows[index].detail = L.t("check.notChecked")
         }
     }
 
@@ -275,7 +306,7 @@ final class LinkCheck {
 
     /// No pipeline (or a different target): open a throwaway socket, send three
     /// HELLOs and wait. Three because a single lost UDP datagram would
-    /// otherwise be reported to the user as "Windows не отвечает".
+    /// otherwise be reported to the user as "the PC does not answer".
     private static func probeDirect(config: Config, host: String, port: UInt16) async -> ProbeResult {
         let key: SymmetricKey
         do {
@@ -284,7 +315,7 @@ final class LinkCheck {
             return .misconfigured("\(error)")
         }
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
-            return .misconfigured("неверный порт")
+            return .misconfigured(L.t("check.badPort"))
         }
 
         let sender = Sender(

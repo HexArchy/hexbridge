@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeText
 import Network
 
 /// Owns the UDP connection to the host (or to the VPS relay) and the packet counters.
@@ -186,7 +187,9 @@ final class Sender {
         // be much worse than a refused one.
         guard payload.count + Wire.headerSize + Wire.tagSize <= Wire.maxPacket else {
             lock.lock()
-            lastError = "дескрипторы устройства \(device) не помещаются в пакет (\(payload.count) байт)"
+            print("hexbridge: descriptors for device \(device) do not fit in one packet"
+                + " (\(payload.count) bytes)")
+            lastError = L.t("sender.error.descriptorTooBig")
             lock.unlock()
             return
         }

@@ -8,6 +8,10 @@ let opusPrefix = ProcessInfo.processInfo.environment["OPUS_PREFIX"] ?? "/opt/hom
 
 let package = Package(
     name: "HexBridge",
+    // Required by SwiftPM before a target may carry `<lang>.lproj` resources,
+    // and true besides: English is the language the interface is written in and
+    // the one a key falls back to when the other file has not got it.
+    defaultLocalization: "en",
     // SwiftUI's MenuBarExtra window style, @Observable and SettingsLink all
     // need 14; 13 would still build the CLI but not the UI.
     platforms: [.macOS(.v14)],
@@ -50,9 +54,19 @@ let package = Package(
             name: "HexBridgeDiscovery",
             path: "Sources/HexBridgeDiscovery"
         ),
+        // Every word the interface says, in both languages, plus the plural
+        // rules and the number formatting that go with them. Its own target for
+        // the same reason as `HexBridgeDiscovery`: the app target cannot be
+        // linked into an XCTest bundle, and «есть ли у каждого ключа обе
+        // строки» has to be a test rather than a promise.
+        .target(
+            name: "HexBridgeText",
+            path: "Sources/HexBridgeText",
+            resources: [.process("Resources")]
+        ),
         .executableTarget(
             name: "HexBridge",
-            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "Sparkle"],
+            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgeText", "Sparkle"],
             path: "Sources/HexBridge",
             linkerSettings: [.unsafeFlags(["-Xlinker", "\(opusPrefix)/lib/libopus.a"])]
         ),
@@ -60,6 +74,11 @@ let package = Package(
             name: "HexBridgeDiscoveryTests",
             dependencies: ["HexBridgeDiscovery"],
             path: "Tests/HexBridgeDiscoveryTests"
+        ),
+        .testTarget(
+            name: "HexBridgeTextTests",
+            dependencies: ["HexBridgeText"],
+            path: "Tests/HexBridgeTextTests"
         ),
     ]
 )

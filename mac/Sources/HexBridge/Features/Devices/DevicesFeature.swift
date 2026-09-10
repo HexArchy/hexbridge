@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import Observation
 import SwiftUI
 
@@ -6,7 +7,7 @@ import SwiftUI
 ///
 /// The important asymmetry with the microphone: a device is *read* even when the
 /// passthrough is off, as long as something is drawing it. That is what makes
-/// the "подключён, но не проброшен" state show a live outline, and it is the
+/// the "plugged in but not forwarded" state show a live outline, and it is the
 /// moment the user learns their pad is being read correctly.
 ///
 /// The second asymmetry is the one this feature exists to manage. Devices are
@@ -19,9 +20,9 @@ import SwiftUI
 @MainActor
 final class DevicesFeature: Feature {
     let id = "devices"
-    let title = "Устройства"
+    var title: String { L.t("dev.title") }
     let symbolName = "cable.connector"
-    let summary = "Выбранные USB-устройства остаются подключёнными к Mac: HexBridge читает репорты, не забирая устройство у системы и у Steam."
+    var summary: String { L.t("dev.summary") }
 
     private unowned let host: FeatureHost
 
@@ -33,7 +34,7 @@ final class DevicesFeature: Feature {
 
     init(host: FeatureHost) {
         self.host = host
-        status = FeatureStatus(state: .off, tone: .off, headline: "Проброс выключен")
+        status = FeatureStatus(state: .off, tone: .off, headline: L.t("dev.off.headline"))
     }
 
     // MARK: - Feature
@@ -61,11 +62,10 @@ final class DevicesFeature: Feature {
 
     func refresh() {
         bridge = host.runtime.deviceStatus()
-        // 0xE00002C1 kIOReturnNotPrivileged is exactly the code the trigger
-        // effects come back with when macOS blocks output reports.
+        // `kIOReturnNotPrivileged` is exactly what the trigger effects come
+        // back with when macOS blocks writes to the device.
         outputBlocked = forwarded.contains { device in
-            device.lastError?.contains("0xE00002C1") == true
-                || (device.outputsRejected > 0 && device.outputsApplied == 0)
+            device.outputsForbidden || (device.outputsRejected > 0 && device.outputsApplied == 0)
         }
         status = derive()
     }
@@ -131,13 +131,13 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .off,
                 tone: .off,
-                headline: live.isEmpty ? "Проброс выключен" : "Устройства читаются, проброс выключен",
+                headline: L.t(live.isEmpty ? "dev.off.headline" : "dev.off.reading.headline"),
                 detail: live.isEmpty
                     ? (chosen.isEmpty
-                        ? "Ни одно устройство на Windows не пробрасывается."
-                        : "Выбрано \(count(chosen.count)), но проброс выключен.")
-                    : "\(names(live)). Windows их пока не видит.",
-                primaryAction: FeatureAction(title: "Включить проброс") { [weak self] in
+                        ? L.t("dev.off.detail.nothing")
+                        : L.t("dev.off.detail.chosen", L.plural("devices", chosen.count)))
+                    : L.t("dev.off.detail.reading", names(live)),
+                primaryAction: FeatureAction(title: L.t("dev.action.turnOn"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = true
                 }
             )
@@ -147,8 +147,8 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .waiting,
                 tone: .warn,
-                headline: "Ничего не выбрано",
-                detail: "По умолчанию не пробрасывается ничего. Отметьте нужные устройства в списке ниже — по одному.",
+                headline: L.t("dev.nothingChosen.headline"),
+                detail: L.t("dev.nothingChosen.detail"),
                 primaryAction: nil
             )
         }
@@ -157,8 +157,8 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .waiting,
                 tone: .warn,
-                headline: "Выбранные устройства не подключены",
-                detail: "Подключите их к Mac кабелем USB. По Bluetooth проброс не работает: приёмнику нужны USB-дескрипторы, а их отдаёт только USB-стек.",
+                headline: L.t("dev.absent.headline"),
+                detail: L.t("dev.absent.detail"),
                 primaryAction: nil
             )
         }
@@ -167,10 +167,10 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .error,
                 tone: .bad,
-                headline: "Устройство не читается",
+                headline: L.t("dev.error.headline"),
                 detail: error,
                 alert: error,
-                primaryAction: FeatureAction(title: "Повторить") { [weak self] in
+                primaryAction: FeatureAction(title: L.t("action.retry")) { [weak self] in
                     self?.host.runtime.applyDeviceSetting()
                 }
             )
@@ -181,9 +181,9 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .waiting,
                 tone: .warn,
-                headline: silent.count == live.count ? "Ждёт Windows" : "Приёмник подтвердил не всё",
-                detail: "\(names(silent)) — приёмник ещё не подтвердил, что собрал виртуальное устройство.",
-                primaryAction: FeatureAction(title: "Проверить связь") { [weak self] in
+                headline: L.t(silent.count == live.count ? "dev.waiting.headline" : "dev.partial.headline"),
+                detail: L.t("dev.waiting.detail", names(silent)),
+                primaryAction: FeatureAction(title: L.t("action.checkLink")) { [weak self] in
                     self?.host.openLinkCheck()
                 }
             )
@@ -193,9 +193,9 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .live,
                 tone: .warn,
-                headline: "Обратные команды не применяются",
-                detail: "macOS не пропускает output-репорты этому приложению, устройство отвечает 0xE00002C1. Кнопки, оси и сенсоры работают, вибрация и подсветка — нет.",
-                primaryAction: FeatureAction(title: "Выключить проброс") { [weak self] in
+                headline: L.t("dev.blocked.headline"),
+                detail: L.t("dev.blocked.detail"),
+                primaryAction: FeatureAction(title: L.t("dev.action.turnOff"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = false
                 }
             )
@@ -206,9 +206,13 @@ final class DevicesFeature: Feature {
             return FeatureStatus(
                 state: .live,
                 tone: .warn,
-                headline: "Проброшено \(count(live.count)) из \(DeviceBridge.maxDevices)",
-                detail: "Больше четырёх одновременно протокол не несёт. Не поместились: \(crowded.map(\.name).joined(separator: ", ")).",
-                primaryAction: FeatureAction(title: "Выключить проброс") { [weak self] in
+                headline: L.t(
+                    "dev.crowded.headline",
+                    L.plural("devices", live.count),
+                    L.integer(DeviceBridge.maxDevices)
+                ),
+                detail: L.t("dev.crowded.detail", crowded.map(\.name).joined(separator: ", ")),
+                primaryAction: FeatureAction(title: L.t("dev.action.turnOff"), togglesFeature: true) { [weak self] in
                     self?.isEnabled = false
                 }
             )
@@ -217,20 +221,24 @@ final class DevicesFeature: Feature {
         return FeatureStatus(
             state: .live,
             tone: .ok,
-            headline: live.count == 1 ? "Устройство проброшено" : "Проброшено \(count(live.count))",
-            detail: "Windows видит \(names(live)).",
-            primaryAction: FeatureAction(title: "Выключить проброс") { [weak self] in
+            headline: live.count == 1
+                ? L.t("dev.live.oneDevice")
+                : L.t("dev.live.headline", L.plural("devices", live.count)),
+            detail: L.t("dev.live.detail", names(live)),
+            primaryAction: FeatureAction(title: L.t("dev.action.turnOff"), togglesFeature: true) { [weak self] in
                 self?.isEnabled = false
             }
         )
     }
 
-    private func count(_ n: Int) -> String {
-        "\(n) \(Plural.of(n, "устройство", "устройства", "устройств"))"
-    }
-
+    /// The devices, named the way their owner names them.
+    ///
+    /// The USB ids used to be appended here and scrubbed back off by the
+    /// presentation layer. The glossary settles it: an id is an internal detail,
+    /// it belongs in the log, and the person reading this sentence tells two
+    /// identical pads apart by looking at the desk.
     private func names(_ devices: [DeviceBridge.DeviceStatus]) -> String {
-        devices.map { "«\($0.product)» \($0.identity.modelDescription)" }.joined(separator: ", ")
+        devices.map { L.t("quoted", $0.product) }.joined(separator: ", ")
     }
 
     // MARK: - Views

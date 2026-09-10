@@ -42,7 +42,7 @@ struct Arguments {
     }
 }
 
-/// Key material for `keygen` and for the "сгенерировать" button in settings —
+/// Key material for `keygen` and for the Generate button in settings —
 /// one definition so both can never drift apart.
 enum KeyFactory {
     static func newBase64Key() -> String {
@@ -51,44 +51,47 @@ enum KeyFactory {
 }
 
 enum CLI {
+    /// The command line is a developer surface and stays in English, whatever
+    /// the interface is set to: it is read next to the code, quoted into issues
+    /// and piped through `grep`, and none of that survives being translated.
     static let usage = """
-    hexbridge — пробрасывает микрофон и USB-устройства с Mac на игровой ПК с Windows.
+    hexbridge — forwards the microphone and USB devices from a Mac to a Windows gaming PC.
 
-    Использование:
-      hexbridge [флаги]              запустить передачу (меню-бар + UI)
-      hexbridge --headless           запустить передачу без интерфейса
-      hexbridge list-devices         показать устройства ввода
-      hexbridge keygen               сгенерировать общий ключ (PSK)
-      hexbridge probe                проверить, что микрофон реально захватывается
-      hexbridge discover             показать HexBridge, видимые в локальной сети
-      hexbridge devices list         показать подключённые HID-устройства
-      hexbridge devices probe        полная диагностика: чтение, запись, дескрипторы
-      hexbridge devices monitor      живое состояние устройства, Ctrl-C для выхода
-      hexbridge devices haptics      проиграть PCM в актуаторы и проверить их гироскопом
-                                     (gamepad — синоним devices, сохранён для старых скриптов)
+    Usage:
+      hexbridge [flags]              start streaming (menu bar + interface)
+      hexbridge --headless           start streaming with no interface
+      hexbridge list-devices         list audio input devices
+      hexbridge keygen               generate a pairing key (PSK)
+      hexbridge probe                check that the microphone is really captured
+      hexbridge discover             list the HexBridge hosts visible on this network
+      hexbridge devices list         list connected HID devices
+      hexbridge devices probe        full diagnostics: reading, writing, descriptors
+      hexbridge devices monitor      live device state, Ctrl-C to leave
+      hexbridge devices haptics      play PCM into the actuators and verify it with the gyro
+                                     (gamepad is a synonym for devices, kept for old scripts)
       hexbridge init --target HOST:PORT --psk KEY
-                                     записать конфиг и выйти
+                                     write the config and exit
 
-    Флаги:
-      --config PATH   путь к конфигу (по умолчанию ~/Library/Application Support/HexBridge/config.json)
-      --target H:P    адрес приёмника на Windows или релея на VPS
-      --psk BASE64    общий ключ, 32 байта в base64
-      --device SEL    UID устройства ввода или часть его имени
-      --bitrate N     битрейт Opus, бит/с (по умолчанию 32000)
-      --gain F        программное усиление, 1.0 — без изменений
-      --loss N        ожидаемые потери в процентах для FEC (по умолчанию 10)
-      --name S        имя узла в логах приёмника
-      --gamepad       включить проброс устройств (по умолчанию выключено)
-      --forward LIST  что пробрасывать: VID:PID через запятую, до четырёх.
-                      По умолчанию не пробрасывается ничего — устройство
-                      остаётся подключённым и к Mac, поэтому клавиатура
-                      печатала бы сразу на двух машинах.
-      --hid SEL       для devices probe/monitor: VID:PID или часть имени
-      --seconds N     сколько секунд искать в `discover` (по умолчанию 4)
-      --headless      не поднимать интерфейс, только передача и лог в stdout
-      --quiet         не печатать строку статистики раз в 5 секунд
+    Flags:
+      --config PATH   config path (default ~/Library/Application Support/HexBridge/config.json)
+      --target H:P    address of the gaming PC, or of a relay on a VPS
+      --psk BASE64    pairing key, 32 bytes in base64
+      --device SEL    input device UID, or part of its name
+      --bitrate N     Opus bitrate in bits per second (default 32000)
+      --gain F        software gain, 1.0 leaves the signal alone
+      --loss N        expected packet loss in percent, for FEC (default 10)
+      --name S        name of this node in the PC's log
+      --forward LIST  what to forward: VID:PID separated by commas, up to four.
+                      Nothing is forwarded by default — a device stays connected
+                      to the Mac as well, so a keyboard would type on both
+                      machines at once.
+      --gamepad       turn device forwarding on (off by default)
+      --hid SEL       for devices probe/monitor: VID:PID or part of a name
+      --seconds N     how long `discover` searches for (default 4)
+      --headless      no interface, just the stream and a log on stdout
+      --quiet         do not print the statistics line every five seconds
 
-    Пока процесс работает, `kill -USR1 <pid>` переключает мьют.
+    While the process runs, `kill -USR1 <pid>` toggles mute.
     """
 
     static func fail(_ message: String) -> Never {
@@ -113,7 +116,7 @@ enum CLI {
             let devices = AudioDevices.inputDevices()
             let defaultID = AudioDevices.defaultInputDevice()?.id
             if devices.isEmpty {
-                print("устройств ввода не найдено")
+                print("no input devices found")
             }
             for device in devices {
                 let marker = device.id == defaultID ? " *" : "  "
@@ -158,9 +161,9 @@ enum CLI {
         case "haptics":
             DeviceProbe.haptics(selector: selector) { print($0) }
         case nil:
-            fail("укажите действие: \(args.subcommand ?? "devices") list | probe | monitor | haptics")
+            fail("say what to do: \(args.subcommand ?? "devices") list | probe | monitor | haptics")
         case let other?:
-            fail("неизвестное действие: \(args.subcommand ?? "devices") \(other)")
+            fail("unknown action: \(args.subcommand ?? "devices") \(other)")
         }
     }
 
@@ -168,16 +171,16 @@ enum CLI {
     ///
     /// This is the only way to see the autodiscovery decision without a window,
     /// and it is deliberately blunt about strangers: a host whose tag is not
-    /// ours is listed and marked as somebody else's, because «его не видно
-    /// вовсе» is indistinguishable from «поиск сломался» when you are the one
-    /// debugging it.
+    /// ours is listed and marked as somebody else's, because "it is not visible
+    /// at all" is indistinguishable from "the search is broken" when you are the
+    /// one debugging it.
     private static func runDiscover(_ args: Arguments) {
         let (config, _) = resolveConfig(args)
         let ownTag = DiscoveryTag.tag(forBase64Key: config.psk)
         let seconds = Double(args.value("seconds") ?? "") ?? 4
 
-        print("метка этого Mac: \(ownTag ?? "нет — ключ не задан, автоподключение выключено")")
-        print("ищу \(Int(seconds)) с…")
+        print("tag of this Mac: \(ownTag ?? "none — no key is set, autoconnect is off")")
+        print("searching for \(Int(seconds)) s…")
 
         let done = DispatchSemaphore(value: 0)
         nonisolated(unsafe) var hosts: [DiscoveredHost] = []
@@ -188,31 +191,32 @@ enum CLI {
         done.wait()
 
         if hosts.isEmpty {
-            print("в сети не видно ни одного HexBridge")
+            print("no HexBridge is visible on this network")
         }
         for host in hosts {
             let mark: String
             if DiscoveryTag.same(ownTag, host.tag) {
-                mark = "  ← наш"
+                mark = "  ← ours"
             } else if host.tag == nil {
-                mark = "  (без метки, ни с кем не связан)"
+                mark = "  (no tag, not paired with anyone)"
             } else if ownTag == nil {
                 // With no key of our own there is nobody to be a stranger to.
-                mark = "  (с кем-то связан)"
+                mark = "  (paired with someone)"
             } else {
-                mark = "  (чужой)"
+                mark = "  (someone else's)"
             }
-            let where_ = host.target.isEmpty ? "адрес ещё не разрешён" : host.target
+            let where_ = host.target.isEmpty ? "address not resolved yet" : host.target
             print("  \(host.name)  \(where_)  v\(host.version)  tag=\(host.tag ?? "—")\(mark)")
         }
 
         let choice = DiscoveryMatch.choose(ownTag: ownTag, hosts: hosts)
         print("")
-        print("решение: \(choice.reason)")
+        print("verdict: \(choice.reason.sentence)")
         if let target = DiscoveryMatch.retarget(current: config.target, choice: choice) {
-            print("адрес в конфиге сменился бы на \(target) (сейчас «\(config.target.isEmpty ? "—" : config.target)»)")
+            print("the config address would move to \(target)"
+                + " (currently \(config.target.isEmpty ? "unset" : config.target))")
         } else if choice.shouldConnect {
-            print("адрес в конфиге уже верный")
+            print("the config address is already right")
         }
     }
 
@@ -250,7 +254,7 @@ enum CLI {
             _ = try config.symmetricKey()
             _ = try config.endpointParts()
             try config.save(to: path)
-            print("конфиг записан: \(path.path)")
+            print("config written: \(path.path)")
             exit(0)
         } catch {
             fail("\(error)")
@@ -281,7 +285,8 @@ enum CLI {
             fail("\(error)")
         }
 
-        print("hexbridge: \(runtime.deviceName) → \(hostPort.host):\(hostPort.port), \(runtime.config.bitrate / 1000) кбит/с")
+        print("hexbridge: \(runtime.deviceName) → \(hostPort.host):\(hostPort.port),"
+            + " \(runtime.config.bitrate / 1000) kbit/s")
 
         var lastSent: UInt64 = 0
         var lastBytes: UInt64 = 0
@@ -299,7 +304,7 @@ enum CLI {
                 lastBytes = snap.bytes
 
                 var line = String(
-                    format: "отправлено %3d пак/с  %5.1f кбит/с  пик %5.1f dBFS",
+                    format: "sent %3d pkt/s  %5.1f kbit/s  peak %5.1f dBFS",
                     Int(packets / 5),
                     kbits,
                     peak > 0 ? 20 * log10(Double(peak)) : -99
@@ -308,9 +313,9 @@ enum CLI {
                     line += "  [MUTED]"
                 }
                 if let rtt = snap.rtt, let pong = snap.pong, Date().timeIntervalSince(pong) < 5 {
-                    line += String(format: "  rtt %.0f мс  принято %llu, потеряно %llu", rtt, snap.received, snap.lost)
+                    line += String(format: "  rtt %.0f ms  received %llu, lost %llu", rtt, snap.received, snap.lost)
                 } else {
-                    line += "  хост не отвечает"
+                    line += "  the host is not answering"
                 }
                 if let error = snap.error {
                     line += "  (\(error))"
@@ -325,7 +330,7 @@ enum CLI {
         signal(SIGINT, SIG_IGN)
         intSignal.setEventHandler {
             runtime.stop()
-            print("\nостановлено")
+            print("\nstopped")
             exit(0)
         }
         intSignal.resume()
@@ -341,7 +346,7 @@ enum CLI {
         let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
         source.setEventHandler {
             runtime.muted.toggle()
-            print(runtime.muted ? "микрофон выключен" : "микрофон включён")
+            print(runtime.muted ? "microphone muted" : "microphone unmuted")
             onToggle?()
         }
         source.resume()

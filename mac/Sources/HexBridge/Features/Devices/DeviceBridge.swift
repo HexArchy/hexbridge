@@ -1,4 +1,5 @@
 import Foundation
+import HexBridgeText
 import IOKit
 import IOKit.hid
 
@@ -45,6 +46,13 @@ final class DeviceBridge {
         var attachAcknowledged = false
         var battery: String?
         var lastError: String?
+        /// macOS refused a write to this device with `kIOReturnNotPrivileged`.
+        ///
+        /// Recorded as a fact rather than left to be recognised in `lastError`:
+        /// the sentence there is written for a person and now exists in two
+        /// languages, and the hex code it used to be matched on has been taken
+        /// out of it on purpose.
+        var outputsForbidden = false
         /// Seconds since the last input report — the activity light.
         var idle: TimeInterval = 0
 
@@ -413,7 +421,8 @@ final class DeviceBridge {
         let result = IOServiceAddMatchingNotification(port, type, matching, hotPlugCallback, context, &iterator)
         guard result == KERN_SUCCESS else {
             lock.lock()
-            generalError = "подписка на события USB: \(IOKitError.describe(result))"
+            print("hexbridge: IOServiceAddMatchingNotification → \(IOKitError.describe(result))")
+            generalError = L.t("devices.error.subscribe")
             lock.unlock()
             return
         }
@@ -594,7 +603,11 @@ final class DeviceBridge {
     private func attach(_ candidate: HIDDevice, number: UInt8, forwarding: Bool) -> Bool {
         let openResult = candidate.open()
         guard openResult == kIOReturnSuccess else {
-            note(failure: "не удалось открыть «\(candidate.displayName)»: \(IOKitError.describe(openResult))",
+            print("hexbridge: open(\(candidate.displayName)) → \(IOKitError.describe(openResult))")
+            note(failure: [
+                L.t("devices.error.open", candidate.displayName),
+                IOKitError.reason(openResult),
+            ].compactMap { $0 }.joined(separator: " — "),
                  for: candidate.registryID)
             return false
         }
@@ -615,8 +628,9 @@ final class DeviceBridge {
         // with missing blocks is worse than no attach at all.
         guard blocks.count == 3 else {
             candidate.close()
-            note(failure: "«\(candidate.displayName)»: дескрипторы прочитаны не полностью (\(blocks.count) из 3)"
-                    + (usb.error.map { ", \($0)" } ?? ""),
+            print("hexbridge: \(candidate.displayName): \(blocks.count) of 3 descriptor blocks"
+                + (usb.error.map { ", \($0)" } ?? ""))
+            note(failure: L.t("devices.error.descriptors", candidate.displayName),
                  for: candidate.registryID)
             return false
         }
@@ -629,8 +643,9 @@ final class DeviceBridge {
         for wanted in profile?.featureReports ?? [] {
             let result = candidate.featureReport(id: wanted.id, length: wanted.length)
             guard result.status == kIOReturnSuccess, result.data.count >= 2 else {
-                snapshotError = "feature-репорт 0x\(String(format: "%02X", wanted.id)) не прочитан: "
-                    + IOKitError.describe(result.status)
+                print("hexbridge: feature report 0x\(String(format: "%02X", wanted.id)) unread: "
+                    + IOKitError.describe(result.status))
+                snapshotError = L.t("devices.error.featureReport")
                 continue
             }
             blocks.append(.init(kind: .featureReport, bytes: result.data))
@@ -886,7 +901,11 @@ final class DeviceBridge {
                 entry.status.attachAcknowledged = true
             } else {
                 entry.status.outputsRejected &+= 1
-                entry.status.lastError = "запись в устройство: \(IOKitError.describe(result))"
+                if result == kIOReturnNotPrivileged { entry.status.outputsForbidden = true }
+                entry.status.lastError = [
+                    L.t("devices.error.write"),
+                    IOKitError.reason(result),
+                ].compactMap { $0 }.joined(separator: " — ")
             }
         }
         lock.unlock()

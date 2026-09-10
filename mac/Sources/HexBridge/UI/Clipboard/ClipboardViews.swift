@@ -1,3 +1,4 @@
+import HexBridgeText
 import SwiftUI
 
 /// The clipboard block inside the menu bar popover.
@@ -30,12 +31,12 @@ struct ClipboardSettingsPane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.lg) {
-                // §6.1: one action per screen. «Выключить общий буфер» is what
-                // the switch in «Основное» does, so it is not offered again
+                // §6.1: one action per screen. Turning the shared clipboard off
+                // is what the switch in General does, so it is not offered again
                 // here — and when the feature is off, the empty state below is
                 // the one place that offers to turn it on.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
+                    if let action = feature.status.primaryAction, !action.togglesFeature {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
@@ -45,9 +46,9 @@ struct ClipboardSettingsPane: View {
                 if !feature.isEnabled {
                     EmptyState(
                         symbolName: "doc.on.clipboard",
-                        title: "Общий буфер выключен",
-                        text: "Скопированное на этом Mac никуда не уходит.",
-                        action: FeatureAction(title: "Включить общий буфер") { feature.isEnabled = true }
+                        title: L.t("clip.off.headline"),
+                        text: L.t("clip.off.emptyText"),
+                        action: FeatureAction(title: L.t("clip.action.turnOn")) { feature.isEnabled = true }
                     )
                 } else {
                     privacy
@@ -64,10 +65,7 @@ struct ClipboardSettingsPane: View {
     /// only next to the switch: somebody who opens this a month later should not
     /// have to remember what they agreed to.
     private var privacy: some View {
-        InlineAlert(
-            text: "Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG.",
-            tone: .warn
-        )
+        InlineAlert(text: L.t("clip.privacy"), tone: .warn)
     }
 
     /// The bar, and only the bar. What is moving and which way is already the
@@ -81,7 +79,11 @@ struct ClipboardSettingsPane: View {
                     ProgressView(value: flight.fraction)
                         .progressViewStyle(.linear)
                         .tint(palette.okFg)
-                    Text("\(flight.chunksDone) из \(flight.chunkCount) блоков")
+                    Text(L.t(
+                        "clip.progress.blocks",
+                        L.integer(flight.chunksDone),
+                        L.plural("blocks", Int(flight.chunkCount))
+                    ))
                         .font(.dsCaption.monospacedDigit())
                         .foregroundStyle(palette.textDim)
                 }
@@ -93,11 +95,11 @@ struct ClipboardSettingsPane: View {
     /// offer. Three tiles and one line: what it was and which way it went.
     private var telemetry: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Последняя передача")
+            SectionLabel(text: L.t("clip.section.last"))
             HStack(spacing: Space.sm) {
-                MetricTile(caption: "отправлено", value: "\(feature.sent)")
-                MetricTile(caption: "принято", value: "\(feature.received)")
-                MetricTile(caption: "когда", value: feature.lastWhenText)
+                MetricTile(caption: L.t("clip.metric.sent"), value: L.integer(feature.sent))
+                MetricTile(caption: L.t("clip.metric.received"), value: L.integer(feature.received))
+                MetricTile(caption: L.t("clip.metric.when"), value: feature.lastWhenText)
             }
             Text(lastLine)
                 .font(.dsCaption)
@@ -107,9 +109,7 @@ struct ClipboardSettingsPane: View {
     }
 
     private var lastLine: String {
-        guard let description = feature.lastDescription else {
-            return "Пока ничего не передавалось. Записывается вид и размер объекта, не содержимое."
-        }
-        return "\(description) — \(feature.lastDirectionText). Записывается вид и размер объекта, не содержимое."
+        guard let description = feature.lastDescription else { return L.t("clip.footer.none") }
+        return L.t("clip.footer.last", description, feature.lastDirectionText)
     }
 }

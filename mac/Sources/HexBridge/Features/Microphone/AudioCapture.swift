@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreAudio
 import Foundation
+import HexBridgeText
 
 enum CaptureError: Error, CustomStringConvertible {
     case permissionDenied
@@ -13,17 +14,20 @@ enum CaptureError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .permissionDenied:
-            return "доступ к микрофону не выдан (Системные настройки → Конфиденциальность → Микрофон)"
-        case .deviceNotFound(let s):
-            return "устройство ввода не найдено: \(s)"
-        case .selectDevice(let status):
-            return "не удалось выбрать устройство ввода: OSStatus \(status)"
+            return L.t("capture.error.denied")
+        case .deviceNotFound(let selector):
+            return L.t("capture.error.deviceNotFound", selector)
+        case .selectDevice:
+            // The OSStatus goes to the log at the throw site rather than into
+            // this string: it lands in a banner, and the glossary keeps numeric
+            // status codes out of anything a person reads.
+            return L.t("capture.error.selectDevice")
         case .noInputFormat:
-            return "у устройства ввода нет пригодного формата"
+            return L.t("capture.error.noFormat")
         case .converter:
-            return "не удалось создать конвертер в 48 кГц моно"
-        case .engine(let msg):
-            return "AVAudioEngine: \(msg)"
+            return L.t("capture.error.converter")
+        case .engine(let message):
+            return L.t("capture.error.engine", message)
         }
     }
 }
@@ -95,16 +99,16 @@ final class AudioCapture {
             }
             // Bounded on purpose. Started by launchd there may be nobody to show the
             // prompt to, and an unbounded wait then wedges the whole pipeline: the UI
-            // sits on "запускается" forever and the log stays silent, which is exactly
+            // sits on "starting" forever and the log stays silent, which is exactly
             // the failure this bound exists to turn into a legible one.
             if semaphore.wait(timeout: .now() + 20) == .timedOut {
-                print("hexbridge: запрос доступа к микрофону остался без ответа — "
-                    + "разрешите доступ в Системных настройках → Конфиденциальность → Микрофон")
+                print("hexbridge: the microphone permission prompt was never answered — "
+                    + "grant access in System Settings → Privacy & Security → Microphone")
                 return false
             }
             return granted
         default:
-            print("hexbridge: доступ к микрофону запрещён (статус \(status.rawValue))")
+            print("hexbridge: microphone access denied (status \(status.rawValue))")
             return false
         }
     }
@@ -135,7 +139,10 @@ final class AudioCapture {
                     &id,
                     UInt32(MemoryLayout<AudioDeviceID>.size)
                 )
-                guard status == noErr else { throw CaptureError.selectDevice(status) }
+                guard status == noErr else {
+                    print("hexbridge: could not bind the input device, OSStatus \(status)")
+                    throw CaptureError.selectDevice(status)
+                }
             }
         }
 
@@ -144,8 +151,10 @@ final class AudioCapture {
             throw CaptureError.noInputFormat
         }
 
-        inputFormatDescription = "\(Int(inputFormat.sampleRate)) Гц, \(inputFormat.channelCount) ch, " +
-            "\(inputFormat.isInterleaved ? "interleaved" : "planar"), common=\(inputFormat.commonFormat.rawValue)"
+        inputFormatDescription = L.hertz(Int(inputFormat.sampleRate))
+            + ", " + L.plural("channels", Int(inputFormat.channelCount))
+            + ", \(inputFormat.isInterleaved ? "interleaved" : "planar")"
+            + ", common=\(inputFormat.commonFormat.rawValue)"
 
         // A tap on the input node alone does not make the engine render on macOS —
         // the graph needs a real destination. An explicit sink node is that

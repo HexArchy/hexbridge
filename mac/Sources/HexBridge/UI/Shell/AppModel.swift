@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import HexBridgeDiscovery
+import HexBridgeText
 import Observation
 
 /// What a feature is allowed to ask of the shell.
@@ -45,7 +46,7 @@ final class AppModel: FeatureHost {
     private(set) var needsRestart = false
     private(set) var restarting = false
     /// True between asking for a pipeline and hearing back. Without it the poll
-    /// sees `isRunning == false` for a few ticks and flashes "остановлено".
+    /// sees `isRunning == false` for a few ticks and flashes "stopped".
     private(set) var starting = false
 
     /// Non-transport messages (config write failed, autostart refused). Kept
@@ -88,6 +89,10 @@ final class AppModel: FeatureHost {
         self.config = runtime.config
         self.selectedPane = UserDefaults.standard.string(forKey: Self.paneKey) ?? "general"
         self.updater = Updater(automaticallyChecks: self.config.checksForUpdates)
+        // Before the features are built: each derives its first status in its
+        // own initialiser, and a language chosen after that point would leave
+        // the first popover in the wrong one until the next poll.
+        L.select(runtime.config.appLanguage)
         features = [
             MicrophoneFeature(host: self),
             DevicesFeature(host: self),
@@ -105,6 +110,29 @@ final class AppModel: FeatureHost {
         }
     }
 
+    /// The interface language. `system` on a fresh install, which resolves to
+    /// Russian on a Russian Mac and to English everywhere else.
+    ///
+    /// Applied immediately and in two halves. The views are rebuilt by `Themed`,
+    /// which keys itself on this value; the feature statuses are strings that
+    /// were already derived and stored, so they are re-derived here rather than
+    /// waited for — a second of a popover half in the old language is a second
+    /// too long for something that looks this much like a bug.
+    var language: AppLanguage {
+        get { config.appLanguage }
+        set {
+            guard newValue != config.appLanguage else { return }
+            config.language = newValue.rawValue
+            L.select(newValue)
+            for feature in features { feature.refresh() }
+            // The verdict and the six rows were worded in the old language and
+            // nothing will re-run the check on its own.
+            linkCheck.clear()
+            noticeText = nil
+            saveSoon()
+        }
+    }
+
     /// §7.1: the header summary is the worst state among the enabled features.
     var summary: FeatureStatus {
         let enabled = features.filter(\.isEnabled).map(\.status)
@@ -112,13 +140,13 @@ final class AppModel: FeatureHost {
             return FeatureStatus(
                 state: .off,
                 tone: .off,
-                headline: "Всё выключено",
+                headline: L.t("app.summary.allOff"),
                 detail: peerLabel
             )
         }
         var summary = worst
         if enabled.allSatisfy({ $0.state == .live && $0.tone == .ok }) {
-            summary = FeatureStatus(state: .live, tone: .ok, headline: "Всё работает")
+            summary = FeatureStatus(state: .live, tone: .ok, headline: L.t("app.summary.allWorking"))
         }
         summary.detail = peerLabel
         summary.alert = nil
@@ -132,14 +160,14 @@ final class AppModel: FeatureHost {
     /// it is the fallback rather than the default.
     private var peerLabel: String {
         if let peer = config.peerName, !peer.isEmpty { return peer }
-        return config.target.isEmpty ? "игровой ПК не выбран" : config.target
+        return config.target.isEmpty ? L.t("app.peer.none") : config.target
     }
 
     /// The one thing worth pressing right now, or nil.
     ///
     /// Every feature offers an action in every state, which is right for a
-    /// settings pane and wrong for a popover: it put the same «Проверить связь»
-    /// in two cards at once, and a «Выключить общий буфер» two centimetres from
+    /// settings pane and wrong for a popover: it put the same "Check the link"
+    /// in two cards at once, and a "Turn the shared clipboard off" two centimetres from
     /// the switch that already does that. Three rules cut it to at most one
     /// button:
     ///
@@ -147,13 +175,13 @@ final class AppModel: FeatureHost {
     ///   its switch, so only `error` and `waiting` offer anything at all;
     /// - an action that merely flips the switch is not an action (§6.1);
     /// - the worst state wins, so a remedy shared by several features — and
-    ///   «Проверить связь» is shared by all three — is offered once.
+    ///   "Check the link" is shared by all three — is offered once.
     var popoverAction: FeatureAction? {
         features
             .filter { $0.isEnabled && ($0.status.state == .error || $0.status.state == .waiting) }
             .sorted { $0.status.severity > $1.status.severity }
             .compactMap(\.status.primaryAction)
-            .first { !Wording.duplicatesSwitch($0.title) }
+            .first { !$0.togglesFeature }
     }
 
     /// Template image only: §7.1 forbids tinting the menu bar icon, so state is
@@ -184,14 +212,10 @@ final class AppModel: FeatureHost {
 
     /// The line under the switch: what is running, and when it last looked.
     var updateNote: String {
-        guard updater.isAvailable else {
-            return "Эта сборка запущена не из HexBridge.app — обновлять нечего. "
-                + "Соберите приложение через mac/scripts/build-app.sh."
-        }
-        var text = "Версия \(updater.currentVersion). Ставится только по вашей команде."
+        guard updater.isAvailable else { return L.t("update.notBundled") }
+        var text = L.t("update.version", updater.currentVersion)
         if let last = updater.lastCheck {
-            let stamp = DateFormatter.localizedString(from: last, dateStyle: .short, timeStyle: .short)
-            text += " Последняя проверка: \(stamp)."
+            text += " " + L.t("update.lastCheck", L.timestamp(last))
         }
         return text
     }
@@ -246,12 +270,13 @@ final class AppModel: FeatureHost {
                 // Without this the failure reaches the popover and nowhere else, so a
                 // launchd-started agent that cannot capture looks identical in the log
                 // to one that simply has no host to talk to.
-                print("hexbridge: не удалось запустить конвейер: \(error)")
+                print("hexbridge: pipeline did not start: \(error)")
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    // Гасим прошлое предупреждение при успехе: баннер про
-                    // недоданный доступ иначе висит и после того, как доступ выдали.
+                    // A past warning is cleared on success: the banner about a
+                    // permission that was not granted would otherwise stay up
+                    // after the permission has been granted.
                     self.noticeText = failure
                     if failure == nil { self.retryEvery = 15 }
                     self.needsRestart = false
@@ -363,7 +388,7 @@ final class AppModel: FeatureHost {
             .joined(separator: " ")
         guard line != loggedSummary else { return }
         loggedSummary = line
-        print("hexbridge: состояние → \(line)")
+        print("hexbridge: state → \(line)")
     }
 
     func refreshDevices() {
@@ -412,7 +437,7 @@ final class AppModel: FeatureHost {
     // MARK: - Autodiscovery
 
     /// The tag of this Mac's own key — the only thing that decides whether a
-    /// host found on the network is ours (PROTOCOL.md, «Автопоиск хоста»).
+    /// host found on the network is ours (PROTOCOL.md, "host autodiscovery").
     var discoveryTag: String? { DiscoveryTag.tag(forBase64Key: config.psk) }
 
     private func startDiscovery() {
@@ -427,7 +452,7 @@ final class AppModel: FeatureHost {
     /// whenever either could have changed.
     private func syncDiscovery() {
         // Address first: setting `ownTag` re-decides on the spot, and a decision
-        // taken against a stale target would «follow» the host to an address the
+        // taken against a stale target would "follow" the host to an address the
         // config has already been given by hand or by a QR code.
         discovery.currentTarget = config.target
         discovery.ownTag = discoveryTag
@@ -437,7 +462,7 @@ final class AppModel: FeatureHost {
     ///
     /// Only ever called for a host whose tag is ours, and it changes the address
     /// and nothing else — never the key. A router that reboots and hands out a
-    /// new lease is the most common «вчера работало, сегодня нет», and asking
+    /// new lease is the most common "it worked yesterday", and asking
     /// the user to pair again over it would be asking them to fix something that
     /// fixes itself.
     private func followHost(to target: String) {
@@ -447,9 +472,9 @@ final class AppModel: FeatureHost {
         saveNow()
 
         noticeText = previous.isEmpty
-            ? "Игровой ПК найден в сети: \(target)."
-            : "Игровой ПК переехал на \(target). Адрес обновлён сам, связывать заново не нужно."
-        print("hexbridge: хост нашёлся по метке на \(target) (было «\(previous.isEmpty ? "—" : previous)»)")
+            ? L.t("discovery.found", target)
+            : L.t("discovery.moved", target)
+        print("hexbridge: host matched by tag at \(target) (was \(previous.isEmpty ? "—" : previous))")
 
         needsRestart = true
         if runtime.isRunning || config.isConfigured { restartPipeline() }
@@ -532,8 +557,7 @@ final class AppModel: FeatureHost {
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    // Гасим прошлое предупреждение при успехе: баннер про
-                    // недоданный доступ иначе висит и после того, как доступ выдали.
+                    // Cleared on success, for the same reason as above.
                     self.noticeText = failure
                     self.tick()
                 }
@@ -560,7 +584,7 @@ final class AppModel: FeatureHost {
         do {
             try config.save(to: runtime.configPath)
         } catch {
-            noticeText = "не удалось записать конфиг: \(error.localizedDescription)"
+            noticeText = L.t("config.saveFailed", error.localizedDescription)
         }
     }
 
@@ -582,7 +606,7 @@ final class AppModel: FeatureHost {
                     try LaunchAgent.disable()
                 }
             } catch {
-                noticeText = "автозапуск: \(error.localizedDescription)"
+                noticeText = L.t("autostart.failed", error.localizedDescription)
             }
             autostartRevision &+= 1
         }
@@ -595,12 +619,12 @@ final class AppModel: FeatureHost {
         _ = autostartRevision
         if LaunchAgent.isEnabled {
             return LaunchAgent.managedByLaunchd
-                ? "Агент \(LaunchAgent.label) загружен."
-                : "Запустится при следующем входе в систему."
+                ? L.t("autostart.loaded", LaunchAgent.label)
+                : L.t("autostart.nextLogin")
         }
         return LaunchAgent.managedByLaunchd
-            ? "Автозапуск выключен, текущий процесс продолжит работать."
-            : "Автозапуск выключен."
+            ? L.t("autostart.offButRunning")
+            : L.t("autostart.off")
     }
 
     // MARK: - Diagnostics
@@ -608,7 +632,7 @@ final class AppModel: FeatureHost {
     func runProbe() {
         guard !probeRunning else { return }
         probeRunning = true
-        probeOutput = "проверяю 3 секунды…\n"
+        probeOutput = L.t("probe.running") + "\n"
         let selector = config.inputDevice
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let append: (String) -> Void = { line in
@@ -619,7 +643,7 @@ final class AppModel: FeatureHost {
             do {
                 try MicProbe.run(deviceSelector: selector, log: append)
             } catch {
-                append("ошибка: \(error)")
+                append(L.t("probe.failed", "\(error)"))
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.probeRunning = false }
@@ -640,29 +664,54 @@ final class AppModel: FeatureHost {
         psk = KeyFactory.newBase64Key()
     }
 
-    /// §7.4 «Диагностика»: versions, the config without the key, recent log.
+    /// §7.4 Diagnostics: versions, the config without the key, recent log.
+    ///
+    /// Written in the language the interface is in. The person pasting this into
+    /// an issue is the person who has just read the screen it describes, and a
+    /// report that disagrees with the screen it came from is worth less than one
+    /// its reader has to translate.
     func copyReport() {
+        let none = L.t("unit.none")
         var lines = [
-            "HexBridge — отчёт диагностики",
-            "дата: \(ISO8601DateFormatter().string(from: Date()))",
-            "macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)",
-            "конфиг: \(runtime.configPath.path)",
-            "адрес: \(config.target.isEmpty ? "—" : config.target)",
-            "ключ: \(config.psk.isEmpty ? "не задан" : "задан, отпечаток \(fingerprint ?? "—")")",
-            "устройство: \(config.inputDevice ?? "системное по умолчанию") (сейчас: \(runtime.deviceName))",
-            "битрейт: \(config.bitrate) бит/с, ожидаемые потери \(config.expectedLossPercent) %",
-            "фичи:",
+            L.t("report.title"),
+            row("report.date", ISO8601DateFormatter().string(from: Date())),
+            row("report.macos", ProcessInfo.processInfo.operatingSystemVersionString),
+            row("report.language", "\(config.appLanguage.rawValue) → \(L.code)"),
+            row("report.config", runtime.configPath.path),
+            row("report.address", config.target.isEmpty ? none : config.target),
+            row("report.key", config.psk.isEmpty
+                ? L.t("report.key.missing")
+                : L.t("report.key.present", fingerprint ?? none)),
+            row("report.input", L.t(
+                "report.input.value",
+                config.inputDevice ?? L.t("report.input.systemDefault"),
+                runtime.deviceName
+            )),
+            row("report.audio", L.t(
+                "report.audio.value",
+                L.kilobits(perSecond: config.bitrate),
+                L.percent(Double(config.expectedLossPercent), decimals: 0)
+            )),
+            L.t("report.features") + ":",
         ]
         for feature in features {
-            lines.append("  \(feature.id): включена=\(feature.isEnabled) состояние=\(feature.status.state.rawValue) — \(feature.status.headline)")
+            // Deliberately not localised: `enabled`, `state` and the raw state
+            // name are what the code calls them, and this line is read next to
+            // the code.
+            lines.append("  \(feature.id): enabled=\(feature.isEnabled)"
+                + " state=\(feature.status.state.rawValue) — \(feature.status.headline)")
         }
         if let tail = try? String(contentsOf: LaunchAgent.logURL, encoding: .utf8) {
             lines.append("")
-            lines.append("последние строки журнала:")
+            lines.append(L.t("report.log"))
             lines.append(contentsOf: tail.split(separator: "\n").suffix(200).map(String.init))
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
-        noticeText = "Отчёт скопирован в буфер обмена."
+        noticeText = L.t("diag.reportCopied")
+    }
+
+    private func row(_ key: String, _ value: String) -> String {
+        "\(L.t(key)): \(value)"
     }
 }
