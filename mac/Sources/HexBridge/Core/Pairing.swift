@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
+import HexBridgePairing
 import HexBridgeText
+import Network
 
 /// Machine pairing (DESIGN.md §9).
 ///
@@ -165,6 +167,7 @@ enum PairingError: Error, CustomStringConvertible, Equatable {
     case exchangeUnreachable(String)
     case exchangeRefused
     case exchangeBadAnswer
+    case exchangePlaintext
 
     var description: String {
         switch self {
@@ -182,6 +185,8 @@ enum PairingError: Error, CustomStringConvertible, Equatable {
             return L.t("pairing.error.refused")
         case .exchangeBadAnswer:
             return L.t("pairing.error.badAnswer")
+        case .exchangePlaintext:
+            return L.t("pairing.error.plaintext")
         }
     }
 }
@@ -195,38 +200,166 @@ enum PairingError: Error, CustomStringConvertible, Equatable {
 /// receiver holds a temporary listener for three minutes and hands the URI to
 /// whoever presents the right code (§9.1).
 ///
-/// ⚠️ Untested end to end — the Windows half of this handshake is written by a
-/// different agent and did not exist when this was implemented. Failures are
-/// surfaced verbatim rather than swallowed, so a mismatch will be obvious.
 enum PairingExchange {
+    /// How long to wait for the whole exchange. A PC that accepts the connection and then
+    /// says nothing must not leave the wizard spinning.
+    private static let timeout: TimeInterval = 8
+
+    /// Ceiling on the answer. The real one is a few hundred bytes; this is here so a
+    /// stranger on the port cannot stream until memory runs out.
+    private static let maximumAnswer = 64 * 1024
+
     static func fetch(host: String, port: UInt16, code: String) async -> Result<Pairing.Payload, PairingError> {
-        var components = URLComponents()
-        components.scheme = "http"
-        components.host = host
-        components.port = Int(port)
-        components.path = "/pair"
-        components.queryItems = [URLQueryItem(name: "code", value: Pairing.normalizedCode(code))]
+        let request = """
+        GET /pair?code=\(Pairing.normalizedCode(code))&enc=1 HTTP/1.1\r
+        Host: \(host)\r
+        User-Agent: HexBridge/1.0 (macOS)\r
+        Connection: close\r
+        \r
 
-        guard let url = components.url else { return .failure(.malformed) }
+        """
 
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 5
-        request.setValue("HexBridge/1.0 (macOS)", forHTTPHeaderField: "User-Agent")
-
+        let raw: Data
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 403 || http.statusCode == 404 {
-                return .failure(.exchangeRefused)
-            }
-            guard let text = String(data: data, encoding: .utf8) else { return .failure(.exchangeBadAnswer) }
-            switch Pairing.parse(text: text) {
-            case .success(let payload):
-                return .success(payload)
-            case .failure:
-                return .failure(.exchangeBadAnswer)
-            }
+            raw = try await send(request, host: host, port: port)
         } catch {
             return .failure(.exchangeUnreachable(error.localizedDescription))
         }
+
+        guard let answer = Answer(raw) else { return .failure(.exchangeBadAnswer) }
+        // 403 and 404 are the two the PC uses for «that is not the code I am showing».
+        if answer.status == 403 || answer.status == 404 { return .failure(.exchangeRefused) }
+        guard answer.status == 200 else { return .failure(.exchangeBadAnswer) }
+
+        // The key must not arrive in the clear, however reachable the PC was: on a network
+        // worth worrying about, whoever is on the path would have it too.
+        guard let opened = PairingSeal.open(answer.body, code: code) else {
+            return .failure(answer.body.contains("hexbridge://") ? .exchangePlaintext : .exchangeBadAnswer)
+        }
+
+        switch Pairing.parse(text: opened) {
+        case .success(let payload):
+            return .success(payload)
+        case .failure:
+            return .failure(.exchangeBadAnswer)
+        }
+    }
+
+    // MARK: - Transport
+
+    /// One request, one answer, over a plain TCP socket.
+    ///
+    /// Deliberately not `URLSession`. The peer is the PC on the other side of the desk
+    /// speaking four lines of HTTP, not a website, and it has no certificate — so App
+    /// Transport Security refuses the request and explains itself with «the resource could
+    /// not be loaded because the App Transport Security policy requires the use of a
+    /// secure connection», which is both unactionable and, once the answer is sealed under
+    /// the code, beside the point. The alternative was to switch ATS off for the whole
+    /// application; a socket for this one request is far narrower, and it is the same
+    /// `NWConnection` the rest of the protocol already runs on.
+    private static func send(_ text: String, host: String, port: UInt16) async throws -> Data {
+        guard let endpointPort = NWEndpoint.Port(rawValue: port) else { throw ExchangeFailure.unusablePort }
+
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: endpointPort, using: .tcp)
+        let queue = DispatchQueue(label: "ru.hexarch.hexbridge.pairing-exchange")
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let once = Once()
+            let received = Box()
+
+            func finish(_ result: Result<Data, Error>) {
+                guard once.claim() else { return }
+                connection.cancel()
+                continuation.resume(with: result)
+            }
+
+            queue.asyncAfter(deadline: .now() + timeout) { finish(.failure(ExchangeFailure.timedOut)) }
+
+            func readMore() {
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 16 * 1024) { chunk, _, isComplete, error in
+                    if let chunk, !chunk.isEmpty { received.append(chunk) }
+                    if let error { finish(.failure(error)); return }
+                    if isComplete { finish(.success(received.data)); return }
+                    if received.count > maximumAnswer { finish(.failure(ExchangeFailure.tooLong)); return }
+                    readMore()
+                }
+            }
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    connection.send(content: Data(text.utf8), completion: .contentProcessed { error in
+                        if let error { finish(.failure(error)); return }
+                        readMore()
+                    })
+                case .failed(let error):
+                    finish(.failure(error))
+                case .cancelled:
+                    finish(.failure(ExchangeFailure.cancelled))
+                default:
+                    break
+                }
+            }
+
+            connection.start(queue: queue)
+        }
+    }
+
+    /// Status line and body of an HTTP/1.1 answer. Everything in between is ignored: the
+    /// PC sends four headers and we care about none of them.
+    struct Answer {
+        let status: Int
+        let body: String
+
+        init?(_ raw: Data) {
+            guard let text = String(data: raw, encoding: .utf8),
+                  let split = text.range(of: "\r\n\r\n"),
+                  let line = text[..<split.lowerBound].split(separator: "\r\n", omittingEmptySubsequences: false).first
+            else { return nil }
+
+            let fields = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard fields.count >= 2, let code = Int(fields[1]) else { return nil }
+
+            status = code
+            body = String(text[split.upperBound...])
+        }
+    }
+
+    enum ExchangeFailure: Error, LocalizedError {
+        case timedOut
+        case cancelled
+        case tooLong
+        case unusablePort
+
+        var errorDescription: String? {
+            switch self {
+            case .timedOut: return L.t("pairing.exchange.timedOut")
+            case .cancelled: return L.t("pairing.exchange.cancelled")
+            case .tooLong: return L.t("pairing.exchange.tooLong")
+            case .unusablePort: return L.t("pairing.exchange.badPort")
+            }
+        }
+    }
+
+    /// Guarantees the continuation is resumed exactly once, whichever of the timeout, the
+    /// socket and the reader gets there first.
+    private final class Once: @unchecked Sendable {
+        private let lock = NSLock()
+        private var taken = false
+
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            if taken { return false }
+            taken = true
+            return true
+        }
+    }
+
+    /// The answer accumulates across receive callbacks on one queue.
+    private final class Box: @unchecked Sendable {
+        private(set) var data = Data()
+        var count: Int { data.count }
+        func append(_ chunk: Data) { data.append(chunk) }
     }
 }

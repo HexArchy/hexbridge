@@ -199,6 +199,17 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     [ObservableProperty] private string _fingerprint = "";
     [ObservableProperty] private string _countdownText = "";
     [ObservableProperty] private string _discoveryText = "";
+
+    /// <summary>
+    /// What to type into the Mac's address field, shown beside the code.
+    ///
+    /// The QR used to carry the address, so nothing on this screen ever had to say it out
+    /// loud; with the QR gone, the Mac asks for an address the PC was not telling anybody.
+    /// Every local address is listed, not just the first: on a machine with a VPN up there
+    /// are several, only one of them is the one the Mac can reach, and this side has no way
+    /// to know which.
+    /// </summary>
+    [ObservableProperty] private string _thisAddress = "";
     [ObservableProperty] private bool _isDiscovering;
     [ObservableProperty] private string _machineName = Environment.MachineName;
 
@@ -662,7 +673,9 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     {
         var config = _readConfig();
         var port = ParsePort(config.Listen);
-        var host = MulticastDns.LocalAddresses().FirstOrDefault()?.ToString() ?? "127.0.0.1";
+        var addresses = MulticastDns.LocalAddresses().Select(a => a.ToString()).ToArray();
+        var host = addresses.FirstOrDefault() ?? "127.0.0.1";
+        ThisAddress = addresses.Length > 0 ? string.Join("   ", addresses) : host;
 
         var payload = PairingPayload.Create(host, port, MachineName);
         Uri = payload.ToUri();

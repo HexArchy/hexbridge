@@ -64,9 +64,17 @@ let package = Package(
             path: "Sources/HexBridgeText",
             resources: [.process("Resources")]
         ),
+        // The short-code exchange hands the key over the network, so what protects it
+        // is a security decision and belongs where a test can reach it — the same
+        // argument as `HexBridgeDiscovery`, and the same shape. CommonCrypto and
+        // CryptoKit, nothing else.
+        .target(
+            name: "HexBridgePairing",
+            path: "Sources/HexBridgePairing"
+        ),
         .executableTarget(
             name: "HexBridge",
-            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgeText", "Sparkle"],
+            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgePairing", "HexBridgeText", "Sparkle"],
             path: "Sources/HexBridge",
             linkerSettings: [.unsafeFlags(["-Xlinker", "\(opusPrefix)/lib/libopus.a"])]
         ),
@@ -74,6 +82,11 @@ let package = Package(
             name: "HexBridgeDiscoveryTests",
             dependencies: ["HexBridgeDiscovery"],
             path: "Tests/HexBridgeDiscoveryTests"
+        ),
+        .testTarget(
+            name: "HexBridgePairingTests",
+            dependencies: ["HexBridgePairing"],
+            path: "Tests/HexBridgePairingTests"
         ),
         .testTarget(
             name: "HexBridgeTextTests",

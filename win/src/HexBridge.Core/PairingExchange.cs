@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 
 using HexBridge.Localization;
@@ -53,7 +54,13 @@ public static class PairingExchangeProtocol
     /// <param name="requestLine">The first line of the request, without its CRLF.</param>
     /// <param name="expectedCode">The code the wizard is currently showing.</param>
     /// <param name="uri">The payload to hand over when the code matches.</param>
-    public static ExchangeAnswer Answer(string? requestLine, string expectedCode, string uri)
+    /// <param name="seal">
+    /// Turns the URI into the sealed body, when the caller asked for one with
+    /// <c>enc=1</c>. The server supplies this so the expensive key derivation happens once
+    /// per code rather than once per request; left out, this seals on the spot.
+    /// </param>
+    public static ExchangeAnswer Answer(string? requestLine, string expectedCode, string uri,
+                                        Func<string, string>? seal = null)
     {
         if (string.IsNullOrWhiteSpace(requestLine)) return NotFound;
 
@@ -88,9 +95,14 @@ public static class PairingExchangeProtocol
         // Fixed-length, non-secret comparison: the code is a one-time ticket guarded by a
         // three-minute window, not a password, but there is no reason to leak its prefix
         // through timing either.
-        return TimeSafeEquals(presented, expected)
-            ? new ExchangeAnswer(200, "OK", uri)
-            : Refused;
+        if (!TimeSafeEquals(presented, expected)) return Refused;
+
+        // A Mac that did not ask for encryption is a Mac from before it existed. It gets
+        // the old plaintext answer rather than a blob it would report as gibberish; the
+        // newer one asks, and refuses a plaintext answer of its own accord.
+        if (Parameter(query, "enc") != "1") return new ExchangeAnswer(200, "OK", uri);
+
+        return new ExchangeAnswer(200, "OK", seal is not null ? seal(uri) : PairingSeal.Seal(uri, expected));
     }
 
     /// <summary>The raw bytes of a whole HTTP/1.1 response, ready for the socket.</summary>
@@ -166,7 +178,39 @@ public sealed class PairingExchangeServer : IAsyncDisposable
     public event Action? Paired;
 
     /// <summary>The code currently on screen. Rotating it invalidates the old one at once.</summary>
-    public string Code { get; set; } = "";
+    public string Code
+    {
+        get => _code;
+        set
+        {
+            _code = value;
+            // The derived key belongs to the old code. Dropping it here is what makes
+            // rotating the code cost nothing until somebody actually presents the new one.
+            _key = null;
+        }
+    }
+
+    private string _code = "";
+    private byte[]? _key;
+    private byte[] _salt = [];
+
+    /// <summary>
+    /// Seals the payload for the code on screen, deriving the key at most once per code.
+    ///
+    /// Only ever reached after the presented code matched, so the cost of the derivation
+    /// cannot be spent by a stranger. The salt is stable for the life of a code and the
+    /// nonce is fresh per answer, which is the pair AES-GCM asks for.
+    /// </summary>
+    private string Seal(string uri)
+    {
+        if (_key is null)
+        {
+            _salt = RandomNumberGenerator.GetBytes(PairingSeal.SaltBytes);
+            _key = PairingSeal.DeriveKey(_code, _salt);
+        }
+
+        return PairingSeal.Seal(uri, _key, _salt, RandomNumberGenerator.GetBytes(PairingSeal.NonceBytes));
+    }
 
     /// <summary>The payload handed over on a match.</summary>
     public string Uri { get; set; } = "";
@@ -229,7 +273,7 @@ public sealed class PairingExchangeServer : IAsyncDisposable
 
         await using var stream = client.GetStream();
         var requestLine = await ReadRequestAsync(stream, timeout.Token);
-        var answer = PairingExchangeProtocol.Answer(requestLine, Code, Uri);
+        var answer = PairingExchangeProtocol.Answer(requestLine, Code, Uri, Seal);
 
         await stream.WriteAsync(PairingExchangeProtocol.Render(answer), timeout.Token);
         await stream.FlushAsync(timeout.Token);

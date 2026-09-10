@@ -429,6 +429,69 @@ you typing an address here; it does not replace the confirmation.
 Otherwise the first stranger's host on the network would become "ours" — precisely
 what must not be allowed.
 
+## The short-code exchange
+
+A twelve-character code cannot carry a 32-byte key, so it is a one-time ticket. The PC
+holds a TCP listener on `data port + 1` for three minutes and answers one request:
+
+```
+GET /pair?code=<normalised code>&enc=1 HTTP/1.1
+```
+
+The code is normalised before it is sent and before it is compared: upper case, alphabet
+only, hyphens dropped. The alphabet is `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — 32 symbols,
+twelve characters, exactly 60 bits. A wrong code is answered `403`, an unknown path `404`,
+and those two statuses are the only ones either side turns into "the PC did not accept the
+code".
+
+### The sealed answer
+
+With `enc=1` the body is base64 of
+
+```
+byte  0            format version, currently 1
+bytes 1…16         salt
+bytes 17…28        nonce
+bytes 29…n-17      ciphertext
+last 16 bytes      GCM tag
+```
+
+* key — `PBKDF2-HMAC-SHA256(password = normalised code, salt, 600 000 rounds) → 32 bytes`
+* cipher — AES-256-GCM, associated data = the single version byte
+* plaintext — the `hexbridge://pair?…` URI, UTF-8
+
+Without `enc=1` the body is that URI in the clear. That is what a Mac built before this
+existed asks for, and it still works; a Mac that asks for `enc=1` and gets plaintext back
+refuses it and says the PC needs updating, rather than accepting a key that crossed the
+network unprotected.
+
+**Why PBKDF2 and not HKDF.** 60 bits behind a fast derivation is worth roughly a weekend
+of rented GPUs to anyone who captured the blob and can then guess offline. 600 000 rounds
+multiply that by about 2²⁰ at a cost of one derivation per side, during a step a person is
+already waiting on. The PC derives once per code rather than per request, so the cost
+cannot be spent by a stranger, and the code has to match before there is anything to
+decrypt at all.
+
+**Why the Mac does not use URLSession.** The peer has no certificate, so App Transport
+Security refuses the request outright. The exchange goes over `NWConnection` — the same
+socket the rest of the protocol uses — rather than switching ATS off for the whole
+application.
+
+### Test vector
+
+Both implementations are pinned to this, in
+`mac/Tests/HexBridgePairingTests/PairingSealTests.swift` and
+`win/src/HexBridge.Tests/PairingSealTests.cs`. Salt is `01 02 … 10`, nonce is `A0 A1 … AB`.
+
+```
+code       TUJJC8XU3LJ4
+plaintext  hexbridge://pair?v=1&h=10.0.0.7&p=47702&k=3q2-796tvu_erb7v3q2-796tvu_erb7v3q2-796tvu8&n=PC
+key        3b5d88c7628acaec690b06bce40aca7174eed292d27a8ded9d3b801d3beb513c
+blob       AQECAwQFBgcICQoLDA0ODxCgoaKjpKWmp6ipqquYsSxi+zUzZvJq1//po186Z/Mjzmj52LsWiAN6XTnFUHQm
+           oJ2ReIRAhxGw77vd7slbDBE7r5lxvBMh0XPAfjdwIa8S86pAsZ3skt5HC/MCC6Rw0CT9aQd5D0b1ZyCUuovF
+           ba2HYAgIqgXf
+```
+
 ### What else is in the TXT record
 
 ```

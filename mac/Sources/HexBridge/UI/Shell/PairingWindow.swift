@@ -18,7 +18,6 @@ struct PairingWindow: View {
     enum Step: Int { case choose, code, check, done }
 
     @State private var step: Step = .choose
-    @State private var linkText = ""
     @State private var codeText = ""
     @State private var pcAddress = ""
     @State private var busy = false
@@ -126,51 +125,32 @@ struct PairingWindow: View {
 
     // MARK: - Step 1: how
 
+    /// Two ways in, and they are the same way: find the PC, then type the code
+    /// off its screen.
+    ///
+    /// There used to be a third, listed first — paste the `hexbridge://` link
+    /// from the PC. The PC showed that link as a QR code, and the QR is gone,
+    /// so the most prominent path on this screen led somewhere that no longer
+    /// exists. Links opened from elsewhere still work; the app handles the URL
+    /// scheme, which never needed a text field here.
     private var chooser: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
             Card {
                 VStack(alignment: .leading, spacing: Space.sm) {
-                    SectionLabel(text: L.t("pair.link.section"))
-                    Text(L.t("pair.link.text"))
-                        .font(.dsCaption)
-                        .foregroundStyle(palette.textDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: Space.sm) {
-                        TextField(text: $linkText, prompt: Text(verbatim: "hexbridge://pair?v=1&h=…")) {
-                            Text(L.t("pair.link.section"))
-                        }
-                        .labelsHidden()
-                        .textFieldStyle(.roundedBorder)
-                        .font(.dsMono)
-                        Button(L.t("pair.link.paste")) {
-                            linkText = NSPasteboard.general.string(forType: .string) ?? ""
-                        }
-                        Button(L.t("pair.link.apply")) { applyLink() }
-                            .buttonStyle(.dsPrimary)
-                            .fixedSize()
-                            .disabled(linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
+                    SectionLabel(text: L.t("pair.discovery.section"))
+                    discoveryBody
                 }
             }
 
-            HStack(alignment: .top, spacing: Space.lg) {
-                Card {
-                    VStack(alignment: .leading, spacing: Space.sm) {
-                        SectionLabel(text: L.t("pair.code.section"))
-                        Text(L.t("pair.code.text"))
-                            .font(.dsCaption)
-                            .foregroundStyle(palette.textDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button(L.t("pair.code.enter")) { step = .code }
-                            .buttonStyle(.dsSecondary)
-                    }
-                }
-
-                Card {
-                    VStack(alignment: .leading, spacing: Space.sm) {
-                        SectionLabel(text: L.t("pair.discovery.section"))
-                        discoveryBody
-                    }
+            Card {
+                VStack(alignment: .leading, spacing: Space.sm) {
+                    SectionLabel(text: L.t("pair.code.section"))
+                    Text(L.t("pair.code.text"))
+                        .font(.dsCaption)
+                        .foregroundStyle(palette.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(L.t("pair.code.enter")) { step = .code }
+                        .buttonStyle(.dsSecondary)
                 }
             }
         }
@@ -267,8 +247,6 @@ struct PairingWindow: View {
                     }
                 }
             }
-
-            InlineAlert(text: L.t("pair.code.warning"), tone: .warn)
         }
     }
 
@@ -287,19 +265,6 @@ struct PairingWindow: View {
     }
 
     // MARK: - Actions
-
-    private func applyLink() {
-        failure = nil
-        switch Pairing.parse(text: linkText) {
-        case .success(let value):
-            payload = value
-            model.apply(value)
-            step = .check
-            model.runLinkCheck()
-        case .failure(let error):
-            failure = error.description
-        }
-    }
 
     private func exchange() {
         failure = nil

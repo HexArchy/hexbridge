@@ -110,6 +110,13 @@
               <TextBlock Classes="caption" Text="{Binding CountdownText}" />
             </StackPanel>
 
+            <!-- The Mac asks for an address as well as a code, and until now this screen
+                 never said one: the QR carried it. -->
+            <StackPanel Spacing="4">
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_ThisAddress}" />
+              <SelectableTextBlock Classes="mono" FontSize="15" Text="{Binding ThisAddress}" />
+            </StackPanel>
+
             <TextBlock Classes="caption" Text="{Binding DiscoveryText}" />
           </StackPanel>
         </Grid>

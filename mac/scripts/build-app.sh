@@ -106,6 +106,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>HexBridge sends microphone audio to the gaming PC while you stream.</string>
+    <!-- Послаблений ATS здесь нет и не требуется: обмен коротким кодом ходит по
+         сокету (Core/Pairing.swift), а URLSession в приложении не пользуется никто,
+         кроме Sparkle, и тот ходит по HTTPS. -->
     <!-- Обновления (docs/UPDATES.md). SUPublicEDKey — публичная половина ключа
          подписи: Sparkle проверяет EdDSA-подпись архива сама, поверх подписи кода,
          поэтому ad-hoc сборка обновляется без сертификата Developer ID.

@@ -206,7 +206,7 @@
 "pair.title.code" = "Enter the code";
 "pair.title.check" = "Checking the link";
 "pair.title.done" = "Done";
-"pair.subtitle.choose" = "The key is made on the gaming PC and travels here whole, together with the address. Nothing has to be generated on the Mac.";
+"pair.subtitle.choose" = "The key is made on the gaming PC. Find that PC here and type the code from its screen — nothing has to be generated on the Mac.";
 "pair.subtitle.code" = "Type the twelve characters HexBridge is showing on the PC screen, and the address of the PC on the network.";
 "pair.subtitle.check" = "Six checks in a row. Each one says what works and what does not.";
 
@@ -215,20 +215,15 @@
 "pair.checkAgain" = "Check again";
 "pair.close" = "Close";
 
-"pair.link.section" = "Link from the PC";
-"pair.link.text" = "The shortest way in: copy the link from the PC screen and paste it here. The link carries the address, the key and the name of the machine.";
-"pair.link.paste" = "Paste";
-"pair.link.apply" = "Pair";
 
 "pair.code.section" = "Short code";
-"pair.code.text" = "If there is nowhere to copy the link to, the PC also shows a twelve-character code.";
+"pair.code.text" = "The twelve characters from the PC screen. The address can be typed by hand if the PC did not turn up on its own.";
 "pair.code.enter" = "Enter the code";
 "pair.code.fromScreen" = "Code from the PC screen";
 "pair.code.address" = "Address of the PC on the network";
 "pair.code.hint" = "HexBridge on the PC shows this address next to the code. The exchange runs on port %@ and lasts three minutes.";
 "pair.code.asking" = "Asking the PC…";
 "pair.code.fetch" = "Get the key";
-"pair.code.warning" = "The short-code exchange on the Windows side is being written separately and did not exist when this version was built. If the PC does not answer, that is expected — use the link instead.";
 
 "pair.discovery.section" = "Search on the network";
 "pair.discovery.searching" = "Looking for HexBridge on the local network…";
@@ -253,8 +248,13 @@
 "pairing.error.version" = "The link is version %@, and this HexBridge understands only %@";
 "pairing.error.badKey" = "The key in the link is not 32 bytes of base64";
 "pairing.error.unreachable" = "The PC does not answer at that address — %@";
-"pairing.error.refused" = "The PC did not take the code. Check that the pairing wizard on the PC is still open";
+"pairing.error.refused" = "The PC did not accept the code. A code lives three minutes, so it may have expired: press “New code” on the PC.";
 "pairing.error.badAnswer" = "The PC answered, but not with a pairing link";
+"pairing.error.plaintext" = "The PC is running an older HexBridge that hands the key over unencrypted. Update HexBridge on the PC.";
+"pairing.exchange.timedOut" = "the PC did not answer within eight seconds";
+"pairing.exchange.cancelled" = "the connection dropped";
+"pairing.exchange.tooLong" = "the answer was too long";
+"pairing.exchange.badPort" = "that port cannot be used";
 
 /* MARK: - Autodiscovery */
 
