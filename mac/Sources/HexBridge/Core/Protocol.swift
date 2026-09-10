@@ -17,6 +17,14 @@ enum Wire {
         case deviceDetach = 5
         case deviceInput = 6
         case deviceOutput = 7
+        case deviceAck = 8
+        /// Крупный объект целиком: предложение, блоки, подтверждения.
+        case bulkOffer = 9
+        case bulkChunk = 10
+        case bulkAck = 11
+        case bulkDone = 12
+        /// Непрерывный PCM на voice-coil актуаторы. Windows → Mac.
+        case haptic = 13
     }
 
     enum Direction: UInt32 {

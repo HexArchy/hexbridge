@@ -24,6 +24,15 @@ public enum PacketType : byte
 
     /// <summary>Confirms an attach so the sender stops repeating it. Receiver to sender.</summary>
     DeviceAck = 8,
+
+    /// <summary>Offer of a whole object that has to arrive intact, unlike voice.</summary>
+    BulkOffer = 9,
+    BulkChunk = 10,
+    BulkAck = 11,
+    BulkDone = 12,
+
+    /// <summary>Continuous PCM for the voice-coil actuators. Receiver to sender.</summary>
+    Haptic = 13,
 }
 
 [Flags]
