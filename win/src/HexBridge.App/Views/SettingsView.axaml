@@ -1,0 +1,216 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <Grid RowDefinitions="*,Auto">
+
+    <ScrollViewer Grid.Row="0" Padding="24">
+      <StackPanel Spacing="16" MaxWidth="820">
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="СЕТЬ" />
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Слушать (адрес и порт)" />
+              <TextBox Text="{Binding Listen}" PlaceholderText="0.0.0.0:47702" />
+              <TextBlock Classes="hint"
+                         Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на Mac." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Релей (необязательно)" />
+              <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
+              <TextBlock Classes="hint"
+                         Text="Нужен, только если Mac не может достучаться до этого компьютера напрямую." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Общий ключ (PSK)" />
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBox Grid.Column="0" Text="{Binding Psk}"
+                         PasswordChar="•"
+                         RevealPassword="{Binding PskRevealed}"
+                         FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+                <Button Grid.Column="1" Margin="8,0,0,0" Content="Показать"
+                        Command="{Binding TogglePskRevealCommand}" />
+                <Button Grid.Column="2" Margin="8,0,0,0" Content="Копировать"
+                        Command="{Binding CopyPskCommand}" />
+                <Button Grid.Column="3" Margin="8,0,0,0" Content="Сгенерировать"
+                        Command="{Binding GeneratePskCommand}" />
+              </Grid>
+              <TextBlock Classes="hint"
+                         Text="32 байта в base64. Ровно тот же ключ должен стоять на Mac — иначе пакеты будут молча отбрасываться." />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="DUALSENSE" />
+
+            <CheckBox IsChecked="{Binding Gamepad}" Content="Пробрасывать DualSense с Mac" />
+            <TextBlock Classes="hint"
+                       Text="Контроллер, воткнутый в Mac, появится в Windows как настоящий USB-геймпад. Нужен драйвер usbip-win2." />
+
+            <CheckBox IsChecked="{Binding UsbIpAutoAttach}"
+                      IsEnabled="{Binding Gamepad}"
+                      Content="Подключать автоматически через usbip.exe" />
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Адрес сервера USB/IP" />
+              <TextBox Text="{Binding UsbIpListen}" IsEnabled="{Binding Gamepad}"
+                       PlaceholderText="127.0.0.1:3240" />
+              <TextBlock Classes="hint"
+                         Text="Драйвер работает на этом же компьютере, поэтому наружу этот порт открывать незачем." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Путь к usbip.exe (необязательно)" />
+              <TextBox Text="{Binding UsbIpPath}" IsEnabled="{Binding Gamepad}"
+                       PlaceholderText="C:\Program Files\USBip\usbip.exe" />
+              <TextBlock Classes="hint"
+                         Text="Заполняйте, только если драйвер установлен не в стандартную папку." />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="ВЫВОД ЗВУКА" />
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Режим" />
+              <ComboBox ItemsSource="{Binding OutputModes}" SelectedItem="{Binding Output}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:OutputMode">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Устройство вывода" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Обновить список" Command="{Binding RefreshDevicesCommand}" />
+              </Grid>
+              <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding Device}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DeviceOption">
+                    <StackPanel Spacing="1" Margin="0,2">
+                      <TextBlock Text="{Binding Title}" />
+                      <TextBlock Classes="hint" Text="{Binding Paired, StringFormat='пара для игр: {0}'}"
+                                 IsVisible="{Binding Paired, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="hint" Text="{Binding DeviceNotice}"
+                         IsVisible="{Binding DeviceNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Усиление" />
+                <TextBlock Grid.Column="1" Classes="label" Text="{Binding GainText}" />
+              </Grid>
+              <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                      Value="{Binding Gain}" />
+              <TextBlock Classes="hint" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если Mac отдаёт тихо." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Задержка WASAPI" />
+                <TextBlock Grid.Column="1" Classes="label" Text="{Binding LatencyText}" />
+              </Grid>
+              <Slider Minimum="10" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True"
+                      Value="{Binding LatencyMs}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="БУФЕР" />
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Целевая глубина" />
+                <TextBlock Grid.Column="1" Classes="label" Text="{Binding JitterText}" />
+              </Grid>
+              <Slider Minimum="20" Maximum="200" TickFrequency="20" IsSnapToTickEnabled="True"
+                      Value="{Binding JitterMs}" />
+              <TextBlock Classes="hint" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="label" Text="Предел, после которого буфер подрезается" />
+                <TextBlock Grid.Column="1" Classes="label" Text="{Binding MaxJitterText}" />
+              </Grid>
+              <Slider Minimum="60" Maximum="600" TickFrequency="20" IsSnapToTickEnabled="True"
+                      Value="{Binding MaxJitterMs}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="ПРИЛОЖЕНИЕ" />
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="Тема" />
+              <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" Width="220"
+                        HorizontalAlignment="Left">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ThemeOption">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <CheckBox Content="Начинать приём при запуске" IsChecked="{Binding StartOnLaunch}" />
+            <CheckBox Content="Запускаться сразу в трей" IsChecked="{Binding StartMinimised}" />
+            <CheckBox Content="Запускать при входе в Windows" IsChecked="{Binding Autostart}" />
+            <TextBlock Text="{Binding AutostartError}"
+                       IsVisible="{Binding AutostartError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource BadFg}"
+                       TextWrapping="Wrap" />
+            <TextBlock Classes="hint"
+                       Text="Кнопка «Закрыть» прячет окно в трей, приём при этом продолжается. Выйти совсем — через меню значка в трее." />
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Background="{DynamicResource AppSurface}"
+            BorderBrush="{DynamicResource AppBorder}"
+            BorderThickness="0,1,0,0"
+            Padding="24,12">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+          <TextBlock Classes="hint" Text="Сохранение перезапускает приём — звук прервётся на секунду."
+                     IsVisible="{Binding !IsDirty}" />
+          <TextBlock Classes="hint" Text="Есть несохранённые изменения." IsVisible="{Binding IsDirty}" />
+          <TextBlock Classes="field" Foreground="{DynamicResource BadFg}"
+                     Text="{Binding ValidationError}"
+                     IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="Отменить" Margin="0,0,8,0"
+                Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+        <Button Grid.Column="2" Content="Сохранить и применить" Classes="Primary"
+                Command="{Binding SaveCommand}" />
+      </Grid>
+    </Border>
+
+  </Grid>
+</UserControl>

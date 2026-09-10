@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HexBridge.App.ViewModels"
+        xmlns:views="using:HexBridge.App.Views"
+        xmlns:features="using:HexBridge.App.Features"
+        x:Class="HexBridge.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="HexBridge"
+        Icon="/Assets/icon-256.png"
+        Width="1000" Height="700"
+        MinWidth="880" MinHeight="580"
+        Background="{DynamicResource AppBackground}"
+        WindowStartupLocation="CenterScreen">
+
+  <Grid RowDefinitions="Auto,*">
+
+    <Border Grid.Row="0"
+            Background="{DynamicResource AppSurface}"
+            BorderBrush="{DynamicResource AppBorder}"
+            BorderThickness="0,0,0,1"
+            Padding="20,12">
+      <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Image Source="/Assets/icon-256.png" Width="30" Height="30" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="HexBridge" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AppText}" />
+            <TextBlock Classes="hint" Text="микрофон Mac как микрофон Windows" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Ellipse Classes="dot"
+                   Classes.good="{Binding IsGood}"
+                   Classes.waiting="{Binding IsWaiting}"
+                   Classes.bad="{Binding IsBad}"
+                   VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Headline}" FontSize="13" FontWeight="Medium"
+                     Foreground="{DynamicResource AppText}" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="Старт" Classes="Primary"
+                  Command="{Binding StartCommand}"
+                  IsVisible="{Binding !IsRunning}"
+                  IsEnabled="{Binding !IsBusy}" />
+          <Button Content="Стоп"
+                  Command="{Binding StopCommand}"
+                  IsVisible="{Binding IsRunning}"
+                  IsEnabled="{Binding !IsBusy}" />
+          <Button Content="Перезапустить"
+                  Command="{Binding RestartCommand}"
+                  IsEnabled="{Binding !IsBusy}" />
+        </StackPanel>
+
+      </Grid>
+    </Border>
+
+    <!--
+      The tab strip is built from whatever features the receiver was composed with. Adding
+      a feature adds a tab; this file does not know which ones exist.
+    -->
+    <TabControl Grid.Row="1" Classes="nav" TabStripPlacement="Left"
+                ItemsSource="{Binding Pages}"
+                SelectedIndex="{Binding SelectedTab}" Padding="0">
+      <TabControl.ItemTemplate>
+        <DataTemplate x:DataType="features:FeaturePage">
+          <TextBlock Text="{Binding Title}" />
+        </DataTemplate>
+      </TabControl.ItemTemplate>
+      <TabControl.ContentTemplate>
+        <DataTemplate x:DataType="features:FeaturePage">
+          <ContentControl Content="{Binding Content}" />
+        </DataTemplate>
+      </TabControl.ContentTemplate>
+    </TabControl>
+
+  </Grid>
+</Window>

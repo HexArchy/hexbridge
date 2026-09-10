@@ -1,0 +1,103 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег для релиза, например v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install opus
+      - run: bash mac/scripts/build-app.sh
+      - name: Упаковать
+        run: ditto -c -k --keepParent mac/build/HexBridge.app HexBridge-macOS-arm64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: HexBridge-macOS-arm64.zip
+
+  windows:
+    name: Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test win/src/HexBridge.sln -c Release
+      - name: Опубликовать
+        run: |
+          dotnet publish win/src/HexBridge.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish/app
+          dotnet publish win/HexBridge.Receiver.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish/cli
+      - name: Собрать пакет
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package -Force | Out-Null
+          Copy-Item publish/app/* package/ -Recurse -Force
+          Copy-Item publish/cli/HexBridge.Receiver.exe package/ -Force
+          Copy-Item win/scripts/install.ps1 package/ -Force
+          Copy-Item win/scripts/install-task.ps1 package/ -Force
+          Get-ChildItem package -Filter *.pdb | Remove-Item -Force
+          Compress-Archive -Path package/* -DestinationPath HexBridge-Windows-x64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: HexBridge-Windows-x64.zip
+
+  relay:
+    name: Релей
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Собрать под обе архитектуры
+        working-directory: relay
+        run: |
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../hexbridge-relay-linux-amd64 .
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ../hexbridge-relay-linux-arm64 .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay
+          path: hexbridge-relay-linux-*
+
+  publish:
+    name: Опубликовать релиз
+    needs: [macos, windows, relay]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # Контрольные суммы нужны не для галочки: пакет с приёмником пользователь
+      # переносит на игровой ПК вручную, и это единственный способ убедиться,
+      # что доехало то же самое.
+      - name: Посчитать контрольные суммы
+        working-directory: artifacts
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Создать релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "HexBridge $TAG" \
+            --generate-notes \
+            artifacts/*

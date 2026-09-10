@@ -1,0 +1,19 @@
+# Standalone compose file for the relay.
+#
+# To fold it into the existing VPS stack instead, copy the `hexbridge-relay`
+# service block into ~/Workspace/vps/docker-compose.yml and open UDP/47702 in
+# setup-firewall.sh — see ../docs/VPS.md.
+services:
+  hexbridge-relay:
+    build: .
+    image: hexbridge-relay:latest
+    container_name: hexbridge-relay
+    restart: unless-stopped
+    ports:
+      - "47702:47702/udp"
+    command: ["-listen", ":47702"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HexBridge.App</RootNamespace>
+    <AssemblyName>HexBridge</AssemblyName>
+    <ApplicationIcon>Assets/hexbridge.ico</ApplicationIcon>
+    <!-- Compiled bindings turn a typo in a binding path into a build error. -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- The UI is Russian and formats numbers accordingly, so the invariant mode is out. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <!--
+    SkiaSharp and HarfBuzz ship ~105 MB of .pdb for their native C++ next to the DLLs.
+    Those are symbols for someone else's code and would triple the size of the drop.
+  -->
+  <Target Name="TrimNativeSymbols" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="'%(Extension)' == '.pdb' And '%(ResolvedFileToPublish.NuGetPackageId)' != ''" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
+    <!--
+      Semi is a theme, not a control set. Ursa is the companion library from the same
+      authors and carries the four controls Semi has no answer for: NavMenu, Banner,
+      Skeleton and LoadingIcon. Built against Avalonia 12.0.2 and never rebuilt for
+      12.1 — smoke-tested on 12.1.2 before it was added, see win/docs/STAGE-MINUS-1.md.
+    -->
+    <PackageReference Include="Irihi.Ursa" Version="2.2.0" />
+    <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0" />
+    <!-- Fluent System Icons: the only current icon set with a working Avalonia 12 package. -->
+    <PackageReference Include="FluentIcons.Avalonia" Version="2.1.339.1" />
+    <!-- QR for the pairing wizard. Zero transitive dependencies, and ToGraphicsPath()
+         hands us an SVG path string that Geometry.Parse takes as is. -->
+    <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../HexBridge.Core/HexBridge.Core.csproj" />
+    <ProjectReference Include="../HexBridge.Microphone/HexBridge.Microphone.csproj" />
+    <ProjectReference Include="../HexBridge.DualSense/HexBridge.DualSense.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,112 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The type scale from DESIGN.md §4.2. Nine roles, and no more than four of them are
+    allowed on one screen at a time.
+
+    The family is not set here. Windows gets Segoe UI and everything else gets Inter, and
+    that choice is made once in Program.BuildAvaloniaApp through FontManagerOptions —
+    a per-style FontFamily would have to repeat the platform check nine times.
+  -->
+
+  <Style Selector="TextBlock.display">
+    <Setter Property="FontSize" Value="26" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="32" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="24" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="20" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="LineHeight" Value="20" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <!-- §4.2 rule 4: a paragraph stops at about 62 characters. -->
+    <Setter Property="MaxWidth" Value="560" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="LineHeight" Value="16" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="16" />
+    <Setter Property="LetterSpacing" Value="0.48" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+
+  <!-- Telemetry. Tabular figures so a number that changes ten times a second does not
+       make the row next to it jitter. -->
+  <Style Selector="TextBlock.metric">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="28" />
+    <Setter Property="FontFeatures" Value="+tnum" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <!-- Modifiers, so a role never has to be duplicated just to change its colour. -->
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+  <Style Selector="TextBlock.ok">
+    <Setter Property="Foreground" Value="{DynamicResource OkText}" />
+  </Style>
+  <Style Selector="TextBlock.warn">
+    <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
+  </Style>
+  <Style Selector="TextBlock.bad">
+    <Setter Property="Foreground" Value="{DynamicResource BadText}" />
+  </Style>
+  <Style Selector="TextBlock.wide">
+    <Setter Property="MaxWidth" Value="Infinity" />
+  </Style>
+
+  <!-- SelectableTextBlock carries technical detail the user has to be able to copy:
+       addresses, fingerprints, error codes (§10.1 rule 6). -->
+  <Style Selector="SelectableTextBlock.mono">
+    <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource AppAccentSoft}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+
+</Styles>

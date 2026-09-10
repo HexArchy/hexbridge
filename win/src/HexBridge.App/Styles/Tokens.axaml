@@ -1,0 +1,184 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+  <!--
+    The single source of colour, radius, spacing and duration for the Windows app.
+    Values come from docs/DESIGN.md §4; the contrast ratios in that document were
+    computed against exactly these hex values, so changing one here invalidates the
+    table there. Nothing outside this file may write a literal colour.
+
+    Windows 10 has no Mica and no system Acrylic (DWMWA_SYSTEMBACKDROP_TYPE needs
+    build 22621), so every surface below is opaque on purpose.
+  -->
+
+  <ResourceDictionary.ThemeDictionaries>
+
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="BgColor">#F4F6F9</Color>
+      <Color x:Key="SurfaceColor">#FFFFFF</Color>
+      <Color x:Key="SurfaceAltColor">#F8FAFC</Color>
+      <Color x:Key="BorderColor">#E2E6ED</Color>
+      <Color x:Key="BorderStrongColor">#7E8899</Color>
+      <Color x:Key="TextColor">#1B2330</Color>
+      <Color x:Key="TextDimColor">#5C6675</Color>
+      <Color x:Key="AccentColor">#1D65C4</Color>
+      <Color x:Key="AccentSoftColor">#E9F1FD</Color>
+      <Color x:Key="AccentHoverColor">#1A5AAC</Color>
+      <Color x:Key="AccentPressedColor">#164E93</Color>
+      <Color x:Key="AccentTextColor">#1A5AAC</Color>
+      <!-- Text drawn on top of an accent fill. White in light, near-black in dark. -->
+      <Color x:Key="AccentInkColor">#FFFFFF</Color>
+      <Color x:Key="OkFgColor">#189055</Color>
+      <Color x:Key="OkTextColor">#136B41</Color>
+      <Color x:Key="OkBgColor">#E7F6EE</Color>
+      <Color x:Key="OkBorderColor">#B4E0C9</Color>
+      <Color x:Key="WarnFgColor">#B87D00</Color>
+      <Color x:Key="WarnTextColor">#7A4E00</Color>
+      <Color x:Key="WarnBgColor">#FDF3E0</Color>
+      <Color x:Key="WarnBorderColor">#F0DCB0</Color>
+      <Color x:Key="BadFgColor">#C62F2F</Color>
+      <Color x:Key="BadTextColor">#9E2B2B</Color>
+      <Color x:Key="BadBgColor">#FCECEC</Color>
+      <Color x:Key="BadBorderColor">#F1C6C6</Color>
+      <Color x:Key="OffColor">#7E8899</Color>
+      <Color x:Key="OffBgColor">#EEF1F5</Color>
+      <Color x:Key="MeterTrackColor">#E4E8EF</Color>
+      <Color x:Key="OverlayScrimColor">#5211161E</Color>
+
+      <!-- Controller visualisation, §8.5. Its own scale: these are object colours,
+           not interface colours, and they must not drift with the surface tokens. -->
+      <Color x:Key="PadBodyColor">#FFFFFF</Color>
+      <Color x:Key="PadButtonColor">#EEF1F5</Color>
+      <Color x:Key="PadButtonEdgeColor">#C7CEDA</Color>
+      <Color x:Key="PadStickRimColor">#C7CEDA</Color>
+      <Color x:Key="PadStickCapColor">#FFFFFF</Color>
+      <Color x:Key="PadTouchColor">#F4F6F9</Color>
+      <Color x:Key="PadTouchEdgeColor">#DCE2EA</Color>
+      <Color x:Key="PadLightOffColor">#DCE2EA</Color>
+
+      <SolidColorBrush x:Key="LogSurface" Color="#FBFCFE" />
+      <SolidColorBrush x:Key="SparkArea" Color="#1D65C4" Opacity="0.14" />
+      <SolidColorBrush x:Key="TitleBarBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="SidebarBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="QrPaperBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="QrInkBrush" Color="#101418" />
+
+      <BoxShadows x:Key="ShadowCard">0 1 2 0 #0F101828, 0 1 3 0 #1A101828</BoxShadows>
+      <BoxShadows x:Key="ShadowPop">0 8 24 0 #24101828</BoxShadows>
+      <BoxShadows x:Key="ShadowModal">0 24 48 0 #33101828</BoxShadows>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="BgColor">#15181E</Color>
+      <Color x:Key="SurfaceColor">#1E222A</Color>
+      <Color x:Key="SurfaceAltColor">#242933</Color>
+      <Color x:Key="BorderColor">#2E343F</Color>
+      <Color x:Key="BorderStrongColor">#66738A</Color>
+      <Color x:Key="TextColor">#E6EAF0</Color>
+      <Color x:Key="TextDimColor">#9AA4B4</Color>
+      <Color x:Key="AccentColor">#5A9BFF</Color>
+      <Color x:Key="AccentSoftColor">#16233A</Color>
+      <Color x:Key="AccentHoverColor">#7BB0FF</Color>
+      <Color x:Key="AccentPressedColor">#4A8AEE</Color>
+      <Color x:Key="AccentTextColor">#8DB9FF</Color>
+      <Color x:Key="AccentInkColor">#0F1216</Color>
+      <Color x:Key="OkFgColor">#4FD18E</Color>
+      <Color x:Key="OkTextColor">#5FD39B</Color>
+      <Color x:Key="OkBgColor">#132A20</Color>
+      <Color x:Key="OkBorderColor">#28503A</Color>
+      <Color x:Key="WarnFgColor">#E9B65B</Color>
+      <Color x:Key="WarnTextColor">#E9B65B</Color>
+      <Color x:Key="WarnBgColor">#2B2417</Color>
+      <Color x:Key="WarnBorderColor">#55431F</Color>
+      <Color x:Key="BadFgColor">#F08A8A</Color>
+      <Color x:Key="BadTextColor">#F5A0A0</Color>
+      <Color x:Key="BadBgColor">#2E1C1C</Color>
+      <Color x:Key="BadBorderColor">#5A2F2F</Color>
+      <Color x:Key="OffColor">#7A8496</Color>
+      <Color x:Key="OffBgColor">#20252E</Color>
+      <Color x:Key="MeterTrackColor">#2A303A</Color>
+      <Color x:Key="OverlayScrimColor">#7A000000</Color>
+
+      <Color x:Key="PadBodyColor">#262B34</Color>
+      <Color x:Key="PadButtonColor">#2E3440</Color>
+      <Color x:Key="PadButtonEdgeColor">#3E4757</Color>
+      <Color x:Key="PadStickRimColor">#3E4757</Color>
+      <Color x:Key="PadStickCapColor">#39414F</Color>
+      <Color x:Key="PadTouchColor">#1A1E25</Color>
+      <Color x:Key="PadTouchEdgeColor">#333A46</Color>
+      <Color x:Key="PadLightOffColor">#333A46</Color>
+
+      <SolidColorBrush x:Key="LogSurface" Color="#181C23" />
+      <SolidColorBrush x:Key="SparkArea" Color="#5A9BFF" Opacity="0.18" />
+      <SolidColorBrush x:Key="TitleBarBrush" Color="#1E222A" />
+      <SolidColorBrush x:Key="SidebarBrush" Color="#1A1E25" />
+      <!-- The QR panel keeps a white paper even in dark: a camera has to read it. -->
+      <SolidColorBrush x:Key="QrPaperBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="QrInkBrush" Color="#101418" />
+
+      <BoxShadows x:Key="ShadowCard">0 1 2 0 #52000000</BoxShadows>
+      <BoxShadows x:Key="ShadowPop">0 8 24 0 #7A000000</BoxShadows>
+      <BoxShadows x:Key="ShadowModal">0 24 48 0 #99000000</BoxShadows>
+    </ResourceDictionary>
+
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- Brushes over the colours above. Both dictionaries define the same key set, so a
+       DynamicResource lookup can never come back empty in one theme and not the other. -->
+  <SolidColorBrush x:Key="AppBackground" Color="{DynamicResource BgColor}" />
+  <SolidColorBrush x:Key="AppSurface" Color="{DynamicResource SurfaceColor}" />
+  <SolidColorBrush x:Key="AppSurfaceAlt" Color="{DynamicResource SurfaceAltColor}" />
+  <SolidColorBrush x:Key="AppBorder" Color="{DynamicResource BorderColor}" />
+  <SolidColorBrush x:Key="AppBorderStrong" Color="{DynamicResource BorderStrongColor}" />
+  <SolidColorBrush x:Key="AppText" Color="{DynamicResource TextColor}" />
+  <SolidColorBrush x:Key="AppTextDim" Color="{DynamicResource TextDimColor}" />
+  <SolidColorBrush x:Key="AppAccent" Color="{DynamicResource AccentColor}" />
+  <SolidColorBrush x:Key="AppAccentSoft" Color="{DynamicResource AccentSoftColor}" />
+  <SolidColorBrush x:Key="AppAccentHover" Color="{DynamicResource AccentHoverColor}" />
+  <SolidColorBrush x:Key="AppAccentPressed" Color="{DynamicResource AccentPressedColor}" />
+  <SolidColorBrush x:Key="AppAccentText" Color="{DynamicResource AccentTextColor}" />
+  <SolidColorBrush x:Key="AppAccentInk" Color="{DynamicResource AccentInkColor}" />
+  <SolidColorBrush x:Key="OkFg" Color="{DynamicResource OkFgColor}" />
+  <SolidColorBrush x:Key="OkText" Color="{DynamicResource OkTextColor}" />
+  <SolidColorBrush x:Key="OkBg" Color="{DynamicResource OkBgColor}" />
+  <SolidColorBrush x:Key="OkBorder" Color="{DynamicResource OkBorderColor}" />
+  <SolidColorBrush x:Key="WarnFg" Color="{DynamicResource WarnFgColor}" />
+  <SolidColorBrush x:Key="WarnText" Color="{DynamicResource WarnTextColor}" />
+  <SolidColorBrush x:Key="WarnBg" Color="{DynamicResource WarnBgColor}" />
+  <SolidColorBrush x:Key="WarnBorder" Color="{DynamicResource WarnBorderColor}" />
+  <SolidColorBrush x:Key="BadFg" Color="{DynamicResource BadFgColor}" />
+  <SolidColorBrush x:Key="BadText" Color="{DynamicResource BadTextColor}" />
+  <SolidColorBrush x:Key="BadBg" Color="{DynamicResource BadBgColor}" />
+  <SolidColorBrush x:Key="BadBorder" Color="{DynamicResource BadBorderColor}" />
+  <SolidColorBrush x:Key="OffFg" Color="{DynamicResource OffColor}" />
+  <SolidColorBrush x:Key="OffBg" Color="{DynamicResource OffBgColor}" />
+  <SolidColorBrush x:Key="MeterTrack" Color="{DynamicResource MeterTrackColor}" />
+  <SolidColorBrush x:Key="OverlayScrim" Color="{DynamicResource OverlayScrimColor}" />
+
+  <!-- Spacing. Base 4; only these steps exist. -->
+  <sys:Double x:Key="SpaceXs">4</sys:Double>
+  <sys:Double x:Key="SpaceSm">8</sys:Double>
+  <sys:Double x:Key="SpaceMd">12</sys:Double>
+  <sys:Double x:Key="SpaceLg">16</sys:Double>
+  <sys:Double x:Key="SpaceXl">24</sys:Double>
+  <sys:Double x:Key="Space2Xl">32</sys:Double>
+
+  <!-- Radii. -->
+  <CornerRadius x:Key="RadiusXs">4</CornerRadius>
+  <CornerRadius x:Key="RadiusSm">6</CornerRadius>
+  <CornerRadius x:Key="RadiusMd">8</CornerRadius>
+  <CornerRadius x:Key="RadiusLg">12</CornerRadius>
+  <CornerRadius x:Key="RadiusXl">16</CornerRadius>
+  <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+  <!-- Durations, §5.3. Nothing in the app is longer than 480 ms, and nothing except
+       `instant` is shorter than 120 ms. Reduced motion is handled by a style class on
+       the window root rather than by rewriting these. -->
+  <sys:TimeSpan x:Key="DurMicro">0:0:0.12</sys:TimeSpan>
+  <sys:TimeSpan x:Key="DurShort">0:0:0.18</sys:TimeSpan>
+  <sys:TimeSpan x:Key="DurBase">0:0:0.24</sys:TimeSpan>
+  <sys:TimeSpan x:Key="DurLong">0:0:0.32</sys:TimeSpan>
+  <sys:TimeSpan x:Key="DurSlow">0:0:0.48</sys:TimeSpan>
+
+</ResourceDictionary>

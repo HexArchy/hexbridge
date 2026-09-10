@@ -1,0 +1,103 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.DualSenseView"
+             x:DataType="vm:DualSenseViewModel">
+
+  <ScrollViewer Padding="24">
+    <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch">
+
+      <Border Classes="status"
+              Classes.good="{Binding IsGood}"
+              Classes.waiting="{Binding IsWaiting}"
+              Classes.bad="{Binding IsBad}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="headline" Text="{Binding Headline}" />
+          <TextBlock Classes="subline" Text="{Binding Subline}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section" Text="ДРАЙВЕР USBIP-WIN2" />
+          <Grid ColumnDefinitions="150,*">
+            <TextBlock Grid.Column="0" Classes="label" Text="usbip.exe" />
+            <TextBlock Grid.Column="1" Classes="field mono" Text="{Binding DriverText}" />
+          </Grid>
+          <Border CornerRadius="8" Padding="14,12"
+                  Background="{DynamicResource WarnBg}"
+                  BorderBrush="{DynamicResource WarnBorder}"
+                  BorderThickness="1"
+                  IsVisible="{Binding DriverMissing}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="section" Text="ЧТО СДЕЛАТЬ" />
+              <TextBlock Classes="field" Text="{Binding DriverHint}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <UniformGrid Columns="4">
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Отчётов в секунду" />
+            <TextBlock Classes="value" Text="{Binding RateText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Батарея" />
+            <TextBlock Classes="value" Text="{Binding BatteryText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Принято отчётов" />
+            <TextBlock Classes="value" Text="{Binding ReportsText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Отправлено команд" />
+            <TextBlock Classes="value" Text="{Binding OutputsText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section" Text="ПРОБРОС" />
+          <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Сервер USB/IP" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="field mono" Text="{Binding ServerText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Клиент" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="field" Text="{Binding ClientText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Порт vhci" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="field" Text="{Binding PortText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="busid" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Classes="field mono" Text="{Binding BusIdText}" />
+          </Grid>
+          <TextBlock Classes="hint" Text="Если автоподключение не сработало, эту команду можно выполнить вручную:" />
+          <TextBlock Classes="field mono" Text="{Binding AttachCommand}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section" Text="КОНТРОЛЛЕР" />
+          <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Модель" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="field" Text="{Binding ProductText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="VID:PID" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="field mono" Text="{Binding IdentityText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Потеряно отчётов" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="field" Text="{Binding LostText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="Не забрано Windows" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Classes="field" Text="{Binding DroppedText}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

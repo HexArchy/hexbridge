@@ -1,0 +1,85 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:semi="https://irihi.tech/semi"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             xmlns:views="using:HexBridge.App.Views"
+             x:Class="HexBridge.App.App"
+             RequestedThemeVariant="Default">
+
+  <Application.Styles>
+    <semi:SemiTheme Locale="ru-RU" />
+    <StyleInclude Source="/Styles/Theme.axaml" />
+  </Application.Styles>
+
+  <!--
+    How a page's view model finds its view. The shell hands a TabControl a view model and
+    Avalonia picks the view from here, so neither the window nor a feature module ever
+    names a control.
+  -->
+  <Application.DataTemplates>
+    <DataTemplate DataType="vm:StatusViewModel"><views:StatusView /></DataTemplate>
+    <DataTemplate DataType="vm:QualityViewModel"><views:QualityView /></DataTemplate>
+    <DataTemplate DataType="vm:DualSenseViewModel"><views:DualSenseView /></DataTemplate>
+    <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+    <DataTemplate DataType="vm:LogViewModel"><views:LogView /></DataTemplate>
+  </Application.DataTemplates>
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+
+        <!--
+          Windows 10 has no Mica or Acrylic, so every surface is painted explicitly.
+          The two dictionaries define the same key set; nothing may exist in only one.
+        -->
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackground" Color="#F4F6F9" />
+          <SolidColorBrush x:Key="AppSurface" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AppSurfaceAlt" Color="#F8FAFC" />
+          <SolidColorBrush x:Key="AppBorder" Color="#E2E6ED" />
+          <SolidColorBrush x:Key="AppText" Color="#1B2330" />
+          <SolidColorBrush x:Key="AppTextDim" Color="#6B7687" />
+          <SolidColorBrush x:Key="AppAccent" Color="#387ADF" />
+          <SolidColorBrush x:Key="AppAccentSoft" Color="#E8F0FC" />
+          <SolidColorBrush x:Key="OkFg" Color="#186B45" />
+          <SolidColorBrush x:Key="OkBg" Color="#E6F5EE" />
+          <SolidColorBrush x:Key="OkBorder" Color="#B4E0C9" />
+          <SolidColorBrush x:Key="WarnFg" Color="#8A5900" />
+          <SolidColorBrush x:Key="WarnBg" Color="#FDF3E0" />
+          <SolidColorBrush x:Key="WarnBorder" Color="#F0DCB0" />
+          <SolidColorBrush x:Key="BadFg" Color="#A82F2F" />
+          <SolidColorBrush x:Key="BadBg" Color="#FCECEC" />
+          <SolidColorBrush x:Key="BadBorder" Color="#F1C6C6" />
+          <SolidColorBrush x:Key="MeterTrack" Color="#E4E8EF" />
+          <SolidColorBrush x:Key="SparkArea" Color="#387ADF" Opacity="0.16" />
+          <SolidColorBrush x:Key="LogSurface" Color="#FBFCFE" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackground" Color="#15181E" />
+          <SolidColorBrush x:Key="AppSurface" Color="#1E222A" />
+          <SolidColorBrush x:Key="AppSurfaceAlt" Color="#242933" />
+          <SolidColorBrush x:Key="AppBorder" Color="#2E343F" />
+          <SolidColorBrush x:Key="AppText" Color="#E6EAF0" />
+          <SolidColorBrush x:Key="AppTextDim" Color="#98A2B1" />
+          <SolidColorBrush x:Key="AppAccent" Color="#5A9BFF" />
+          <SolidColorBrush x:Key="AppAccentSoft" Color="#1B2637" />
+          <SolidColorBrush x:Key="OkFg" Color="#5FD39B" />
+          <SolidColorBrush x:Key="OkBg" Color="#16291F" />
+          <SolidColorBrush x:Key="OkBorder" Color="#28503A" />
+          <SolidColorBrush x:Key="WarnFg" Color="#E9B65B" />
+          <SolidColorBrush x:Key="WarnBg" Color="#2B2417" />
+          <SolidColorBrush x:Key="WarnBorder" Color="#55431F" />
+          <SolidColorBrush x:Key="BadFg" Color="#F08A8A" />
+          <SolidColorBrush x:Key="BadBg" Color="#2D1B1B" />
+          <SolidColorBrush x:Key="BadBorder" Color="#5A2F2F" />
+          <SolidColorBrush x:Key="MeterTrack" Color="#2A303A" />
+          <SolidColorBrush x:Key="SparkArea" Color="#5A9BFF" Opacity="0.18" />
+          <SolidColorBrush x:Key="LogSurface" Color="#181C23" />
+        </ResourceDictionary>
+
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+</Application>

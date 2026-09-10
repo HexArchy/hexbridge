@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.LogView"
+             x:DataType="vm:LogViewModel">
+
+  <Grid RowDefinitions="Auto,*" Margin="24">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,12">
+      <TextBlock Grid.Column="0" Classes="section" Text="ЖУРНАЛ" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="1" Content="Прокручивать" IsChecked="{Binding AutoScroll}" Margin="0,0,8,0" />
+      <Button Grid.Column="2" Content="Скопировать" Command="{Binding CopyCommand}" Margin="0,0,8,0" />
+      <Button Grid.Column="3" Content="Очистить" Command="{Binding ClearCommand}" />
+    </Grid>
+
+    <Border Grid.Row="1" Classes="card" Padding="0" Background="{DynamicResource LogSurface}">
+      <ScrollViewer Name="Scroller" Padding="14,10">
+        <ItemsControl ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LogLine">
+              <Grid ColumnDefinitions="Auto,*" Margin="0,1">
+                <TextBlock Grid.Column="0" Classes="mono" Text="{Binding Time}"
+                           Foreground="{DynamicResource AppTextDim}" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Text}"
+                           TextWrapping="Wrap" Foreground="{DynamicResource AppText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+  </Grid>
+</UserControl>

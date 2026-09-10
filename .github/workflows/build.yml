@@ -1,0 +1,151 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Отменяем предыдущий прогон той же ветки: смысла собирать устаревший коммит нет.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      # Кодек берём готовый: собирать libopus из исходников на каждый прогон дорого,
+      # а Package.swift и так умеет искать его по OPUS_PREFIX.
+      - name: Установить libopus
+        run: brew install opus
+
+      - name: Собрать
+        run: swift build -c release --package-path mac
+
+      - name: Проверить CLI
+        run: |
+          BIN=mac/.build/release/HexBridge
+          "$BIN" help > /dev/null
+          # keygen должен выдавать ровно 32 байта в base64
+          KEY=$("$BIN" keygen)
+          [ ${#KEY} -eq 44 ] || { echo "keygen вернул ключ длиной ${#KEY}, ожидалось 44"; exit 1; }
+          "$BIN" list-devices || true   # на раннере может не быть устройств ввода
+
+      - name: Собрать .app
+        run: bash mac/scripts/build-app.sh
+
+      - name: Упаковать
+        run: ditto -c -k --keepParent mac/build/HexBridge.app HexBridge-macOS.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexBridge-macOS
+          path: HexBridge-macOS.zip
+          if-no-files-found: error
+
+  windows:
+    name: Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Собрать
+        run: dotnet build win/src/HexBridge.sln -c Release --no-incremental
+
+      # Тесты протокола USB/IP — единственный способ проверить разбор пакетов,
+      # не имея под рукой vhci-драйвера.
+      - name: Тесты
+        run: dotnet test win/src/HexBridge.sln -c Release --no-build --verbosity normal
+
+      - name: Опубликовать приложение
+        run: >
+          dotnet publish win/src/HexBridge.App -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true -o publish/app
+
+      - name: Опубликовать консольный приёмник
+        run: >
+          dotnet publish win/HexBridge.Receiver.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true -o publish/cli
+
+      - name: Собрать пакет
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package -Force | Out-Null
+          Copy-Item publish/app/* package/ -Recurse -Force
+          Copy-Item publish/cli/HexBridge.Receiver.exe package/ -Force
+          Copy-Item win/scripts/install.ps1 package/ -Force
+          Copy-Item win/scripts/install-task.ps1 package/ -Force
+          Get-ChildItem package -Filter *.pdb | Remove-Item -Force
+          Compress-Archive -Path package/* -DestinationPath HexBridge-Windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexBridge-Windows
+          path: HexBridge-Windows.zip
+          if-no-files-found: error
+
+  relay:
+    name: Релей
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: relay/go.sum
+
+      - name: Проверить и собрать
+        working-directory: relay
+        run: |
+          go vet ./...
+          # Релей ставится и на не-amd64 VPS, поэтому проверяем обе цели.
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../hexbridge-relay-linux-amd64 .
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ../hexbridge-relay-linux-arm64 .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexBridge-relay
+          path: hexbridge-relay-linux-*
+          if-no-files-found: error
+
+  secrets:
+    name: Проверка на секреты
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      # Однажды ключ уже чуть не уехал в репозиторий внутри собранного пакета.
+      # Дешевле ловить это в CI, чем вычищать из истории.
+      - name: Искать ключи и конфиги в дереве
+        run: |
+          set -e
+          fail=0
+
+          if git ls-files | grep -E '(^|/)(config|ui)\.json$'; then
+            echo "::error::config.json или ui.json попал в репозиторий — там живут ключи"
+            fail=1
+          fi
+
+          if git ls-files | grep -E '\.(zip|exe|dmg)$'; then
+            echo "::error::в репозитории собранные артефакты, их место в релизах"
+            fail=1
+          fi
+
+          # 32 байта в base64 — ровно та форма, в которой хранится PSK.
+          if git grep -nIE '"[Pp]sk"[[:space:]]*:[[:space:]]*"[A-Za-z0-9+/]{43}="' -- . ; then
+            echo "::error::в тексте найден ключ, похожий на настоящий PSK"
+            fail=1
+          fi
+
+          exit $fail

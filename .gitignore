@@ -1,0 +1,22 @@
+# Никогда не публикуем: собранные пакеты несут config.json с настоящим ключом.
+dist/
+*.zip
+
+# Секреты и локальные настройки
+**/config.json
+**/ui.json
+*.psk
+
+# Сборка
+mac/.build/
+mac/build/
+win/bin/
+win/obj/
+win/publish/
+win/src/**/bin/
+win/src/**/obj/
+relay/hexbridge-relay
+
+# Прочее
+*.wav
+.DS_Store

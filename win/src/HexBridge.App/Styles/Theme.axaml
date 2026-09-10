@@ -1,0 +1,564 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:HexBridge.App.Controls">
+
+  <!--
+    Components, per DESIGN.md §6. Everything reads its colour from Styles/Tokens.axaml;
+    there is not a single literal colour below.
+
+    The buttons carry their own ControlTheme rather than leaning on Semi's. That is not
+    a rejection of Semi — it stays for text boxes, combo boxes, sliders, check boxes,
+    scroll bars and tooltips — but the design pins the radius, the padding and the
+    press-scale of a button precisely, and owning twenty lines of template is cheaper
+    than guessing at another library's part names.
+  -->
+
+  <Styles.Resources>
+
+    <!-- A focus ring visible on every surface we paint: 2 px accent with a small gap,
+         which is the §11.1 requirement. -->
+    <ControlTemplate x:Key="FocusRing">
+      <Rectangle Stroke="{DynamicResource AppAccent}" StrokeThickness="2"
+                 RadiusX="8" RadiusY="8" Margin="-3" />
+    </ControlTemplate>
+
+    <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource AppSurface}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusAdorner" Value="{StaticResource FocusRing}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="Root"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{DynamicResource RadiusSm}"
+                  Padding="{TemplateBinding Padding}"
+                  RenderTransformOrigin="50%,50%">
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" />
+              </Transitions>
+            </Border.Transitions>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+
+  </Styles.Resources>
+
+  <!-- MARK: - Buttons -->
+
+  <Style Selector="Button:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+  </Style>
+  <!-- §5.4 transition 17. A press is the one piece of pointer feedback worth animating. -->
+  <Style Selector="Button:pressed /template/ Border#Root">
+    <Setter Property="RenderTransform" Value="scale(0.97)" />
+  </Style>
+  <Style Selector="Button:disabled /template/ Border#Root">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector="Button:disabled">
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <!-- Exactly one of these on a screen (§6.1). -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource AppAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentInk}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccent}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="18,0" />
+    <Setter Property="MinHeight" Value="34" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppAccentHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentHover}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppAccentPressed}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentPressed}" />
+  </Style>
+
+  <!-- Borderless: the ⋯ in the header, inline actions inside a card. -->
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+    <Setter Property="Padding" Value="10,0" />
+  </Style>
+  <Style Selector="Button.ghost:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentText}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="20" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.link:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccent}" />
+  </Style>
+
+  <!-- Window caption buttons. Windows 10 sizing: 46 × 32, square, and close goes red —
+       people reach for that corner without looking. -->
+  <Style Selector="Button.caption">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+    <Setter Property="Width" Value="46" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+  <Style Selector="Button.caption /template/ Border#Root">
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="Button.caption:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.caption:pressed /template/ Border#Root">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+  <Style Selector="Button.caption.close:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource BadFg}" />
+  </Style>
+  <Style Selector="Button.caption.close:pointerover">
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <!-- MARK: - Surfaces -->
+
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource AppSurface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}" />
+    <Setter Property="Padding" Value="18" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShadowCard}" />
+  </Style>
+
+  <Style Selector="Border.tile">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+    <Setter Property="Padding" Value="14,12" />
+  </Style>
+
+  <!--
+    The one big sentence on the screen. Colour, border and heading move together on a
+    240 ms crossfade (§5.4 transition 4) so a state change reads as one event, not four.
+  -->
+  <Style Selector="Border.status">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}" />
+    <Setter Property="Padding" Value="22,20" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.24" Easing="CubicEaseOut" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.24" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.status.ok">
+    <Setter Property="Background" Value="{DynamicResource OkBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource OkBorder}" />
+  </Style>
+  <Style Selector="Border.status.warn">
+    <Setter Property="Background" Value="{DynamicResource WarnBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
+  </Style>
+  <Style Selector="Border.status.bad">
+    <Setter Property="Background" Value="{DynamicResource BadBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+  </Style>
+  <Style Selector="Border.status.off">
+    <Setter Property="Background" Value="{DynamicResource OffBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+  </Style>
+
+  <Style Selector="Border.status.ok TextBlock.display">
+    <Setter Property="Foreground" Value="{DynamicResource OkText}" />
+  </Style>
+  <Style Selector="Border.status.warn TextBlock.display">
+    <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
+  </Style>
+  <Style Selector="Border.status.bad TextBlock.display">
+    <Setter Property="Foreground" Value="{DynamicResource BadText}" />
+  </Style>
+  <Style Selector="Border.status.off TextBlock.display">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+
+  <!-- Inline alert (§6 item 10). Lives inside the card it belongs to; a general failure
+       goes in the status card instead of being smeared across the page. -->
+  <Style Selector="Border.alert">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+    <Setter Property="Padding" Value="14,12" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+  </Style>
+  <Style Selector="Border.alert.warn">
+    <Setter Property="Background" Value="{DynamicResource WarnBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
+  </Style>
+  <Style Selector="Border.alert.bad">
+    <Setter Property="Background" Value="{DynamicResource BadBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BadBorder}" />
+  </Style>
+  <Style Selector="Border.alert.info">
+    <Setter Property="Background" Value="{DynamicResource AppAccentSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+  </Style>
+
+  <!-- MARK: - State indicators -->
+
+  <!-- The dot is never the only carrier of meaning: there is always a word beside it
+       (§4.1). It exists so the meaning is available at a glance, not instead of text. -->
+  <Style Selector="Ellipse.dot">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="8" />
+    <Setter Property="Fill" Value="{DynamicResource OffFg}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Fill" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Ellipse.dot.ok">
+    <Setter Property="Fill" Value="{DynamicResource OkFg}" />
+  </Style>
+  <Style Selector="Ellipse.dot.warn">
+    <Setter Property="Fill" Value="{DynamicResource WarnFg}" />
+  </Style>
+  <Style Selector="Ellipse.dot.bad">
+    <Setter Property="Fill" Value="{DynamicResource BadFg}" />
+  </Style>
+  <Style Selector="Ellipse.dot.large">
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+  </Style>
+
+  <!--
+    §5.4 transition 9, and the only looped animation in the app: the «waiting» dot
+    breathes so a stalled screen still reads as alive. PlaybackBehavior stays at its
+    default, which parks the animation whenever the page is not on screen.
+  -->
+  <Style Selector="Ellipse.dot.pulse">
+    <Style.Animations>
+      <Animation Duration="0:0:1.4" IterationCount="Infinite" PlaybackDirection="Alternate"
+                 Easing="CubicEaseOut">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="1.0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.45" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- A chip: one short state word on a tinted pill. -->
+  <Style Selector="Border.chip">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}" />
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="Background" Value="{DynamicResource OffBg}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.chip.ok">
+    <Setter Property="Background" Value="{DynamicResource OkBg}" />
+  </Style>
+  <Style Selector="Border.chip.warn">
+    <Setter Property="Background" Value="{DynamicResource WarnBg}" />
+  </Style>
+  <Style Selector="Border.chip.bad">
+    <Setter Property="Background" Value="{DynamicResource BadBg}" />
+  </Style>
+  <Style Selector="Border.chip.accent">
+    <Setter Property="Background" Value="{DynamicResource AppAccentSoft}" />
+  </Style>
+  <Style Selector="Border.chip > TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+  </Style>
+  <Style Selector="Border.chip.ok > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource OkText}" />
+  </Style>
+  <Style Selector="Border.chip.warn > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
+  </Style>
+  <Style Selector="Border.chip.bad > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource BadText}" />
+  </Style>
+  <Style Selector="Border.chip.accent > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentText}" />
+  </Style>
+
+  <!-- MARK: - Window chrome -->
+
+  <!-- WindowDecorations="None": on Windows 10 the system title bar cannot be darkened
+       (Avalonia gates SetFrameThemeVariant on build 22000), so the app draws its own.
+       That also gives the header room for the summary line from §7.1. -->
+  <Style Selector="Border.titlebar">
+    <Setter Property="Background" Value="{DynamicResource TitleBarBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Height" Value="56" />
+  </Style>
+
+  <Style Selector="Border.sidebar">
+    <Setter Property="Background" Value="{DynamicResource SidebarBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+    <Setter Property="Width" Value="216" />
+  </Style>
+
+  <!-- MARK: - Side navigation -->
+
+  <Style Selector="ListBox.nav">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,0" />
+  </Style>
+
+  <Style Selector="ListBox.nav > ListBoxItem">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusAdorner" Value="{StaticResource FocusRing}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Root"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            VerticalAlignment="Center" />
+          <Border.Transitions>
+            <Transitions>
+              <BrushTransition Property="Background" Duration="0:0:0.12" />
+            </Transitions>
+          </Border.Transitions>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:pointerover /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAlt}" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected /template/ Border#Root">
+    <Setter Property="Background" Value="{DynamicResource AppAccentSoft}" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected TextBlock.nav-title">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentText}" />
+  </Style>
+
+  <Style Selector="TextBlock.nav-title">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="TextBlock.nav-state">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextDim}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="TextBlock.nav-state.ok">
+    <Setter Property="Foreground" Value="{DynamicResource OkText}" />
+  </Style>
+  <Style Selector="TextBlock.nav-state.warn">
+    <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
+  </Style>
+  <Style Selector="TextBlock.nav-state.bad">
+    <Setter Property="Foreground" Value="{DynamicResource BadText}" />
+  </Style>
+
+  <!-- The travelling selection bar (§5.4 transition 3). It slides rather than fading,
+       because the question it answers is «where did the selection go», and that is a
+       question about a path. Its Margin is set from code; the transition lives here. -->
+  <Style Selector="Border.nav-marker">
+    <Setter Property="Width" Value="3" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusPill}" />
+    <Setter Property="Background" Value="{DynamicResource AppAccent}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <ThicknessTransition Property="Margin" Duration="0:0:0.32" Easing="QuinticEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- MARK: - Page transition -->
+
+  <!-- §5.4 transition 2: the outgoing page fades, the incoming one rises. Anything more
+       turns a two-click errand into a slideshow. -->
+  <Style Selector="TransitioningContentControl.page">
+    <Setter Property="PageTransition">
+      <CompositePageTransition>
+        <CompositePageTransition.PageTransitions>
+          <CrossFade Duration="0:0:0.24" />
+          <PageSlide Duration="0:0:0.24" Orientation="Vertical" SlideInEasing="QuinticEaseOut" />
+        </CompositePageTransition.PageTransitions>
+      </CompositePageTransition>
+    </Setter>
+  </Style>
+
+  <!-- MARK: - Modal overlay -->
+
+  <Style Selector="Border.scrim">
+    <Setter Property="Background" Value="{DynamicResource OverlayScrim}" />
+  </Style>
+
+  <Style Selector="Border.modal">
+    <Setter Property="Background" Value="{DynamicResource AppSurface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShadowModal}" />
+  </Style>
+
+  <!-- MARK: - Wizard -->
+
+  <Style Selector="Ellipse.step">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="8" />
+    <Setter Property="Fill" Value="{DynamicResource AppBorder}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Fill" Duration="0:0:0.24" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Ellipse.step.done">
+    <Setter Property="Fill" Value="{DynamicResource AppAccentSoft}" />
+  </Style>
+  <Style Selector="Ellipse.step.current">
+    <Setter Property="Fill" Value="{DynamicResource AppAccent}" />
+  </Style>
+
+  <!-- The QR always sits on white paper, in both themes: a camera has to read it. -->
+  <Style Selector="Border.paper">
+    <Setter Property="Background" Value="{DynamicResource QrPaperBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
+  <!-- MARK: - Own controls -->
+
+  <Style Selector="controls|LevelMeter">
+    <Setter Property="TrackBrush" Value="{DynamicResource MeterTrack}" />
+    <Setter Property="MutedBrush" Value="{DynamicResource OffFg}" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+
+  <Style Selector="controls|Sparkline">
+    <Setter Property="Stroke" Value="{DynamicResource AppAccent}" />
+    <Setter Property="AreaBrush" Value="{DynamicResource SparkArea}" />
+    <Setter Property="BaselineBrush" Value="{DynamicResource AppBorder}" />
+    <Setter Property="Height" Value="64" />
+  </Style>
+
+  <!-- MARK: - Fields -->
+
+  <Style Selector="TextBox, ComboBox">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="32" />
+  </Style>
+
+  <Style Selector="TextBox.mono">
+    <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource AppText}" />
+  </Style>
+
+  <!-- MARK: - Reduced motion -->
+
+  <!--
+    §5.6. Windows exposes «Show animations» through SPI_GETCLIENTAREAANIMATION and
+    Avalonia surfaces nothing, so ReducedMotion reads it and the shell puts this class
+    on the window root. Movement across the screen goes away; anything that is data
+    rather than decoration — the level meter, the controller, the spinner — stays.
+  -->
+  <Style Selector="Window.reduced Border.status">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Window.reduced Border.nav-marker">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Window.reduced TransitioningContentControl.page">
+    <Setter Property="PageTransition">
+      <CrossFade Duration="0:0:0.12" />
+    </Setter>
+  </Style>
+  <!-- The pulse is decoration, so it goes; the dot stays visible and warn-coloured. -->
+  <Style Selector="Window.reduced Ellipse.dot.pulse">
+    <Setter Property="Opacity" Value="1" />
+    <Style.Animations>
+      <Animation Duration="0:0:0.001" IterationCount="1" FillMode="Forward">
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1.0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Window.reduced Button /template/ Border#Root">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+</Styles>
