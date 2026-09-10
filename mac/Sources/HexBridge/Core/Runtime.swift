@@ -321,3 +321,18 @@ enum RuntimeError: Error, CustomStringConvertible {
         }
     }
 }
+
+extension UInt64 {
+    /// Growth since an earlier reading of the same counter, for a counter that
+    /// can start over from zero.
+    ///
+    /// The transfer counters live in the sender, and switching the microphone
+    /// off releases the sender: the next reading is zero while the one held
+    /// from a moment ago is not. On an unsigned type that subtraction is not a
+    /// negative number, it is a runtime trap, and it fired on the main thread
+    /// the instant the switch was flipped. A counter that has gone backwards
+    /// has restarted, and the honest rate for that one interval is nothing.
+    func growth(since previous: UInt64) -> UInt64 {
+        self >= previous ? self - previous : 0
+    }
+}

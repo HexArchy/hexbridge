@@ -100,7 +100,7 @@ final class MicrophoneFeature: Feature {
 
         let elapsed = Date().timeIntervalSince(lastRateSample)
         if elapsed >= 1 {
-            packetsPerSecond = Int(Double(snapshot.sent - lastPacketCount) / elapsed)
+            packetsPerSecond = Int(Double(snapshot.sent.growth(since: lastPacketCount)) / elapsed)
             lastPacketCount = snapshot.sent
             lastRateSample = Date()
         }

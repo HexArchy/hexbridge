@@ -298,8 +298,8 @@ enum CLI {
                 let snap = runtime.snapshot()
                 let peak = runtime.drainPeak()
 
-                let packets = snap.sent - lastSent
-                let kbits = Double(snap.bytes - lastBytes) * 8 / 5000
+                let packets = snap.sent.growth(since: lastSent)
+                let kbits = Double(snap.bytes.growth(since: lastBytes)) * 8 / 5000
                 lastSent = snap.sent
                 lastBytes = snap.bytes
 
