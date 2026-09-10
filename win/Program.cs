@@ -214,8 +214,13 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
 
         var s = receiver.Snapshot;
         var mic = s.Feature<MicrophoneState>("microphone");
+        // Peak-hold over the whole five-second window, not the last 20 ms frame. The Mac
+        // prints the same statistic, and the point of these two numbers is that a person
+        // can hold them side by side and see whether the level survived the trip. Sampling
+        // one arbitrary frame here read ~20 dB quieter than the Mac on identical audio.
+        var peakValue = mic is null ? 0f : Math.Max(mic.PeakHold, mic.Peak);
         var peak = Loc.F(Strings.Cli_Stats_Peak,
-            Loc.Dbfs1(mic is { Peak: > 0 } ? 20 * Math.Log10(mic.Peak) : -99).PadLeft(11));
+            Loc.Dbfs1(peakValue > 0 ? 20 * Math.Log10(peakValue) : -99).PadLeft(11));
 
         // The two roles count different things, and printing «декодировано» on a machine
         // that only encodes would be four zeroes pretending to be telemetry.

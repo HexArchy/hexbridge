@@ -299,6 +299,12 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     private func notePeak(_ peak: Float) {
+        // A misbehaving input device can hand us infinities or NaN, and this one
+        // number reaches both the console and the width of the level meter's bar.
+        // NaN geometry is not a cosmetic problem in SwiftUI, so it is stopped at
+        // the single point every reader goes through rather than at each of them.
+        guard peak.isFinite else { return }
+
         peakLock.lock()
         peakSinceLastRead = max(peakSinceLastRead, peak)
         peakLock.unlock()
