@@ -48,6 +48,23 @@ final class DeviceBridge {
         /// Seconds since the last input report — the activity light.
         var idle: TimeInterval = 0
 
+        // HD haptics. All nil and all zero for a device with no audio function,
+        // and for every device until Windows is told to send any.
+
+        /// The CoreAudio device the PCM is played into, once one has been found.
+        var hapticDevice: String?
+        /// Blocks are arriving and the audio unit is running.
+        var hapticsPlaying = false
+        var hapticBlocks: UInt64 = 0
+        /// Blocks the numbering says were lost on the way here.
+        var hapticBlocksLost: UInt64 = 0
+        /// Times the buffer ran dry mid-stream: the link is not keeping up.
+        var hapticUnderruns: UInt64 = 0
+        /// Blocks that arrived on top of a full buffer, so older audio was
+        /// dropped to keep latency down.
+        var hapticBlocksDropped: UInt64 = 0
+        var hapticError: String?
+
         var id: UInt8 { number }
     }
 
@@ -110,8 +127,18 @@ final class DeviceBridge {
         var liveInputAt = DispatchTime.now()
         var lightbar: GamepadOutput.Color?
 
+        /// Plays HD haptics back into this controller. Built for every device,
+        /// because the audio node can appear a moment after the HID one and a
+        /// player that found nothing costs a nil check.
+        let haptics: HapticPlayer
+
         init(number: UInt8, device: HIDDevice, identity: DeviceIdentity,
              profile: DeviceProfile?, descriptors: [Wire.DeviceChannel.Descriptor]) {
+            haptics = HapticPlayer(
+                vendorID: device.vendorID,
+                productID: device.productID,
+                locationID: device.locationID
+            )
             self.number = number
             self.device = device
             self.registryID = device.registryID
@@ -189,6 +216,7 @@ final class DeviceBridge {
         running = false
         sender?.onDeviceOutput = nil
         sender?.onDeviceAck = nil
+        sender?.onHaptic = nil
 
         thread.sync { [self] in
             detachAll(notifyHost: true)
@@ -253,6 +281,7 @@ final class DeviceBridge {
         if let old = self.sender, old !== sender {
             old.onDeviceOutput = nil
             old.onDeviceAck = nil
+            old.onHaptic = nil
         }
         self.sender = sender
         sender?.onDeviceOutput = { [weak self] device, report in
@@ -260,6 +289,9 @@ final class DeviceBridge {
         }
         sender?.onDeviceAck = { [weak self] device in
             self?.noteAck(device)
+        }
+        sender?.onHaptic = { [weak self] block in
+            self?.playHaptics(block)
         }
         return changed
     }
@@ -300,6 +332,7 @@ final class DeviceBridge {
         lock.lock()
         let forwarding = self.forwarding
         var needsAttach: [(UInt8, [Wire.DeviceChannel.Descriptor])] = []
+        var players: [(UInt8, HapticPlayer, Bool)] = []
         for entry in forwarded.values {
             entry.status.reportRate = Double(entry.reportsSinceTick)
             entry.reportsSinceTick = 0
@@ -307,6 +340,7 @@ final class DeviceBridge {
             if forwarding, !entry.status.attachAcknowledged, !entry.descriptors.isEmpty {
                 needsAttach.append((entry.number, entry.descriptors))
             }
+            players.append((entry.number, entry.haptics, entry.profile?.kind == .dualSense))
         }
         lock.unlock()
 
@@ -315,6 +349,19 @@ final class DeviceBridge {
         // the device exists.
         for (number, descriptors) in needsAttach {
             sender?.sendDeviceAttach(device: number, descriptors: descriptors)
+        }
+
+        // Outside the lock: `tick` can tear an audio unit down, and CoreAudio
+        // takes its own time about that.
+        for (number, player, isDualSense) in players {
+            let streaming = player.tick()
+            // The controller boots with its haptics muted and a game's own output
+            // report can mute them again by selecting classic rumble, so the
+            // unmute is re-asserted for as long as PCM keeps arriving. One HID
+            // write a second against a device already taking 250 reports a second
+            // is not a cost worth measuring.
+            if streaming, isDualSense { assertHapticsEnabled(device: number) }
+            publish(player.status(), for: number)
         }
 
         // A device that failed to open stays invisible to the hot-plug
@@ -619,6 +666,10 @@ final class DeviceBridge {
     }
 
     private func detach(_ entry: Forwarded, notifyHost: Bool) {
+        // Before the HID handle goes: the audio unit holds the same physical
+        // device, and letting it run against hardware that has been unplugged is
+        // how a render callback finds itself writing into nothing.
+        entry.haptics.stop()
         entry.device.stopReading()
         entry.device.close()
 
@@ -718,6 +769,59 @@ final class DeviceBridge {
     private func noteAck(_ number: UInt8) {
         lock.lock()
         forwarded[number]?.status.attachAcknowledged = true
+        lock.unlock()
+    }
+
+    // MARK: - HD haptics
+
+    /// One block of PCM off the wire, on its way into the controller's own
+    /// actuators. Called on the connection queue at up to 200 blocks a second.
+    ///
+    /// Not scheduled onto the output queue like a DEV_OUT: the player only
+    /// copies into a ring buffer, and the thing that must not be delayed here is
+    /// the audio, not the socket.
+    private func playHaptics(_ block: Wire.Haptics.Block) {
+        lock.lock()
+        let entry = forwarded[block.device]
+        let isDualSense = entry?.profile?.kind == .dualSense
+        lock.unlock()
+
+        // A block for a device we are not holding is not an error worth counting:
+        // the receiver can still be streaming into a controller that was unplugged
+        // half a second ago.
+        guard let entry else { return }
+
+        if entry.haptics.play(block), isDualSense {
+            // First block of a stream. Nothing has cleared the controller's haptic
+            // mute yet, and until something does the PCM is carried the whole way
+            // and thrown away at the last step.
+            assertHapticsEnabled(device: block.device)
+        }
+    }
+
+    /// Sends the unmute report on the writer queue, so it serialises with the
+    /// forwarded output reports instead of racing one mid-transaction.
+    private func assertHapticsEnabled(device number: UInt8) {
+        outputQueue.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let target = self.forwarded[number]?.device
+            self.lock.unlock()
+            _ = target?.setOutputReport(DualSenseReport.audioHapticsEnable)
+        }
+    }
+
+    private func publish(_ status: HapticPlayer.Status, for number: UInt8) {
+        lock.lock()
+        if let entry = forwarded[number] {
+            entry.status.hapticDevice = status.deviceName
+            entry.status.hapticsPlaying = status.playing
+            entry.status.hapticBlocks = status.blocksPlayed
+            entry.status.hapticBlocksLost = status.blocksLost
+            entry.status.hapticUnderruns = status.underruns
+            entry.status.hapticBlocksDropped = status.blocksDropped
+            entry.status.hapticError = status.lastError
+        }
         lock.unlock()
     }
 

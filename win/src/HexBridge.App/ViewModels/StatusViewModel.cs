@@ -10,7 +10,7 @@ public sealed partial class StatusViewModel : ObservableObject
     public const double MeterFloorDb = -60;
 
     [ObservableProperty] private string _headline = "Приём остановлен";
-    [ObservableProperty] private string _subline = "Нажмите «Старт», чтобы принимать звук с Mac";
+    [ObservableProperty] private string _subline = "Нажмите «Запустить», чтобы принимать звук с Mac";
 
     // Three mutually exclusive flags rather than a brush: the view picks colours through
     // style classes, so the card follows the light/dark theme without any work here.
@@ -30,16 +30,13 @@ public sealed partial class StatusViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _isMuted;
 
-    [ObservableProperty] private string _packetsText = "—";
-    [ObservableProperty] private string _rttText = "—";
-    [ObservableProperty] private string _uptimeText = "—";
-    [ObservableProperty] private string _bufferText = "—";
-
-    [ObservableProperty] private string _senderText = "нет";
+    // Packets, latency, uptime and buffer depth live on the «Качество» page:
+    // this one answers whether the sound is arriving, that one how well.
+    // The session id, the listen address and the relay left the window
+    // altogether — the first is a protocol number nobody can act on, and the
+    // other two are settings, shown where they are set.
+    [ObservableProperty] private string _senderText = "не подключён";
     [ObservableProperty] private string _peerText = "—";
-    [ObservableProperty] private string _sessionText = "—";
-    [ObservableProperty] private string _listenText = "—";
-    [ObservableProperty] private string _relayText = "прямое соединение";
     [ObservableProperty] private string _outputText = "—";
 
     [ObservableProperty] private string? _gameHint;
@@ -78,16 +75,8 @@ public sealed partial class StatusViewModel : ObservableObject
         }
         PeakMark = _holdValue;
 
-        PacketsText = s.IsRunning ? $"{m?.PacketsPerSecond ?? 0:F0}" : "—";
-        RttText = s.RttMs is { } rtt ? $"{rtt:F0} мс" : "—";
-        UptimeText = s.IsRunning ? Duration(s.Uptime) : "—";
-        BufferText = s.IsRunning ? $"{(m?.Depth ?? 0) * 20} мс" : "—";
-
-        SenderText = string.IsNullOrEmpty(s.SenderName) ? (s.PeerAddress is null ? "нет" : "неизвестен") : s.SenderName;
+        SenderText = string.IsNullOrEmpty(s.SenderName) ? (s.PeerAddress is null ? "не подключён" : "имя неизвестно") : s.SenderName;
         PeerText = s.PeerAddress ?? "—";
-        SessionText = s.Session == 0 ? "—" : $"{s.Session:x8}";
-        ListenText = string.IsNullOrEmpty(s.Listen) ? "—" : s.Listen;
-        RelayText = s.Relay ?? "прямое соединение";
         OutputText = string.IsNullOrEmpty(m?.OutputDescription) ? "—" : m.OutputDescription;
 
         GameHint = m?.PairedCaptureName;
@@ -97,18 +86,21 @@ public sealed partial class StatusViewModel : ObservableObject
     private static (string, string) Describe(ReceiverSnapshot s, MicrophoneState? m) => s.Status switch
     {
         ReceiverStatus.Live => ("Звук идёт", $"{Who(s)} → {m?.DeviceName ?? m?.OutputDescription ?? "вывод"}"),
-        ReceiverStatus.Muted => ("Микрофон выключен", $"{Who(s)} поставил микрофон на мут"),
-        ReceiverStatus.SenderLost => ("Отправитель молчит",
+        ReceiverStatus.Muted => ("Микрофон заглушен", $"{Who(s)} поставил микрофон на мут"),
+        ReceiverStatus.SenderLost => ("Mac замолчал",
             s.LastPacketAt is { } at
                 ? $"нет пакетов уже {Duration(DateTime.UtcNow - at)}"
                 : "нет пакетов"),
-        ReceiverStatus.WaitingForSender => ("Нет отправителя", $"порт {s.Listen} открыт, ждём Mac"),
+        ReceiverStatus.WaitingForSender => ("Ждём Mac", $"порт {s.Listen} открыт"),
         ReceiverStatus.Failed => ("Ошибка", s.Detail ?? "не удалось запустить приём"),
-        _ => ("Приём остановлен", "Нажмите «Старт», чтобы принимать звук с Mac"),
+        _ => ("Приём остановлен", "Нажмите «Запустить», чтобы принимать звук с Mac"),
     };
 
+    /// The machine on the other end is a Mac, and «отправитель» is what the
+    /// protocol calls it. The Mac side says «игровой ПК» about this machine for
+    /// the same reason: each end names the other by what it is.
     private static string Who(ReceiverSnapshot s) =>
-        string.IsNullOrEmpty(s.SenderName) ? s.PeerAddress ?? "отправитель" : s.SenderName;
+        string.IsNullOrEmpty(s.SenderName) ? s.PeerAddress ?? "Mac" : s.SenderName;
 
     private static string Duration(TimeSpan t) => t.TotalHours >= 1
         ? $"{(int)t.TotalHours} ч {t.Minutes:00} м"

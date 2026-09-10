@@ -8,16 +8,39 @@
   <ScrollViewer Padding="24">
     <StackPanel Spacing="16" MaxWidth="820">
 
+      <!-- The three numbers that used to head the Status page: they say how
+           well the sound is arriving, which is this page's whole subject. -->
+      <UniformGrid Columns="3">
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Пакетов в секунду" />
+            <TextBlock Classes="metric" Text="{Binding PacketsText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile" Margin="0,0,8,0"
+                ToolTip.Tip="Время до Mac и обратно. Оценка: нужны синхронные часы на обеих машинах.">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Задержка" />
+            <TextBlock Classes="metric" Text="{Binding RttText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Аптайм" />
+            <TextBlock Classes="metric" Text="{Binding UptimeText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
       <Border Classes="card">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="JITTER-БУФЕР" />
+            <TextBlock Grid.Column="0" Classes="section" Text="БУФЕР" />
             <TextBlock Grid.Column="1" Classes="label" Text="{Binding DepthText}" />
           </Grid>
           <ProgressBar Minimum="0" Maximum="1" Value="{Binding DepthFraction, Mode=OneWay}" Height="8" />
-          <TextBlock Classes="caption" Text="{Binding TargetText}" />
           <TextBlock Classes="caption"
-                     Text="Буфер сглаживает неровности сети. Больше буфер — меньше щелчков, но выше задержка." />
+                     Text="Больше буфер — меньше щелчков, но выше задержка." />
         </StackPanel>
       </Border>
 

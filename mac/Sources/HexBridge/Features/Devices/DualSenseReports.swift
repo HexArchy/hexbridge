@@ -19,6 +19,33 @@ enum DualSenseReport {
     /// 1 byte of report id + 47 declared by the descriptor. Linux pads this to
     /// 63; the extra bytes are ignored by the controller, so we do not send them.
     static let outputReportSize = 48
+
+    /// Unmutes the audio-driven haptics, and does nothing else.
+    ///
+    /// A DualSense boots with the mute bits in byte 10 set, and PCM written to
+    /// the actuator channels is accepted and silently discarded until they are
+    /// cleared. A PS5 clears them; nothing on a PC does, which is why HD haptics
+    /// over an audio device look like a dead end until you find this. Byte 10 is
+    /// only read when bit 1 of `valid_flag1` says it is, so both bytes have to
+    /// be here.
+    ///
+    /// Found by measurement on 2026-09-10 rather than from a datasheet: with a
+    /// 60 Hz tone on channels 2 and 3, the controller's own gyroscope reads
+    /// σ 0.9 with byte 10 untouched, σ 128 with it zeroed, and σ 4 with bit 7 of
+    /// it set on its own. Bit 7 is the haptic mute; nothing else in the byte
+    /// changes the answer.
+    ///
+    /// `valid_flag0` is deliberately left at zero. Setting HAPTICS_SELECT there
+    /// hands the actuators to the classic rumble emulator instead and measures
+    /// σ 0.9 again — so the flag whose name sounds like it enables haptics is
+    /// the one that turns this path off.
+    static var audioHapticsEnable: [UInt8] {
+        var report = [UInt8](repeating: 0, count: outputReportSize)
+        report[0] = outputReportID
+        report[2] = 0x02   // valid_flag1: POWER_SAVE_CONTROL_ENABLE, which validates byte 10
+        report[10] = 0x00  // nothing muted: the voice coils follow the audio stream
+        return report
+    }
 }
 
 // MARK: - Input

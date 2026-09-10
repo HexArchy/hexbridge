@@ -14,12 +14,16 @@
           one button away — and «Проверить связь» is the same six checks from §9.4,
           available at any time and not only during setup.
         -->
+        <!--
+          §7.4: «Проверить связь» lives here and only here — it is one check for
+          all the features, so a copy of it on every page said the same thing
+          three times over. Same wording as on the Mac.
+        -->
         <Border Classes="card">
           <Grid ColumnDefinitions="*,Auto,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
               <TextBlock Classes="heading" Text="Связь с Mac" />
-              <TextBlock Classes="caption"
-                         Text="Ключ создаётся на этом ПК и переносится на Mac кодом. Отпечаток должен совпасть на обеих машинах." />
+              <TextBlock Classes="caption" Text="Отпечаток должен совпасть на обеих машинах." />
               <SelectableTextBlock Classes="mono dim" Text="{Binding FingerprintText}" />
             </StackPanel>
             <Button Grid.Column="1" Margin="0,0,8,0" Content="Проверить связь"
@@ -40,30 +44,37 @@
                          Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на Mac." />
             </StackPanel>
 
-            <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Релей (необязательно)" />
-              <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
-              <TextBlock Classes="caption"
-                         Text="Нужен, только если Mac не может достучаться до этого компьютера напрямую." />
-            </StackPanel>
+            <!-- §7.4: on the first level only what the user touches. The relay
+                 and the raw key are for the case where pairing did not do the
+                 job, and that is not most days. -->
+            <Expander Header="Ключ и релей вручную">
+              <StackPanel Spacing="14" Margin="0,10,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="Общий ключ" />
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding Psk}"
+                             PasswordChar="•"
+                             RevealPassword="{Binding PskRevealed}"
+                             FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+                    <Button Grid.Column="1" Margin="8,0,0,0" Content="Показать"
+                            Command="{Binding TogglePskRevealCommand}" />
+                    <Button Grid.Column="2" Margin="8,0,0,0" Content="Копировать"
+                            Command="{Binding CopyPskCommand}" />
+                    <Button Grid.Column="3" Margin="8,0,0,0" Content="Сгенерировать"
+                            Command="{Binding GeneratePskCommand}" />
+                  </Grid>
+                  <TextBlock Classes="caption"
+                             Text="Ровно тот же ключ должен стоять на Mac." />
+                </StackPanel>
 
-            <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Общий ключ (PSK)" />
-              <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding Psk}"
-                         PasswordChar="•"
-                         RevealPassword="{Binding PskRevealed}"
-                         FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
-                <Button Grid.Column="1" Margin="8,0,0,0" Content="Показать"
-                        Command="{Binding TogglePskRevealCommand}" />
-                <Button Grid.Column="2" Margin="8,0,0,0" Content="Копировать"
-                        Command="{Binding CopyPskCommand}" />
-                <Button Grid.Column="3" Margin="8,0,0,0" Content="Сгенерировать"
-                        Command="{Binding GeneratePskCommand}" />
-              </Grid>
-              <TextBlock Classes="caption"
-                         Text="32 байта в base64. Ровно тот же ключ должен стоять на Mac — иначе пакеты будут молча отбрасываться." />
-            </StackPanel>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="Релей" />
+                  <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
+                  <TextBlock Classes="caption"
+                             Text="Нужен, только если Mac не достучится до этого ПК напрямую." />
+                </StackPanel>
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </Border>
 
@@ -73,27 +84,30 @@
 
             <CheckBox IsChecked="{Binding Gamepad}" Content="Принимать устройства с Mac" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="До четырёх USB-устройств, выбранных на Mac, появятся здесь как настоящие USB-устройства: контроллеры, рули, педали, HOTAS. Что именно пробрасывать, решает Mac — тут только приём. Нужен драйвер usbip-win2." />
+                       Text="До четырёх устройств, выбранных на Mac: контроллеры, рули, педали, HOTAS. Нужен драйвер usbip-win2." />
 
             <CheckBox IsChecked="{Binding UsbIpAutoAttach}"
                       IsEnabled="{Binding Gamepad}"
-                      Content="Подключать автоматически через usbip.exe" />
+                      Content="Подключать автоматически" />
 
-            <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Адрес сервера USB/IP" />
-              <TextBox Text="{Binding UsbIpListen}" IsEnabled="{Binding Gamepad}"
-                       PlaceholderText="127.0.0.1:3240" />
-              <TextBlock Classes="caption"
-                         Text="Драйвер работает на этом же компьютере, поэтому наружу этот порт открывать незачем." />
-            </StackPanel>
+            <Expander Header="Драйвер usbip-win2" IsEnabled="{Binding Gamepad}">
+              <StackPanel Spacing="14" Margin="0,10,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="Адрес сервера USB/IP" />
+                  <TextBox Text="{Binding UsbIpListen}" PlaceholderText="127.0.0.1:3240" />
+                  <TextBlock Classes="caption"
+                             Text="Драйвер работает на этом же ПК — наружу порт открывать незачем." />
+                </StackPanel>
 
-            <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Путь к usbip.exe (необязательно)" />
-              <TextBox Text="{Binding UsbIpPath}" IsEnabled="{Binding Gamepad}"
-                       PlaceholderText="C:\Program Files\USBip\usbip.exe" />
-              <TextBlock Classes="caption"
-                         Text="Заполняйте, только если драйвер установлен не в стандартную папку." />
-            </StackPanel>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="Путь к usbip.exe" />
+                  <TextBox Text="{Binding UsbIpPath}"
+                           PlaceholderText="C:\Program Files\USBip\usbip.exe" />
+                  <TextBlock Classes="caption"
+                             Text="Только если драйвер установлен не в стандартную папку." />
+                </StackPanel>
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </Border>
 
@@ -103,21 +117,11 @@
 
             <CheckBox IsChecked="{Binding Clipboard}" Content="Общий буфер обмена с Mac" />
 
-            <!--
-              The honest sentence, not a reassuring one. Anything copied on either machine
-              leaves it, and the clipboard is where passwords spend the seconds between a
-              manager and a login form.
-            -->
-            <Border CornerRadius="8" Padding="14,12"
-                    Background="{DynamicResource WarnBg}"
-                    BorderBrush="{DynamicResource WarnBorder}"
-                    BorderThickness="1">
-              <StackPanel Spacing="6">
-                <TextBlock Classes="section" Text="ЧТО ЭТО ЗНАЧИТ" />
-                <TextBlock Classes="body" TextWrapping="Wrap"
-                           Text="Всё, что вы скопируете на этом ПК, уйдёт на Mac, и наоборот — включая пароли, если они окажутся в буфере. Передача шифруется тем же ключом, что и звук, но содержимое буфера покидает эту машину. Передаются только текст и картинки PNG." />
-              </StackPanel>
-            </Border>
+            <!-- The honest sentence, in the same words as on the «Буфер обмена»
+                 page and on the Mac. A boxed three-sentence version of it next
+                 to the checkbox was a warning nobody finishes reading. -->
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG." />
           </StackPanel>
         </Border>
 
@@ -168,39 +172,39 @@
               <TextBlock Classes="caption" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если Mac отдаёт тихо." />
             </StackPanel>
 
-            <StackPanel Spacing="6">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Задержка WASAPI" />
-                <TextBlock Grid.Column="1" Classes="label" Text="{Binding LatencyText}" />
-              </Grid>
-              <Slider Minimum="10" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True"
-                      Value="{Binding LatencyMs}" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
+            <!-- §7.4 «Дополнительно», collapsed: three latency knobs are the
+                 definition of what a user does not touch on most days. -->
+            <Expander Header="Задержка и буфер">
+              <StackPanel Spacing="14" Margin="0,10,0,0">
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Classes="label" Text="Целевая глубина буфера" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding JitterText}" />
+                  </Grid>
+                  <Slider Minimum="20" Maximum="200" TickFrequency="20" IsSnapToTickEnabled="True"
+                          Value="{Binding JitterMs}" />
+                  <TextBlock Classes="caption" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
+                </StackPanel>
 
-        <Border Classes="card">
-          <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="БУФЕР" />
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Classes="label" Text="Предел, после которого буфер подрезается" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding MaxJitterText}" />
+                  </Grid>
+                  <Slider Minimum="60" Maximum="600" TickFrequency="20" IsSnapToTickEnabled="True"
+                          Value="{Binding MaxJitterMs}" />
+                </StackPanel>
 
-            <StackPanel Spacing="6">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Целевая глубина" />
-                <TextBlock Grid.Column="1" Classes="label" Text="{Binding JitterText}" />
-              </Grid>
-              <Slider Minimum="20" Maximum="200" TickFrequency="20" IsSnapToTickEnabled="True"
-                      Value="{Binding JitterMs}" />
-              <TextBlock Classes="caption" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
-            </StackPanel>
-
-            <StackPanel Spacing="6">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Предел, после которого буфер подрезается" />
-                <TextBlock Grid.Column="1" Classes="label" Text="{Binding MaxJitterText}" />
-              </Grid>
-              <Slider Minimum="60" Maximum="600" TickFrequency="20" IsSnapToTickEnabled="True"
-                      Value="{Binding MaxJitterMs}" />
-            </StackPanel>
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Classes="label" Text="Задержка вывода" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{Binding LatencyText}" />
+                  </Grid>
+                  <Slider Minimum="10" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True"
+                          Value="{Binding LatencyMs}" />
+                </StackPanel>
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </Border>
 
@@ -227,8 +231,8 @@
                        IsVisible="{Binding AutostartError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Foreground="{DynamicResource BadFg}"
                        TextWrapping="Wrap" />
-            <TextBlock Classes="caption"
-                       Text="Кнопка «Закрыть» прячет окно в трей, приём при этом продолжается. Выйти совсем — через меню значка в трее." />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="Закрытие окна прячет приложение в трей, приём продолжается." />
           </StackPanel>
         </Border>
 
@@ -241,17 +245,19 @@
             BorderThickness="0,1,0,0"
             Padding="24,12">
       <Grid ColumnDefinitions="*,Auto,Auto">
+        <!-- The bar speaks only when it has something to say: a standing
+             notice that saving restarts the stream is a line the user reads
+             once and then reads past for ever. -->
         <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
-          <TextBlock Classes="caption" Text="Сохранение перезапускает приём — звук прервётся на секунду."
-                     IsVisible="{Binding !IsDirty}" />
-          <TextBlock Classes="caption" Text="Есть несохранённые изменения." IsVisible="{Binding IsDirty}" />
+          <TextBlock Classes="caption" Text="Есть несохранённые изменения. Сохранение прервёт звук на секунду."
+                     IsVisible="{Binding IsDirty}" />
           <TextBlock Classes="body" Foreground="{DynamicResource BadFg}"
                      Text="{Binding ValidationError}"
                      IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
         <Button Grid.Column="1" Content="Отменить" Margin="0,0,8,0"
                 Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
-        <Button Grid.Column="2" Content="Сохранить и применить" Classes="primary"
+        <Button Grid.Column="2" Content="Сохранить" Classes="primary"
                 Command="{Binding SaveCommand}" />
       </Grid>
     </Border>

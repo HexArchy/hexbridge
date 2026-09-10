@@ -6,6 +6,11 @@ import SwiftUI
 /// there is exactly one device: four outlines stacked would stop being a
 /// popover. Everything else is a one-line row, which is all an unrecognised
 /// wheel or HOTAS can honestly be given.
+///
+/// Either way it is a picture or a name and nothing else. The rate in reports
+/// per second, the acknowledgement from the other machine, the USB ids — those
+/// answer "почему не работает", and that question is asked in the settings
+/// window, by somebody who has already seen here that it does not.
 struct DevicesCard: View {
     @Bindable var feature: DevicesFeature
 
@@ -20,23 +25,10 @@ struct DevicesCard: View {
                     mood: feature.mood(solo)
                 )
                 .frame(height: 68)
-            }
-
-            if !feature.status.detail.isEmpty {
-                Text(feature.status.detail)
-                    .font(.dsCaption)
-                    .foregroundStyle(feature.status.tone.text(palette))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            ForEach(feature.forwarded) { device in
-                DeviceLine(device: device, showsName: soloVisualisable == nil)
-            }
-
-            if let action = feature.status.primaryAction {
-                Button(action.title, action: action.perform)
-                    .buttonStyle(.dsSecondary)
-                    .frame(maxWidth: .infinity)
+            } else {
+                ForEach(feature.forwarded) { device in
+                    DeviceLine(device: device)
+                }
             }
         }
         .onAppear { feature.beginObservation() }
@@ -51,38 +43,34 @@ struct DevicesCard: View {
     }
 }
 
-/// One forwarded device on one line: what it is, how fast it is talking, and
-/// whether it is talking at all.
+/// One forwarded device on one line: what it is, whether it is talking, and how
+/// much charge it has left.
+///
+/// Battery is the one number here that is about the device rather than about
+/// the bridge, and the only one somebody glancing at a menu bar acts on.
 struct DeviceLine: View {
     let device: DeviceBridge.DeviceStatus
-    var showsName = true
 
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: Space.sm) {
             ActivityDot(idle: device.idle, acknowledged: device.attachAcknowledged)
-            if showsName {
-                Image(systemName: device.category.symbolName)
-                    .foregroundStyle(palette.textDim)
-                Text(device.product)
-                    .font(.dsCaption)
-                    .foregroundStyle(palette.text)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: Space.sm)
-            Text(rate)
-                .font(.dsCaption.monospacedDigit())
+            Image(systemName: device.category.symbolName)
                 .foregroundStyle(palette.textDim)
+            Text(device.product)
+                .font(.dsCaption)
+                .foregroundStyle(palette.text)
+                .lineLimit(1)
+            Spacer(minLength: Space.sm)
+            if let battery = device.battery {
+                Text(battery)
+                    .font(.dsCaption.monospacedDigit())
+                    .foregroundStyle(palette.textDim)
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(device.product), \(rate)")
-    }
-
-    private var rate: String {
-        var text = "\(Plural.reports(Int(device.reportRate)))/с"
-        if let battery = device.battery { text += " · батарея \(battery)" }
-        return text
+        .accessibilityLabel(device.battery.map { "\(device.product), батарея \($0)" } ?? device.product)
     }
 }
 
@@ -119,8 +107,11 @@ struct DevicesSettingsPane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.lg) {
+                // §6.1: general errors live in the status card at the top and
+                // are not smeared across the pane. Both banners that used to
+                // stand here repeated what that card already says.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction {
+                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
@@ -131,16 +122,6 @@ struct DevicesSettingsPane: View {
 
                 ForEach(feature.forwarded) { device in
                     DeviceCard(feature: feature, device: device)
-                }
-
-                if let error = feature.bridge?.lastError, !feature.outputBlocked {
-                    InlineAlert(text: error, tone: .bad)
-                }
-                if feature.outputBlocked {
-                    InlineAlert(
-                        text: "macOS не пропускает output-репорты этому приложению, устройство отвечает 0xE00002C1. Кнопки, оси и сенсоры работают, вибрация и подсветка — нет.",
-                        tone: .warn
-                    )
                 }
             }
             .padding(Space.xl)
@@ -156,7 +137,7 @@ struct DevicesSettingsPane: View {
     private var picker: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
             SectionLabel(text: "Что пробрасывать")
-            Text("Одновременно можно пробросить до четырёх устройств. Свободно \(feature.slotsLeft) из \(DeviceBridge.maxDevices).")
+            Text("Свободно \(feature.slotsLeft) из \(DeviceBridge.maxDevices).")
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
 
@@ -164,7 +145,7 @@ struct DevicesSettingsPane: View {
                 EmptyState(
                     symbolName: "cable.connector",
                     title: "USB-устройств не видно",
-                    text: "Подключите контроллер, руль, педали или HOTAS кабелем USB. Встроенные клавиатура и трекпад Mac не предлагаются: их проброс означал бы, что всё набранное печатается сразу на двух машинах.",
+                    text: "Подключите контроллер, руль, педали или HOTAS кабелем USB.",
                     action: nil
                 )
             } else {
@@ -176,17 +157,7 @@ struct DevicesSettingsPane: View {
                     }
                 }
             }
-
-            ForEach(warned, id: \.id) { row in
-                InlineAlert(text: row.category.doubleInputWarning ?? "", tone: .warn)
-            }
         }
-    }
-
-    /// Selected devices that will also go on working on this Mac. The warning is
-    /// repeated outside the row because a row is easy to tick without reading.
-    private var warned: [DeviceBridge.Available] {
-        feature.available.filter { $0.isSelected && $0.category.warnsAboutDoubleInput }
     }
 }
 
@@ -238,8 +209,11 @@ struct DevicePickerRow: View {
 
     private var enabled: Bool { row.eligibility == .eligible }
 
+    /// What the device is, in words. The USB ids used to sit here; they are a
+    /// developer's way of telling two identical pads apart, and the person
+    /// ticking this box tells them apart by looking at the desk.
     private var subtitle: String {
-        var parts = [row.category.label, row.identity.modelDescription]
+        var parts = [row.category.label]
         if let number = row.forwardedAs { parts.append("номер \(number)") }
         if row.manufacturer != "—", !row.manufacturer.isEmpty { parts.insert(row.manufacturer, at: 0) }
         return parts.joined(separator: " · ")
@@ -296,7 +270,7 @@ struct DeviceCard: View {
                             Text(device.product)
                                 .font(.dsBody)
                                 .foregroundStyle(palette.text)
-                            Text("\(device.category.label) · \(device.identity.modelDescription) · \(device.transport)")
+                            Text("\(device.category.label) · \(device.transport)")
                                 .font(.dsCaption)
                                 .foregroundStyle(palette.textDim)
                         }
@@ -307,50 +281,44 @@ struct DeviceCard: View {
             }
 
             HStack(spacing: Space.sm) {
-                MetricTile(caption: "репортов/с", value: String(format: "%.0f", device.reportRate))
-                MetricTile(caption: "проброшено", value: "\(device.reportsForwarded)")
-                MetricTile(caption: "команд назад", value: "\(device.outputsApplied)")
                 MetricTile(caption: "батарея", value: device.battery ?? "—")
+                MetricTile(caption: "отчётов/с", value: String(format: "%.0f", device.reportRate))
+                MetricTile(caption: "передано", value: "\(device.reportsForwarded)")
+                MetricTile(caption: "команд назад", value: "\(device.outputsApplied)")
             }
 
+            // Two lines, both of which can fail and both of which the user can
+            // do something about: replug over USB, or check the link. «Устройство
+            // открыто» was a row that only ever said yes.
             Card(padding: Space.md) {
                 VStack(alignment: .leading, spacing: Space.sm) {
                     CheckRow(
-                        title: "Устройство открыто",
-                        detail: device.manufacturer,
-                        state: .ok
-                    )
-                    CheckRow(
-                        title: "Подключение",
+                        title: "Подключено кабелем USB",
                         detail: device.transport,
                         state: device.transport == "USB" ? .ok : .failed
                     )
                     CheckRow(
-                        title: "Приёмник подтвердил устройство",
+                        title: "Windows видит устройство",
                         detail: device.attachAcknowledged ? "да" : "нет",
                         state: !feature.isEnabled ? .pending : (device.attachAcknowledged ? .ok : .failed)
                     )
                     if device.outputsRejected > 0 {
                         CheckRow(
-                            title: "Команды в устройство",
-                            detail: "отклонено \(device.outputsRejected)",
+                            title: "Вибрация и подсветка",
+                            detail: "не применяются",
                             state: .failed
                         )
                     }
                 }
-            }
-
-            if let error = device.lastError {
-                InlineAlert(text: error, tone: .warn)
             }
         }
     }
 
     private var caption: String {
         switch feature.mood(device) {
-        case .inactive: return "Контур оживёт, когда устройство подключат кабелем"
-        case .reading: return "Устройство читается. Нажмите что-нибудь — схема ответит"
-        case .forwarding: return "Устройство читается и передаётся на Windows"
+        case .inactive: return "Схема оживёт, когда устройство подключат кабелем"
+        case .reading: return "Нажмите что-нибудь — схема ответит"
+        case .forwarding: return "Windows видит это устройство"
         }
     }
 }

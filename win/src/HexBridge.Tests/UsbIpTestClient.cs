@@ -115,6 +115,40 @@ public sealed class UsbIpTestClient : IAsyncDisposable
         return seqnum;
     }
 
+    /// <summary>
+    /// An isochronous URB with one descriptor per microframe, laid out the way the driver
+    /// lays them out: contiguous packets of <paramref name="packetLength"/> bytes.
+    /// </summary>
+    public async Task<uint> IsochronousAsync(
+        int endpoint, uint direction, int packets, int packetLength, byte[]? data = null)
+    {
+        var seqnum = ++_seqnum;
+        _directions[seqnum] = direction == UsbIpProtocol.DirectionIn;
+
+        var descriptors = new UsbIpIsoPacket[packets];
+        for (var i = 0; i < packets; i++)
+        {
+            descriptors[i] = new UsbIpIsoPacket(i * packetLength, packetLength, 0, 0);
+        }
+
+        var submit = new UsbIpSubmit
+        {
+            Header = new UrbHeader(
+                UsbIpProtocol.CmdSubmit, seqnum, 0x00010001, direction, (uint)(endpoint & 0x0F)),
+            TransferBufferLength = packets * packetLength,
+            NumberOfPackets = packets,
+            Interval = 1,
+            Setup = new byte[UsbIpProtocol.SetupSize],
+            TransferBuffer = data ?? (direction == UsbIpProtocol.DirectionOut
+                ? new byte[packets * packetLength]
+                : []),
+            IsoPackets = descriptors,
+        };
+
+        await Write(submit.ToArray());
+        return seqnum;
+    }
+
     public async Task<uint> UnlinkAsync(uint victim)
     {
         var seqnum = ++_seqnum;
@@ -137,9 +171,16 @@ public sealed class UsbIpTestClient : IAsyncDisposable
 
         var seqnum = BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(4));
         var actual = BinaryPrimitives.ReadInt32BigEndian(header.AsSpan(24));
+        var packets = BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(32));
         var isIn = _directions.GetValueOrDefault(seqnum, true);
 
-        var data = isIn && actual > 0 ? await Read(actual) : [];
+        // Direction is not in the reply — vhci knows it from the URB it still holds, and so
+        // does this. An IN transfer sends its payload back, an OUT one does not, and an
+        // isochronous transfer appends a descriptor per packet either way.
+        var count = packets is UsbIpProtocol.NonIsochronous or 0 ? 0 : (int)packets;
+        var following = (isIn && actual > 0 ? actual : 0) + count * UsbIpProtocol.IsoPacketSize;
+
+        var data = following > 0 ? await Read(following) : [];
         return UsbIpSubmitReply.Read(header, data);
     }
 

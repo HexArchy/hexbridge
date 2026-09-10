@@ -48,6 +48,9 @@ public sealed class DevicesFeature : IFeature
         /// <summary>Sampled on the host tick, which is single-threaded.</summary>
         public RateMeter Rate { get; } = new();
 
+        /// <summary>Haptic bytes per second, so what the stream costs is visible while it runs.</summary>
+        public RateMeter HapticRate { get; } = new();
+
         /// <summary>
         /// Input report counter from the sender, used to notice gaps. Per device: the
         /// sender's counter is shared across devices, so a global "last index" would
@@ -201,7 +204,11 @@ public sealed class DevicesFeature : IFeature
         VirtualHidDevice device;
         try
         {
-            device = new VirtualHidDevice(attach, report => SendOutput(attach.Device, report));
+            device = new VirtualHidDevice(
+                attach,
+                report => SendOutput(attach.Device, report),
+                haptics: context.Config.Haptics,
+                onHaptic: payload => context.Send(PacketType.Haptic, payload));
         }
         catch (Exception ex)
         {
@@ -228,6 +235,18 @@ public sealed class DevicesFeature : IFeature
 
         context.Log(LogLevel.Info,
             $"устройства: {device.ProductName} ({device.Identity}) собран, busid {device.Info.BusId}");
+
+        if (context.Config.Haptics)
+        {
+            // Asking for haptics and getting none is not a failure, but it is the difference
+            // between "the actuators are silent because nothing is playing" and "there was
+            // never an endpoint to play into", and only the log can tell the two apart.
+            context.Log(device.Haptics is not null ? LogLevel.Info : LogLevel.Warning,
+                device.Haptics is not null
+                    ? $"хаптика: {device.ProductName} отдан композитом, изохронный OUT готов"
+                    : $"хаптика: у {device.ProductName} нет пригодного изохронного OUT — "
+                      + "триггеры и вибрация работают, HD-хаптики не будет");
+        }
 
         Acknowledge(context, attach.Device);
 
@@ -440,6 +459,7 @@ public sealed class DevicesFeature : IFeature
             ClientConnected = server?.HasClient ?? false,
 
             Devices = devices,
+            HapticsEnabled = Volatile.Read(ref _context)?.Config.Haptics ?? false,
         };
     }
 
@@ -448,8 +468,19 @@ public sealed class DevicesFeature : IFeature
     {
         var device = slot.Device;
         var busId = device.Info.BusId;
+        var haptics = device.Haptics;
         return new ForwardedDeviceState
         {
+            Composite = device.IsComposite,
+            HapticsAvailable = haptics is not null,
+            HapticsStreaming = device.HapticsStreaming,
+            HapticBlocksSent = haptics?.BlocksSent ?? 0,
+            HapticBlocksSilent = haptics?.BlocksSkippedAsSilent ?? 0,
+            HapticBlocksDropped = haptics?.BlocksDropped ?? 0,
+            HapticKilobytesPerSecond = haptics is null
+                ? 0
+                : slot.HapticRate.Sample(haptics.BytesSent, now) / 1024,
+
             Number = number,
             BusId = busId,
             Product = device.ProductName,

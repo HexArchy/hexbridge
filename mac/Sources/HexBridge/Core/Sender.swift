@@ -43,6 +43,9 @@ final class Sender {
     private(set) var deviceReportsSent: UInt64 = 0
     private(set) var deviceOutputsReceived: UInt64 = 0
 
+    /// HAPTIC blocks taken off the socket, before anything decides to play them.
+    private(set) var hapticBlocksReceived: UInt64 = 0
+
     /// Called on the connection queue when the host sends a DEV_OUT. Set it
     /// before `start()`; it is not synchronised.
     var onDeviceOutput: ((UInt8, [UInt8]) -> Void)?
@@ -55,6 +58,11 @@ final class Sender {
     /// Called on the connection queue when the host confirms a DEV_ATTACH.
     /// Same threading contract as `onDeviceOutput`.
     var onDeviceAck: ((UInt8) -> Void)?
+
+    /// Called on the connection queue for every HAPTIC block. Same threading
+    /// contract as `onDeviceOutput`, and a closure for the same reason: the
+    /// socket has no business knowing what a voice coil is.
+    var onHaptic: ((Wire.Haptics.Block) -> Void)?
 
     var muted = false
 
@@ -271,6 +279,12 @@ final class Sender {
         case .deviceAck:
             guard let device = Wire.DeviceChannel.decodeAck(payload) else { return }
             onDeviceAck?(device)
+        case .haptic:
+            guard let block = Wire.Haptics.decode(payload) else { return }
+            lock.lock()
+            hapticBlocksReceived &+= 1
+            lock.unlock()
+            onHaptic?(block)
         case .bulkOffer, .bulkChunk, .bulkAck, .bulkDone:
             onBulkPacket?(header.type, payload)
         default:

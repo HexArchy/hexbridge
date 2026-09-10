@@ -2,43 +2,37 @@ import SwiftUI
 
 /// The microphone block inside the menu bar popover (§7.1 point 2).
 ///
-/// Level meter, mute button, input picker. Nothing else fits in 340 pt and
-/// nothing else answers "звук идёт или нет" faster.
+/// A moving bar and a mute button. The bar answers "звук идёт или нет" before
+/// anybody has read a word, and mute is the one thing people open this popover
+/// to press — everything else the microphone knows (пакетов/с, RTT, потери) is
+/// diagnostics and lives one window away, in the settings pane.
 struct MicrophoneCard: View {
     @Bindable var feature: MicrophoneFeature
 
     @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.sm) {
-            LevelMeter(peak: feature.peak, muted: feature.isMuted)
+        HStack(spacing: Space.sm) {
+            LevelMeter(peak: feature.peak, muted: feature.isMuted, showsCaption: false)
 
-            if !feature.status.detail.isEmpty {
-                Text(feature.status.detail)
-                    .font(.dsCaption)
-                    .foregroundStyle(feature.status.tone.text(palette))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let alert = feature.status.alert, feature.status.state == .error {
-                InlineAlert(text: alert, tone: .bad)
-            }
-
-            // One line instead of three tiles: the popover answers "идёт или
-            // нет", the numbers belong in the settings pane.
-            Text("\(feature.packetsPerSecond) пак/с · RTT \(feature.rttText) · потери \(feature.lossText)")
-                .font(.dsCaption.monospacedDigit())
-                .foregroundStyle(palette.textDim)
-
-            if let action = feature.status.primaryAction {
-                // §6.1: one primary button per screen. The popover shows two
-                // feature cards, so their actions are secondary — otherwise the
-                // window has two equally loud "main" buttons and neither reads
-                // as the main one.
-                Button(action.title, action: action.perform)
-                    .buttonStyle(.dsSecondary)
-                    .frame(maxWidth: .infinity)
-                    .keyboardShortcut("m", modifiers: .command)
+            if feature.status.state == .live {
+                // Not a card action but a control: it changes the state rather
+                // than repairing it, which is why it is an icon next to the
+                // thing it mutes and not a button under it.
+                Button {
+                    feature.toggleMute()
+                } label: {
+                    Image(systemName: feature.isMuted ? "mic.slash.fill" : "mic.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .font(.system(size: 13))
+                        .foregroundStyle(feature.isMuted ? palette.warnFg : palette.textDim)
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("m", modifiers: .command)
+                .help(feature.isMuted ? "Включить микрофон" : "Заглушить")
+                .accessibilityLabel(feature.isMuted ? "Включить микрофон" : "Заглушить микрофон")
             }
         }
     }
@@ -59,8 +53,11 @@ struct MicrophoneSettingsPane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.lg) {
+                // §6.1: one action per screen. The pane below already offers the
+                // switch's counterpart in its empty state, so the status card
+                // keeps only what the empty state cannot say.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction {
+                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
@@ -71,14 +68,14 @@ struct MicrophoneSettingsPane: View {
                     EmptyState(
                         symbolName: "mic.slash",
                         title: "Микрофон выключен",
-                        text: "Звук на игровой ПК не отправляется. Включите фичу, когда она понадобится.",
+                        text: "Звук на игровой ПК не отправляется.",
                         action: FeatureAction(title: "Включить микрофон") { feature.isEnabled = true }
                     )
                 } else if !(model?.config.isConfigured ?? false) {
                     EmptyState(
                         symbolName: "link.badge.plus",
-                        title: "HexBridge готов к настройке",
-                        text: "Осталось связать Mac и игровой ПК: сгенерировать ключ и указать адрес. Это занимает около минуты.",
+                        title: "Mac и игровой ПК ещё не связаны",
+                        text: "Это занимает около минуты и делается один раз.",
                         action: FeatureAction(title: "Начать настройку") { host.openPairing() }
                     )
                 } else {
@@ -97,8 +94,8 @@ struct MicrophoneSettingsPane: View {
             SectionLabel(text: "Телеметрия")
             HStack(spacing: Space.sm) {
                 MetricTile(caption: "пакетов/с", value: "\(feature.packetsPerSecond)")
-                MetricTile(caption: "RTT", value: feature.rttText,
-                           help: "Оценка по меткам времени в служебных пакетах. Требует синхронных часов на обеих машинах.")
+                MetricTile(caption: "задержка", value: feature.rttText,
+                           help: "Время до игрового ПК и обратно. Оценка: нужны синхронные часы на обеих машинах.")
                 MetricTile(caption: "аптайм", value: feature.uptimeText)
                 MetricTile(caption: "потери", value: feature.lossText)
             }

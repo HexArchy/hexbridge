@@ -101,16 +101,47 @@ final class AppModel: FeatureHost {
                 state: .off,
                 tone: .off,
                 headline: "Всё выключено",
-                detail: "Ни одна фича не включена."
+                detail: peerLabel
             )
         }
         var summary = worst
         if enabled.allSatisfy({ $0.state == .live && $0.tone == .ok }) {
             summary = FeatureStatus(state: .live, tone: .ok, headline: "Всё работает")
         }
-        summary.detail = config.target.isEmpty ? "адрес приёмника не задан" : config.target
+        summary.detail = peerLabel
         summary.alert = nil
         return summary
+    }
+
+    /// Who this Mac is talking to, in the shortest honest form.
+    ///
+    /// The machine has a name once it has been paired, and a name is what the
+    /// user recognises. `192.168.1.10:47702` is what a developer recognises, so
+    /// it is the fallback rather than the default.
+    private var peerLabel: String {
+        if let peer = config.peerName, !peer.isEmpty { return peer }
+        return config.target.isEmpty ? "игровой ПК не выбран" : config.target
+    }
+
+    /// The one thing worth pressing right now, or nil.
+    ///
+    /// Every feature offers an action in every state, which is right for a
+    /// settings pane and wrong for a popover: it put the same «Проверить связь»
+    /// in two cards at once, and a «Выключить общий буфер» two centimetres from
+    /// the switch that already does that. Three rules cut it to at most one
+    /// button:
+    ///
+    /// - a feature that works needs no button, and one that is switched off has
+    ///   its switch, so only `error` and `waiting` offer anything at all;
+    /// - an action that merely flips the switch is not an action (§6.1);
+    /// - the worst state wins, so a remedy shared by several features — and
+    ///   «Проверить связь» is shared by all three — is offered once.
+    var popoverAction: FeatureAction? {
+        features
+            .filter { $0.isEnabled && ($0.status.state == .error || $0.status.state == .waiting) }
+            .sorted { $0.status.severity > $1.status.severity }
+            .compactMap(\.status.primaryAction)
+            .first { !Wording.duplicatesSwitch($0.title) }
     }
 
     /// Template image only: §7.1 forbids tinting the menu bar icon, so state is
@@ -180,7 +211,9 @@ final class AppModel: FeatureHost {
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    if let failure { self.noticeText = failure }
+                    // Гасим прошлое предупреждение при успехе: баннер про
+                    // недоданный доступ иначе висит и после того, как доступ выдали.
+                    self.noticeText = failure
                     self.needsRestart = false
                     self.restarting = false
                     self.starting = false
@@ -392,7 +425,9 @@ final class AppModel: FeatureHost {
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    if let failure { self.noticeText = failure }
+                    // Гасим прошлое предупреждение при успехе: баннер про
+                    // недоданный доступ иначе висит и после того, как доступ выдали.
+                    self.noticeText = failure
                     self.tick()
                 }
             }

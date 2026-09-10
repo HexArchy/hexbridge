@@ -316,6 +316,17 @@ public sealed class UsbIpServer : IAsyncDisposable
 
                 var submit = UsbIpSubmit.ReadHeader(header);
 
+                // A count this size is not a transfer, it is a corrupt header — and the
+                // descriptors it claims are the only thing that says where the next URB
+                // starts, so there is no skipping past it. Closing the session is the one
+                // honest answer left.
+                if (submit.NumberOfPackets > UsbIpProtocol.MaxIsoPackets)
+                {
+                    _log(LogLevel.Warning,
+                        $"usbip: URB заявляет {submit.NumberOfPackets} изохронных пакетов, закрываю сессию");
+                    return;
+                }
+
                 // An OUT transfer carries its data straight after the header.
                 if (!submit.IsIn && submit.TransferBufferLength > 0)
                 {
@@ -324,16 +335,19 @@ public sealed class UsbIpServer : IAsyncDisposable
                     submit = submit with { TransferBuffer = payload };
                 }
 
-                // Isochronous descriptors follow both directions. We export no isochronous
-                // endpoint, so they are read off the socket and the URB is stalled — the
-                // alternative is a stream that never resynchronises.
+                // Isochronous descriptors follow the data, in both directions. They come off
+                // the socket whatever we then decide to do with the URB: they are part of the
+                // frame, and a reader that skips them never resynchronises.
                 if (submit.IsIsochronous)
                 {
-                    var descriptors = new byte[submit.NumberOfPackets * 16];
+                    var descriptors = new byte[submit.IsoDescriptorBytes];
                     await stream.ReadExactlyAsync(descriptors, sessionCancel.Token).ConfigureAwait(false);
-                    await SendLocked(stream, writeLock,
-                        UsbIpSubmitReply.ForIn(submit.Seqnum, UsbIpProtocol.StatusStall,
-                            ReadOnlySpan<byte>.Empty, submit.TransferBufferLength).ToArray(),
+                    submit = submit with
+                    {
+                        IsoPackets = UsbIpIsoPacket.ReadAll(descriptors, submit.NumberOfPackets),
+                    };
+
+                    await SendLocked(stream, writeLock, Isochronous(device, submit).ToArray(),
                         sessionCancel.Token).ConfigureAwait(false);
                     continue;
                 }
@@ -389,6 +403,57 @@ public sealed class UsbIpServer : IAsyncDisposable
             }
             writeLock.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Answers one isochronous URB.
+    ///
+    /// Inline rather than parked, unlike an interrupt IN. An isochronous packet belongs to a
+    /// microframe that is already passing: holding it back to wait for something would only
+    /// hand the driver a slot that has expired. The device either has the data now or it
+    /// does not, and "it does not" is a zero-length packet, not a delay.
+    ///
+    /// A refusal still carries a full set of descriptors. vhci compares the reply's
+    /// <c>number_of_packets</c> with the URB it is still holding and gives up on the whole
+    /// session when they disagree — an error that drops them would cost the controller, not
+    /// just the sound.
+    /// </summary>
+    private static UsbIpSubmitReply Isochronous(IUsbIpDevice device, UsbIpSubmit submit)
+    {
+        var requested = submit.IsoPackets;
+        var result = device.Isochronous(submit);
+
+        if (result is not { } outcome)
+        {
+            var refused = new UsbIpIsoPacket[requested.Count];
+            for (var i = 0; i < requested.Count; i++)
+            {
+                refused[i] = requested[i] with { ActualLength = 0, Status = UsbIpProtocol.StatusStall };
+            }
+            return UsbIpSubmitReply.ForIsochronous(
+                submit.Seqnum, UsbIpProtocol.StatusStall, submit.StartFrame,
+                ReadOnlySpan<byte>.Empty, refused, submit.TransferBufferLength);
+        }
+
+        var packets = new UsbIpIsoPacket[requested.Count];
+        var packed = 0;
+        for (var i = 0; i < requested.Count; i++)
+        {
+            var request = requested[i];
+            var packet = i < outcome.Packets.Count ? outcome.Packets[i] : default;
+            var actual = Math.Clamp(packet.ActualLength, 0, Math.Max(0, request.Length));
+
+            // An IN transfer answers with its data packed — each packet's bytes immediately
+            // after the previous one's — so the offsets it reports are ours to compute. An
+            // OUT transfer is describing a buffer the host laid out itself, so they are its.
+            packets[i] = new UsbIpIsoPacket(
+                submit.IsIn ? packed : request.Offset, request.Length, actual, packet.Status);
+            packed += actual;
+        }
+
+        return UsbIpSubmitReply.ForIsochronous(
+            submit.Seqnum, outcome.Status, submit.StartFrame,
+            outcome.Data, packets, submit.TransferBufferLength);
     }
 
     private async Task InterruptIn(

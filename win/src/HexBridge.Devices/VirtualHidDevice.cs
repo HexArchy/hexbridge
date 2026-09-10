@@ -30,11 +30,18 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
     private readonly Action<byte[]> _onOutputReport;
     private readonly DeviceProfile? _profile;
 
+    /// <summary>Non-null only on a composite: there is no audio class without an audio function.</summary>
+    private readonly UsbAudioControls? _audio;
+
+    /// <summary>Alternate setting per interface. Everything starts at zero, as USB says.</summary>
+    private readonly Dictionary<byte, byte> _alternates = [];
+
     private byte[]? _lastInput;
     private byte[]? _lastOutput;
     private byte _configurationValue;
     private byte _idle;
     private byte _protocol = 1;
+    private bool _hapticsStreaming;
 
     public UsbIpDeviceInfo Info { get; }
     public int InterruptInEndpoint => _configuration.InterruptInEndpoint;
@@ -74,7 +81,32 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
     /// </summary>
     public HidInputSource Input { get; } = new();
 
+    /// <summary>
+    /// The PCM the host writes to the actuators, on its way to the Mac. Null unless haptics
+    /// were asked for and the device turned out to have an audio-streaming OUT to carry them.
+    /// </summary>
+    public HapticStream? Haptics { get; }
+
+    /// <summary>The audio function came through, so an isochronous endpoint exists to address.</summary>
+    public bool IsComposite => _configuration.IsComposite;
+
+    /// <summary>Windows has selected the streaming alternate setting and PCM is arriving.</summary>
+    public bool HapticsStreaming => Volatile.Read(ref _hapticsStreaming);
+
     public VirtualHidDevice(DeviceAttach attach, Action<byte[]> onOutputReport)
+        : this(attach, onOutputReport, haptics: false, onHaptic: null)
+    {
+    }
+
+    /// <param name="haptics">
+    /// Serve the whole composite device — audio function included — so HD haptics have an
+    /// endpoint to arrive on. Off by default, and off is not a degraded mode: it is the
+    /// device that has been shipping, with none of the audio path that usbip-win2's issue
+    /// #181 lives on.
+    /// </param>
+    /// <param name="onHaptic">Where a filled HAPTIC block goes. Ignored when haptics are off.</param>
+    public VirtualHidDevice(
+        DeviceAttach attach, Action<byte[]> onOutputReport, bool haptics, Action<byte[]>? onHaptic)
     {
         _onOutputReport = onOutputReport;
         DeviceNumber = attach.Device;
@@ -87,9 +119,22 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
             ?? throw new FormatException("в DEV_ATTACH нет HID report descriptor");
 
         _device = UsbDeviceDescriptor.Parse(deviceBytes);
-        _configuration = UsbConfigurationDescriptor.FromFullDescriptor(configBytes);
+        _configuration = UsbConfigurationDescriptor.FromFullDescriptor(configBytes, withAudio: haptics);
         _configurationValue = 0;
         _profile = DeviceProfile.Of(_device.IdVendor, _device.IdProduct);
+
+        if (_configuration.IsComposite)
+        {
+            _audio = new UsbAudioControls(_configuration.OutputStream?.SampleRate ?? 48000);
+            if (_configuration.OutputStream is { } stream && onHaptic is not null)
+            {
+                var built = new HapticStream(attach.Device, stream, onHaptic);
+                // A format we cannot take apart is worse than no haptics: the endpoint would
+                // still have to swallow every packet, and what came out the other end would
+                // be noise. Better to serve the audio function and forward nothing.
+                Haptics = built.IsSupported ? built : null;
+            }
+        }
 
         _featureReports = [];
         foreach (var snapshot in attach.All(DescriptorKind.FeatureReport))
@@ -132,8 +177,11 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
             DeviceProtocol = _device.DeviceProtocol,
             ConfigurationValue = _configuration.ConfigurationValue,
             NumConfigurations = 1,
-            NumInterfaces = 1,
-            Interfaces = [_configuration.Interface],
+            // One after a rebuild, four for a DualSense served whole. usbip lists one entry
+            // per interface and the count has to agree with the list, or `usbip list` reads
+            // the next device's bytes as this one's interfaces.
+            NumInterfaces = (byte)_configuration.Interfaces.Count,
+            Interfaces = _configuration.Interfaces,
         };
     }
 
@@ -185,6 +233,76 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
         _onOutputReport(_lastOutput);
     }
 
+    // MARK: - Isochronous
+
+    /// <summary>
+    /// The two isochronous endpoints a composite DualSense declares.
+    ///
+    /// The OUT one is the point of the whole feature: the PCM Windows writes there is the HD
+    /// haptics, and it goes on the wire. The IN one is the controller's own microphone, and
+    /// it answers with silence — the Mac's microphone is a separate feature travelling the
+    /// other way, so there is nothing to put in it. Silence rather than a stall, because a
+    /// capture pin that fails to open is a pin usbaudio.sys then closes, and closing an audio
+    /// pin is the exact path usbip-win2's issue #181 crashes on. A stream that runs and
+    /// carries nothing never goes near it.
+    /// </summary>
+    public UsbIsoResult? Isochronous(UsbIpSubmit submit)
+    {
+        var endpoint = (int)submit.Header.Endpoint;
+
+        if (!submit.IsIn && _configuration.OutputStream is { } output && endpoint == (output.Endpoint & 0x0F))
+        {
+            return AcceptHaptics(submit);
+        }
+        if (submit.IsIn && _configuration.InputStream is { } input && endpoint == (input.Endpoint & 0x0F))
+        {
+            return Silence(submit, input);
+        }
+        return null;
+    }
+
+    private UsbIsoResult AcceptHaptics(UsbIpSubmit submit)
+    {
+        var buffer = submit.TransferBuffer.AsSpan();
+        var results = new UsbIsoPacketResult[submit.IsoPackets.Count];
+
+        for (var i = 0; i < submit.IsoPackets.Count; i++)
+        {
+            var packet = submit.IsoPackets[i];
+            // The offsets are the host's, so they are clamped rather than trusted: a URB that
+            // pointed past its own buffer would otherwise be an exception on the URB loop and
+            // a controller that vanished mid-game.
+            var start = Math.Clamp(packet.Offset, 0, buffer.Length);
+            var end = Math.Clamp(start + Math.Max(0, packet.Length), start, buffer.Length);
+
+            Haptics?.Write(buffer[start..end]);
+            // The endpoint took every byte it was handed. An isochronous OUT has no other
+            // answer available to it — there is no flow control on this pipe, which is why
+            // the far end is where a block is allowed to be dropped.
+            results[i] = UsbIsoPacketResult.Ok(end - start);
+        }
+
+        return UsbIsoResult.Accepted(results);
+    }
+
+    private static UsbIsoResult Silence(UsbIpSubmit submit, UsbAudioStreamFormat format)
+    {
+        // One millisecond per packet: the endpoint's bInterval says so at high speed, which
+        // is the speed everything here is presented at.
+        var perPacket = Math.Max(1, format.SampleRate / 1000) * format.BytesPerFrame;
+
+        var results = new UsbIsoPacketResult[submit.IsoPackets.Count];
+        var total = 0;
+        for (var i = 0; i < submit.IsoPackets.Count; i++)
+        {
+            var length = Math.Min(perPacket, Math.Max(0, submit.IsoPackets[i].Length));
+            results[i] = UsbIsoPacketResult.Ok(length);
+            total += length;
+        }
+
+        return new UsbIsoResult(UsbIpProtocol.StatusSuccess, new byte[total], results);
+    }
+
     // MARK: - Control transfers
 
     public UsbControlResult Control(ReadOnlySpan<byte> setup, ReadOnlySpan<byte> data, int requestedLength)
@@ -194,26 +312,59 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
         var requestType = setup[0];
         var request = setup[1];
         var value = BinaryPrimitives.ReadUInt16LittleEndian(setup[2..]);
+        var index = BinaryPrimitives.ReadUInt16LittleEndian(setup[4..]);
         var length = BinaryPrimitives.ReadUInt16LittleEndian(setup[6..]);
 
         return ((requestType >> 5) & 0x03) switch
         {
-            0 => Standard(request, value, length),
-            1 => HidClass(request, value, length, data),
+            0 => Standard(request, value, index, length),
+            1 => ClassRequest((byte)(requestType & 0x1F), request, value, index, length, data),
             _ => UsbControlResult.Stall(),
         };
     }
 
-    private UsbControlResult Standard(byte request, ushort value, ushort length) => request switch
+    /// <summary>
+    /// A class request, routed by who it is addressed to.
+    ///
+    /// On a rebuilt HID-only device there is one interface and everything class-specific is
+    /// HID, which is the behaviour this has always had. On a composite the recipient decides:
+    /// the HID interface still speaks HID, the audio ones speak the audio class, and an
+    /// endpoint recipient is the sampling-frequency control on the isochronous pipe.
+    /// </summary>
+    private UsbControlResult ClassRequest(
+        byte recipient, byte request, ushort value, ushort index, ushort length, ReadOnlySpan<byte> data)
+    {
+        const byte toInterface = 1;
+        const byte toEndpoint = 2;
+
+        if (recipient == toEndpoint)
+        {
+            return _audio?.Endpoint(request, value, index, length, data) ?? UsbControlResult.Stall();
+        }
+        if (recipient != toInterface) return UsbControlResult.Stall();
+
+        return IsHidInterface(index)
+            ? HidClass(request, value, length, data)
+            : _audio?.Entity(request, value, index, length, data) ?? UsbControlResult.Stall();
+    }
+
+    /// <summary>
+    /// Whether a wIndex names the HID interface. Always true on a rebuilt device: there is
+    /// only one interface there, and a host that names another is naming one we invented.
+    /// </summary>
+    private bool IsHidInterface(ushort index) =>
+        !_configuration.IsComposite || (byte)index == _configuration.HidInterfaceNumber;
+
+    private UsbControlResult Standard(byte request, ushort value, ushort index, ushort length) => request switch
     {
         0x00 => UsbControlResult.Ok([0, 0]),                     // GET_STATUS
         0x01 => UsbControlResult.Ok(),                           // CLEAR_FEATURE
         0x03 => UsbControlResult.Ok(),                           // SET_FEATURE
-        0x06 => GetDescriptor((byte)(value >> 8), (byte)value, length),
+        0x06 => GetDescriptor((byte)(value >> 8), (byte)value, index, length),
         0x08 => UsbControlResult.Ok([_configurationValue]),      // GET_CONFIGURATION
         0x09 => SetConfiguration((byte)value),
-        0x0A => UsbControlResult.Ok([0]),                        // GET_INTERFACE
-        0x0B => UsbControlResult.Ok(),                           // SET_INTERFACE
+        0x0A => UsbControlResult.Ok([_alternates.GetValueOrDefault((byte)index)]),
+        0x0B => SetInterface((byte)index, (byte)value),
         _ => UsbControlResult.Stall(),
     };
 
@@ -225,17 +376,43 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
         return UsbControlResult.Ok();
     }
 
-    private UsbControlResult GetDescriptor(byte type, byte index, int length) => type switch
+    /// <summary>
+    /// SET_INTERFACE. On a HID-only device this is bookkeeping and nothing more, but on a
+    /// composite it is the switch that starts and stops the haptics: an audio-streaming
+    /// interface has a zero-bandwidth alternate 0 and a real one above it, and moving between
+    /// them is exactly how usbaudio.sys says "I am opening the pin" and "I have closed it".
+    /// </summary>
+    private UsbControlResult SetInterface(byte number, byte alternate)
+    {
+        _alternates[number] = alternate;
+
+        if (_configuration.OutputStream is { } stream && number == stream.Interface)
+        {
+            var streaming = alternate == stream.AlternateSetting;
+            Volatile.Write(ref _hapticsStreaming, streaming);
+            // Whatever was half-collected belongs to a stream that has ended. Padding it out
+            // would deliver a fragment of an old moment on top of the next one.
+            if (!streaming) Haptics?.Reset();
+        }
+
+        return UsbControlResult.Ok();
+    }
+
+    private UsbControlResult GetDescriptor(byte type, byte index, ushort target, int length) => type switch
     {
         UsbDescriptorType.Device => Truncate(_device.Bytes, length),
         UsbDescriptorType.Configuration => Truncate(_configuration.Bytes, length),
         UsbDescriptorType.String => _stringDescriptors.TryGetValue(index, out var s)
             ? Truncate(s, length)
             : UsbControlResult.Stall(),
-        UsbDescriptorType.Hid => _configuration.HidDescriptor is { } hid
+        // wIndex is the interface for both of these, and on a composite only one interface
+        // has a report descriptor to give.
+        UsbDescriptorType.Hid => IsHidInterface(target) && _configuration.HidDescriptor is { } hid
             ? Truncate(hid, length)
             : UsbControlResult.Stall(),
-        UsbDescriptorType.HidReport => Truncate(_reportDescriptor, length),
+        UsbDescriptorType.HidReport => IsHidInterface(target)
+            ? Truncate(_reportDescriptor, length)
+            : UsbControlResult.Stall(),
         _ => UsbControlResult.Stall(),
     };
 

@@ -47,7 +47,11 @@ final class WindowRouter {
     ///       $.NSDistributedNotificationCenter.defaultCenter \
     ///        .postNotificationNameObjectUserInfoDeliverImmediately(
     ///           "ru.hexarch.hexbridge.open", "settings", $(), true)'
-    static let openNotification = Notification.Name("ru.hexarch.hexbridge.open")
+    /// Scoped to the bundle so two builds on one machine — the installed agent
+    /// and something freshly compiled — do not both answer the same shout.
+    static let openNotification = Notification.Name(
+        "\(Bundle.main.bundleIdentifier ?? "ru.hexarch.hexbridge").open"
+    )
 
     private var scriptingInstalled = false
 

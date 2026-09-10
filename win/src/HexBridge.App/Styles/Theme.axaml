@@ -30,10 +30,13 @@
 
     <!-- A focus ring visible on every surface we paint: 2 px accent with a small gap,
          which is the §11.1 requirement. -->
-    <ControlTemplate x:Key="FocusRing">
+    <!-- FocusAdorner is ITemplate<Control>, which a ControlTemplate does not
+         satisfy: setting one throws at window construction and takes the whole
+         app with it. FocusAdornerTemplate is the type that fits. -->
+    <FocusAdornerTemplate x:Key="FocusRing">
       <Rectangle Stroke="{DynamicResource AppAccent}" StrokeThickness="2"
                  RadiusX="8" RadiusY="8" Margin="-3" />
-    </ControlTemplate>
+    </FocusAdornerTemplate>
 
     <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
       <Setter Property="Background" Value="{DynamicResource AppSurface}" />

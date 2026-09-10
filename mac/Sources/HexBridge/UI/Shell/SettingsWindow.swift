@@ -95,7 +95,7 @@ struct GeneralPane: View {
                     Toggle(isOn: Binding(get: { feature.isEnabled }, set: { feature.isEnabled = $0 })) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(feature.title)
-                            Text(feature.summary)
+                            Text(Wording.plain(feature.summary))
                                 .font(.dsCaption)
                                 .foregroundStyle(palette.textDim)
                         }
@@ -126,21 +126,24 @@ struct ConnectionPane: View {
 
     var body: some View {
         Form {
+            // §7.4 puts «Проверить связь» here, and this is the only place in
+            // the app that has it: it is one check for all three features, so
+            // repeating it in every card said the same thing three times.
             Section {
                 if model.config.paired == true, let peer = model.config.peerName {
                     LabeledContent("Связан с", value: peer)
                 }
-                TextField("Адрес приёмника", text: $model.target, prompt: Text("192.168.1.10:47702"))
+                TextField("Адрес игрового ПК", text: $model.target, prompt: Text("192.168.1.10:47702"))
                 TextField("Имя этого Mac", text: $model.nodeName)
                 HStack {
-                    Button("Связать заново") { model.openPairing() }
                     Button("Проверить связь") { model.openLinkCheck() }
+                    Button("Связать заново") { model.openPairing() }
                     Spacer()
                 }
             } header: {
-                Text("Приёмник")
+                Text("Игровой ПК")
             } footer: {
-                Text("Адрес приёмника на Windows или релея на VPS. Порт по умолчанию — 47702.")
+                Text("Порт по умолчанию — 47702.")
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
             }
@@ -160,7 +163,7 @@ struct ConnectionPane: View {
             } header: {
                 Text("Общий ключ")
             } footer: {
-                Text("32 байта в base64. Должен совпадать на Mac и на ПК посимвольно. Отпечаток можно сравнить глазами, не раскрывая сам ключ.")
+                Text("Должен совпадать на Mac и на ПК. Сверить проще по отпечатку.")
                     .font(.dsCaption)
                     .foregroundStyle(palette.textDim)
             }
@@ -177,7 +180,7 @@ struct ConnectionPane: View {
                     in: 0...50,
                     step: 5
                 )
-                .help("Управляют избыточностью Opus FEC: выше значение — устойчивее звук и больше трафика.")
+                .help("Выше значение — устойчивее звук и больше трафика.")
             }
 
             RestartBanner(model: model)
@@ -195,9 +198,11 @@ struct DiagnosticsPane: View {
 
     var body: some View {
         Form {
+            // «Проверить связь» is not repeated here: it lives on the
+            // «Соединение» pane, which is where §7.4 puts it and where somebody
+            // looking for the address will already be.
             Section("Проверки") {
                 HStack {
-                    Button("Проверить связь") { model.openLinkCheck() }
                     Button {
                         model.runProbe()
                     } label: {
@@ -265,7 +270,7 @@ struct RestartBanner: View {
         if model.needsRestart {
             Section {
                 InlineAlert(
-                    text: "Адрес, ключ и параметры кодека применятся после перезапуска передачи.",
+                    text: "Новые настройки применятся после перезапуска передачи.",
                     tone: .warn,
                     action: FeatureAction(title: "Перезапустить") {
                         model.saveNow()

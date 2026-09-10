@@ -38,6 +38,29 @@ public sealed record ForwardedDeviceState
     /// <summary>vhci port, when we attached this one ourselves.</summary>
     public int? VhciPort { get; init; }
 
+    // Haptics. All false and all zero unless the feature is on and this particular device
+    // turned out to have an audio-streaming OUT that could carry it.
+
+    /// <summary>Served whole: the audio function came through with the HID interface.</summary>
+    public bool Composite { get; init; }
+
+    /// <summary>Its isochronous OUT was understood and is wired to the wire.</summary>
+    public bool HapticsAvailable { get; init; }
+
+    /// <summary>Windows has opened the streaming alternate setting and PCM is arriving.</summary>
+    public bool HapticsStreaming { get; init; }
+
+    public long HapticBlocksSent { get; init; }
+
+    /// <summary>Blocks that were all zeros, and so cost nothing by staying unsent.</summary>
+    public long HapticBlocksSilent { get; init; }
+
+    /// <summary>Blocks refused at the rate ceiling, so voice and input keep their share.</summary>
+    public long HapticBlocksDropped { get; init; }
+
+    /// <summary>What the haptic stream is costing the link right now.</summary>
+    public double HapticKilobytesPerSecond { get; init; }
+
     /// <summary>
     /// Live input for the visualisation. A reference rather than a value: the screen polls
     /// it at its own frame rate instead of being pinned to the ten snapshots a second the
@@ -70,6 +93,16 @@ public sealed record DevicesState : FeatureState
 
     /// <summary>The protocol's ceiling, so the UI never has to hard-code it.</summary>
     public int MaxDevices { get; init; } = DevicesFeature.MaxDevices;
+
+    /// <summary>
+    /// HD haptics are switched on in the config. Off by default and switchable without
+    /// touching the passthrough: triggers and rumble do not depend on it, and the audio path
+    /// it opens is the one usbip-win2 has an open bugcheck on.
+    /// </summary>
+    public bool HapticsEnabled { get; init; }
+
+    /// <summary>At least one forwarded device is actually streaming PCM to the actuators.</summary>
+    public bool HapticsStreaming => Devices.Any(d => d.HapticsStreaming);
 
     public bool Attached => Devices.Count > 0;
 

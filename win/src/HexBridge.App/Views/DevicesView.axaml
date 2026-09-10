@@ -18,43 +18,30 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="card">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="section" Text="ДРАЙВЕР USBIP-WIN2" />
-          <Grid ColumnDefinitions="150,*">
-            <TextBlock Grid.Column="0" Classes="label" Text="usbip.exe" />
-            <TextBlock Grid.Column="1" Classes="mono" Text="{Binding DriverText}" />
-          </Grid>
-          <Border CornerRadius="8" Padding="14,12"
-                  Background="{DynamicResource WarnBg}"
-                  BorderBrush="{DynamicResource WarnBorder}"
-                  BorderThickness="1"
-                  IsVisible="{Binding DriverMissing}">
-            <StackPanel Spacing="6">
-              <TextBlock Classes="section" Text="ЧТО СДЕЛАТЬ" />
-              <TextBlock Classes="body" Text="{Binding DriverHint}" TextWrapping="Wrap" />
-            </StackPanel>
-          </Border>
+      <!--
+        The driver card appears only when the driver is missing — a row that
+        always says «установлен» is a row nobody needs, and the path to
+        usbip.exe is a setting and is shown in the settings. Same for the USB/IP
+        server address and the client state: they are how the proxy is wired,
+        not what it is doing, and each device card below says that for itself.
+      -->
+      <Border CornerRadius="8" Padding="14,12"
+              Background="{DynamicResource WarnBg}"
+              BorderBrush="{DynamicResource WarnBorder}"
+              BorderThickness="1"
+              IsVisible="{Binding DriverMissing}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="НУЖЕН ДРАЙВЕР USBIP-WIN2" />
+          <TextBlock Classes="body" Text="{Binding DriverHint}" TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 
-      <Border Classes="card">
-        <StackPanel Spacing="12">
-          <TextBlock Classes="section" Text="ПРОБРОС" />
-          <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto">
-            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Сервер USB/IP" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="0" Grid.Column="1" Classes="mono" Text="{Binding ServerText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Клиент" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding ClientText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Занято номеров" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding SlotsText}" />
-          </Grid>
-          <TextBlock Classes="caption"
-                     TextWrapping="Wrap"
-                     IsVisible="{Binding !HasDevices}"
-                     Text="Устройства выбираются на Mac — по умолчанию не пробрасывается ничего. Каждое выбранное появится здесь со своим busid: 1-1, 1-2, 1-3, 1-4." />
-        </StackPanel>
-      </Border>
+      <TextBlock Classes="caption" Text="{Binding SlotsText, StringFormat='Занято номеров: {0}'}"
+                 IsVisible="{Binding HasDevices}" />
+      <TextBlock Classes="caption"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding !HasDevices}"
+                 Text="Что пробрасывать, выбирают на Mac. Каждое выбранное устройство появится здесь." />
 
       <!--
         One card per forwarded device, keyed by device number. A model the visualisation
@@ -71,13 +58,10 @@
           <DataTemplate x:DataType="vm:ForwardedDeviceViewModel">
             <Border Classes="card" Margin="0,0,0,16">
               <StackPanel Spacing="12">
-                <Grid ColumnDefinitions="*,Auto">
-                  <StackPanel Grid.Column="0" Spacing="2">
-                    <TextBlock Classes="section" Text="{Binding Title}" />
-                    <TextBlock Classes="caption" Text="{Binding KindText}" />
-                  </StackPanel>
-                  <TextBlock Grid.Column="1" Classes="mono" Text="{Binding BusIdText}" />
-                </Grid>
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="section" Text="{Binding Title}" />
+                  <TextBlock Classes="caption" Text="{Binding KindText}" />
+                </StackPanel>
 
                 <controls:ControllerVisual Height="260"
                                            IsVisible="{Binding CanVisualise}"
@@ -87,53 +71,48 @@
                            IsVisible="{Binding CanVisualise}"
                            Text="{Binding VisualCaption}" />
 
-                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto"
-                      IsVisible="{Binding ShowsSummary}">
-                  <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="VID:PID" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="0" Grid.Column="1" Classes="mono" Text="{Binding IdentityText}" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Состояние" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding StateText}" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Порт vhci" />
-                  <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding PortText}" />
-                </Grid>
+                <TextBlock Classes="body" Text="{Binding StateText}"
+                           IsVisible="{Binding ShowsSummary}" />
 
-                <UniformGrid Columns="4">
+                <!-- Two numbers on the surface: how fast the device is talking
+                     and how much charge it has left. The rest are counters that
+                     only matter once something is wrong, so they wait behind a
+                     disclosure — as does the manual attach command, which is
+                     offered only while Windows has not picked the device up. -->
+                <UniformGrid Columns="2">
                   <Border Classes="tile" Margin="0,0,8,0">
                     <StackPanel Spacing="2">
                       <TextBlock Classes="label" Text="Отчётов в секунду" />
                       <TextBlock Classes="metric" Text="{Binding RateText}" />
                     </StackPanel>
                   </Border>
-                  <Border Classes="tile" Margin="0,0,8,0">
+                  <Border Classes="tile">
                     <StackPanel Spacing="2">
                       <TextBlock Classes="label" Text="Батарея" />
                       <TextBlock Classes="metric" Text="{Binding BatteryText}" />
                     </StackPanel>
                   </Border>
-                  <Border Classes="tile" Margin="0,0,8,0">
-                    <StackPanel Spacing="2">
-                      <TextBlock Classes="label" Text="Принято отчётов" />
-                      <TextBlock Classes="metric" Text="{Binding ReportsText}" />
-                    </StackPanel>
-                  </Border>
-                  <Border Classes="tile">
-                    <StackPanel Spacing="2">
-                      <TextBlock Classes="label" Text="Отправлено команд" />
-                      <TextBlock Classes="metric" Text="{Binding OutputsText}" />
-                    </StackPanel>
-                  </Border>
                 </UniformGrid>
 
-                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto">
-                  <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Потеряно отчётов" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding LostText}" Margin="0,0,0,8" />
-                  <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Не забрано Windows" />
-                  <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding DroppedText}" />
-                </Grid>
-
-                <TextBlock Classes="caption" TextWrapping="Wrap"
-                           Text="Если автоподключение не сработало, эту команду можно выполнить вручную:" />
-                <TextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding AttachCommand}" />
+                <Expander Header="Подробности">
+                  <StackPanel Spacing="10" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Принято отчётов" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding ReportsText}" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Отправлено команд" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding OutputsText}" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Потеряно отчётов" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding LostText}" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="Не забрано Windows" />
+                      <TextBlock Grid.Row="3" Grid.Column="1" Classes="body" Text="{Binding DroppedText}" />
+                    </Grid>
+                    <StackPanel Spacing="6" IsVisible="{Binding !IsImported}">
+                      <TextBlock Classes="caption" TextWrapping="Wrap"
+                                 Text="Если автоподключение не сработало, эту команду можно выполнить вручную:" />
+                      <SelectableTextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding AttachCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Expander>
               </StackPanel>
             </Border>
           </DataTemplate>

@@ -60,7 +60,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private TrayState _tray = TrayState.Idle;
     [ObservableProperty] private string _trayTooltip = "HexBridge — приём остановлен";
-    [ObservableProperty] private string _pauseLabel = "Пауза";
+    /// <summary>The header's only button: it says what pressing it will do.</summary>
+    [ObservableProperty] private string _pauseLabel = "Запустить";
     [ObservableProperty] private string _configPathText = "";
 
     // The window header shows the transport, not any one feature.
@@ -288,9 +289,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Headline = snapshot.Status switch
         {
             ReceiverStatus.Live => "Связь есть",
-            ReceiverStatus.Muted => "Микрофон выключен",
-            ReceiverStatus.SenderLost => "Отправитель молчит",
-            ReceiverStatus.WaitingForSender => "Ждём отправителя",
+            ReceiverStatus.Muted => "Микрофон заглушен",
+            ReceiverStatus.SenderLost => "Mac замолчал",
+            ReceiverStatus.WaitingForSender => "Ждём Mac",
             ReceiverStatus.Failed => "Ошибка",
             _ => _stoppedByUser ? "На паузе" : "Приём остановлен",
         };
@@ -298,7 +299,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IsWaiting = snapshot.Status is ReceiverStatus.WaitingForSender or ReceiverStatus.Muted or ReceiverStatus.SenderLost;
         IsBad = snapshot.Status is ReceiverStatus.Failed;
 
-        PauseLabel = snapshot.IsRunning ? "Пауза" : "Возобновить";
+        PauseLabel = snapshot.IsRunning ? "Пауза" : "Запустить";
         Tray = snapshot.Status switch
         {
             ReceiverStatus.Live => TrayState.Live,
@@ -309,10 +310,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         TrayTooltip = snapshot.Status switch
         {
             ReceiverStatus.Live => $"HexBridge — звук идёт, {snapshot.PacketsPerSecond:F0} пак/с",
-            ReceiverStatus.Muted => "HexBridge — микрофон выключен на Mac",
-            ReceiverStatus.SenderLost => "HexBridge — отправитель молчит",
-            ReceiverStatus.WaitingForSender => "HexBridge — ждём отправителя",
-            ReceiverStatus.Failed => $"HexBridge — ошибка: {snapshot.Detail}",
+            ReceiverStatus.Muted => "HexBridge — микрофон заглушен на Mac",
+            ReceiverStatus.SenderLost => "HexBridge — Mac замолчал",
+            ReceiverStatus.WaitingForSender => "HexBridge — ждём Mac",
+            ReceiverStatus.Failed => "HexBridge — ошибка, откройте окно",
             _ => _stoppedByUser ? "HexBridge — на паузе" : "HexBridge — приём остановлен",
         };
     }

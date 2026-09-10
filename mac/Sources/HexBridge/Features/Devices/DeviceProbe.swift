@@ -428,6 +428,169 @@ enum DeviceProbe {
         }
     }
 
+    // MARK: - HD haptics
+
+    /// Proves the HD haptics path end to end on this machine, with no Windows
+    /// and no network in it.
+    ///
+    /// The blocks are synthesised here and handed to `HapticPlayer.play` — the
+    /// same call the socket makes for a block that arrived over the wire — so
+    /// everything downstream of the decoder is the shipping code: the ring
+    /// buffer, the audio unit, the channel mapping and the unmute report.
+    ///
+    /// Proof is the controller's own gyroscope, the same witness the rumble test
+    /// uses. A return code from CoreAudio says the samples were accepted, not
+    /// that anything moved; σ of the gyro magnitude says something moved. The
+    /// tone is 40 Hz because that is where the two possible answers separate
+    /// cleanly: the voice coils reproduce it and the tiny speaker on channels 0
+    /// and 1 cannot, so a build that had confused the two pairs would measure
+    /// nothing at all rather than measuring slightly less.
+    static func haptics(seconds: Double = 2, selector: String? = nil, log: (String) -> Void) {
+        guard let device = pick(selector) else {
+            log("HID-устройств не найдено. Подключите контроллер по USB и повторите.")
+            return
+        }
+
+        let profile = DeviceProfile.of(vendorID: device.vendorID, productID: device.productID)
+        log("устройство:      \(device.displayName)  (\(device.identity))")
+        log("locationID:      0x\(String(device.locationID, radix: 16, uppercase: true))")
+
+        let player = HapticPlayer(
+            vendorID: device.vendorID, productID: device.productID, locationID: device.locationID
+        )
+        guard let output = player.findOutput() else {
+            log("")
+            log("Аудиоустройства для этого контроллера в системе нет.")
+            log("HD-хаптика играется через CoreAudio, поэтому без него путь недоступен:")
+            log("проверьте, что контроллер подключён кабелем, а не по Bluetooth.")
+            return
+        }
+        log("аудиовыход:      \(output.name), каналов \(output.channels)")
+        log("каналы хаптики:  \(output.channels - 2) и \(output.channels - 1)")
+
+        guard profile?.kind == .dualSense else {
+            log("")
+            log("Профиля для этой модели нет: снять мьют с актуаторов нечем, и гироскоп читать нечем.")
+            log("Блоки проигрались бы, но подтвердить эффект приборно не получится.")
+            return
+        }
+
+        let openResult = device.open()
+        log("открытие:        \(IOKitError.describe(openResult))")
+        guard openResult == kIOReturnSuccess else {
+            log("Без открытия устройства ни снять мьют, ни прочитать гироскоп нельзя.")
+            return
+        }
+        defer { device.close() }
+
+        let stats = InputStats(profile: profile)
+        let thread = HIDRunLoopThread()
+        thread.start(name: "hexbridge.devices.haptics")
+        device.startReading(on: thread) { stats.add($0) }
+        defer {
+            device.stopReading()
+            thread.stop()
+        }
+
+        let unmute = device.setOutputReport(DualSenseReport.audioHapticsEnable)
+        log("снятие мьюта:    \(IOKitError.describe(unmute))")
+        log("")
+        log("ДЕРЖИТЕ КОНТРОЛЛЕР В РУКЕ: дальше в рукоятках должно ощущаться гудение.")
+
+        // Baseline first: whatever the controller does while nothing is playing.
+        Thread.sleep(forTimeInterval: 0.4)
+        stats.resetMotion()
+        Thread.sleep(forTimeInterval: 0.6)
+        let quiet = stats.motionDeviation()
+
+        let blocks = feed(player, seconds: seconds, frequency: 40, amplitude: 0.9, stats: stats)
+        let shaking = stats.motionDeviation()
+
+        // And back to nothing, so the run does not end with the actuators still
+        // ringing from the last block.
+        player.stop()
+        Thread.sleep(forTimeInterval: 0.3)
+
+        let status = player.status()
+        log("")
+        log("блоков отправлено: \(blocks), проиграно \(status.blocksPlayed), "
+            + "потеряно \(status.blocksLost), опоздало \(status.blocksDropped)")
+        log("недоборов буфера:  \(status.underruns)")
+        if let error = status.lastError {
+            log("ошибка аудио:      \(error)")
+        }
+        log(String(
+            format: "гироскоп в покое: σ %.1f (%d репортов), под хаптикой: σ %.1f (%d репортов)",
+            quiet.sigma, quiet.samples, shaking.sigma, shaking.samples
+        ))
+
+        let confirmed = shaking.samples > 10 && shaking.sigma > max(20, quiet.sigma * 4)
+        log("")
+        if confirmed {
+            log("ХАПТИКА ПОДТВЕРЖДЕНА ПРИБОРНО: гироскоп зафиксировал тряску от актуаторов.")
+        } else if status.blocksPlayed == 0 {
+            log("НЕ РАБОТАЕТ: ни один блок не дошёл до аудиоустройства.")
+        } else {
+            log("Блоки проиграны, но гироскоп тряски не увидел.")
+            log("Обычно это значит одно из двух: контроллер лежал на столе — положите его в руку,")
+            log("или мьют актуаторов не снялся — смотрите код возврата выше.")
+        }
+    }
+
+    /// Synthesises 5 ms blocks in real time and pushes them through the player.
+    ///
+    /// Real time on purpose. A burst would overrun the ring and be dropped —
+    /// which is the correct behaviour, and proves nothing about whether the
+    /// audio path works.
+    @discardableResult
+    private static func feed(
+        _ player: HapticPlayer, seconds: Double, frequency: Double, amplitude: Double, stats: InputStats
+    ) -> UInt32 {
+        let frames = Wire.Haptics.framesPerBlock
+        let step = 2 * Double.pi * frequency / Double(Wire.Haptics.sampleRate)
+        let blockSeconds = Double(frames) / Double(Wire.Haptics.sampleRate)
+        let total = UInt32(max(1, (seconds / blockSeconds).rounded()))
+
+        var phase = 0.0
+        var index: UInt32 = 0
+        var deadline = Date()
+        // The gyro window opens with the first block, not with the timer: the
+        // actuators do nothing until the ring has its preroll, and measuring
+        // through that silence would dilute the very thing being measured.
+        var started = false
+
+        while index < total {
+            var samples = [Int16]()
+            samples.reserveCapacity(frames * 2)
+            for _ in 0..<frames {
+                let value = Int16(clamping: Int(sin(phase) * amplitude * 32000))
+                samples.append(value)
+                samples.append(value)
+                phase += step
+                if phase > 2 * Double.pi { phase -= 2 * Double.pi }
+            }
+
+            player.play(Wire.Haptics.Block(device: 0, channels: 2, index: index, samples: samples))
+            index += 1
+
+            if !started {
+                started = true
+                Thread.sleep(forTimeInterval: 0.05)
+                stats.resetMotion()
+                // Restart the clock rather than carrying the pause as a debt.
+                // Catching up would send ten blocks back to back, and the player
+                // would correctly shed the backlog — proving nothing except that
+                // this loop had burst.
+                deadline = Date()
+            }
+
+            deadline = deadline.addingTimeInterval(blockSeconds)
+            let wait = deadline.timeIntervalSinceNow
+            if wait > 0 { Thread.sleep(forTimeInterval: wait) }
+        }
+        return index
+    }
+
     // MARK: - list
 
     /// Every HID device the machine can see, without opening any of them.

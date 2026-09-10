@@ -26,7 +26,7 @@
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="HexBridge" FontSize="15" FontWeight="SemiBold"
                        Foreground="{DynamicResource AppText}" />
-            <TextBlock Classes="caption" Text="микрофон Mac как микрофон Windows" />
+            <TextBlock Classes="caption" Text="микрофон, геймпады и буфер обмена с Mac" />
           </StackPanel>
         </StackPanel>
 
@@ -41,17 +41,15 @@
                      Foreground="{DynamicResource AppText}" VerticalAlignment="Center" />
         </StackPanel>
 
+        <!--
+          §6.1: one primary button. Старт, Стоп and Перезапустить were three
+          buttons for two states — Перезапустить is Стоп followed by Старт, and
+          saving the settings already does it by itself. One button that says
+          what it will do is the whole control.
+        -->
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Content="Старт" Classes="primary"
-                  Command="{Binding StartCommand}"
-                  IsVisible="{Binding !IsRunning}"
-                  IsEnabled="{Binding !IsBusy}" />
-          <Button Content="Стоп"
-                  Command="{Binding StopCommand}"
-                  IsVisible="{Binding IsRunning}"
-                  IsEnabled="{Binding !IsBusy}" />
-          <Button Content="Перезапустить"
-                  Command="{Binding RestartCommand}"
+          <Button Content="{Binding PauseLabel}" Classes="primary"
+                  Command="{Binding TogglePauseCommand}"
                   IsEnabled="{Binding !IsBusy}" />
         </StackPanel>
 

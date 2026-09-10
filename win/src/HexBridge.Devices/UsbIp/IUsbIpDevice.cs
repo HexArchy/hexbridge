@@ -9,6 +9,22 @@ public readonly record struct UsbControlResult(int Status, byte[] Data)
     public static UsbControlResult Stall() => new(UsbIpProtocol.StatusStall, []);
 }
 
+/// <summary>What one microframe of an isochronous URB came to: bytes moved, and why not more.</summary>
+public readonly record struct UsbIsoPacketResult(int ActualLength, int Status)
+{
+    public static UsbIsoPacketResult Ok(int length) => new(length, UsbIpProtocol.StatusSuccess);
+}
+
+/// <summary>
+/// The outcome of one isochronous URB: an overall status, the data an IN transfer read —
+/// empty for an OUT one — and a result per packet, in the order the request listed them.
+/// </summary>
+public readonly record struct UsbIsoResult(int Status, byte[] Data, IReadOnlyList<UsbIsoPacketResult> Packets)
+{
+    public static UsbIsoResult Accepted(IReadOnlyList<UsbIsoPacketResult> packets) =>
+        new(UsbIpProtocol.StatusSuccess, [], packets);
+}
+
 /// <summary>
 /// What the USB/IP server needs from whatever it is exporting. Keeping this an interface is
 /// what lets the whole server be tested on a machine that has never seen a DualSense.
@@ -36,4 +52,15 @@ public interface IUsbIpDevice
 
     /// <summary>A HID output report written by Windows.</summary>
     void WriteInterrupt(ReadOnlySpan<byte> data);
+
+    /// <summary>
+    /// One isochronous URB, with its per-packet descriptors already parsed into
+    /// <see cref="UsbIpSubmit.IsoPackets"/>.
+    ///
+    /// Null means this endpoint carries no isochronous stream on this device, and the server
+    /// stalls it. That is the answer for every device until the haptics switch is on: without
+    /// the audio function in the configuration descriptor there is no isochronous endpoint to
+    /// address, and a host asking for one is asking about hardware we never advertised.
+    /// </summary>
+    UsbIsoResult? Isochronous(UsbIpSubmit submit) => null;
 }

@@ -22,6 +22,11 @@ public sealed partial class QualityViewModel : ObservableObject
     /// <summary>Buffer depth as a fraction of the trim threshold, for the progress bar.</summary>
     [ObservableProperty] private double _depthFraction;
 
+    // Moved off the Status page: how well it works, not whether it works.
+    [ObservableProperty] private string _packetsText = "—";
+    [ObservableProperty] private string _rttText = "—";
+    [ObservableProperty] private string _uptimeText = "—";
+
     [ObservableProperty] private string _concealedText = "0";
     [ObservableProperty] private string _lateText = "0";
     [ObservableProperty] private string _underrunsText = "0";
@@ -46,6 +51,10 @@ public sealed partial class QualityViewModel : ObservableObject
         DepthFraction = Math.Clamp(depth / (double)Math.Max(1, max), 0, 1);
         DepthText = s.IsRunning ? $"{depth} кадр. · {depth * 20} мс" : "—";
         TargetText = $"цель {target * 20} мс · подрезка от {max * 20} мс";
+
+        PacketsText = s.IsRunning ? $"{m?.PacketsPerSecond ?? 0:F0}" : "—";
+        RttText = s.RttMs is { } rtt ? $"{rtt:F0} мс" : "—";
+        UptimeText = s.IsRunning ? Duration(s.Uptime) : "—";
 
         ConcealedText = (m?.Concealed ?? 0).ToString("N0");
         LateText = (m?.DroppedLate ?? 0).ToString("N0");
@@ -86,6 +95,13 @@ public sealed partial class QualityViewModel : ObservableObject
         PeakHistory = new double[HistorySeconds];
         DepthHistory = new double[HistorySeconds];
     }
+
+    /// <summary>«2 ч 05 м», «3 м 12 с», «41 с» — never a bare count of seconds past a minute.</summary>
+    private static string Duration(TimeSpan t) => t.TotalHours >= 1
+        ? $"{(int)t.TotalHours} ч {t.Minutes:00} м"
+        : t.TotalMinutes >= 1
+            ? $"{t.Minutes} м {t.Seconds:00} с"
+            : $"{t.Seconds} с";
 
     private static void Push(double[] window, double value)
     {

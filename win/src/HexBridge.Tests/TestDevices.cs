@@ -74,6 +74,45 @@ public static class TestDevices
         return [.. bytes];
     }
 
+    /// <summary>
+    /// The configuration descriptor of a real DualSense, read off the hardware on
+    /// 2026-09-10 through <c>GetConfigurationDescriptorPtr</c>. 227 bytes, verbatim.
+    ///
+    /// A hand-written fixture is fine for testing the parser's grammar. It is useless for
+    /// testing the claim the composite mode actually makes — that what Windows receives is
+    /// the device it would have seen with the controller plugged into it. That is only worth
+    /// something against the bytes the controller really sends: four interfaces, two of them
+    /// with alternate settings, an audio-control topology whose terminals reference each
+    /// other by id, an isochronous OUT of 392 bytes carrying speaker and actuators together,
+    /// an isochronous IN of 196 for the microphone, and HID last as interface 3.
+    /// </summary>
+    public static byte[] DualSenseConfigurationDescriptor() => Convert.FromHexString(
+        "0902E300040100C0FA" +          // configuration: 4 interfaces, value 1, 500 mA
+        "090400000001010000" +          // interface 0: audio control
+        "0A240100014900020102" +        // AC header, bcdADC 1.00, collection {1, 2}
+        "0C2402010101060433000000" +    // input terminal 1: USB streaming, 4 channels
+        "0C2406020101030000000000" +    // feature unit 2, source 1
+        "092403030103040200" +          // output terminal 3: speaker, source 2
+        "0C2402040204030203000000" +    // input terminal 4: headset, 2 channels
+        "092406050401030000" +          // feature unit 5, source 4
+        "092403060101010500" +          // output terminal 6: USB streaming, source 5
+        "090401000001020000" +          // interface 1 alt 0: zero bandwidth
+        "090401010101020000" +          // interface 1 alt 1: streaming OUT
+        "07240101010100" +              // AS general, terminal link 1, PCM
+        "0B2402010402100180BB00" +      // format type I: 4 ch, 2 bytes, 16 bit, 48000 Hz
+        "090501098801040000" +          // endpoint 0x01: isochronous adaptive, 392 bytes
+        "07250100000000" +              // CS endpoint, general
+        "090402000001020000" +          // interface 2 alt 0: zero bandwidth
+        "090402010101020000" +          // interface 2 alt 1: streaming IN
+        "07240106010100" +              // AS general, terminal link 6, PCM
+        "0B2402010202100180BB00" +      // format type I: 2 ch, 2 bytes, 16 bit, 48000 Hz
+        "09058205C400040000" +          // endpoint 0x82: isochronous async, 196 bytes
+        "07250100000000" +              // CS endpoint, general
+        "090403000203000000" +          // interface 3: HID, 2 endpoints
+        "092111010001221101" +          // HID descriptor, report descriptor 273 bytes
+        "07058403400006" +              // endpoint 0x84: interrupt IN, 64 bytes, 250 Hz
+        "07050303400006");              // endpoint 0x03: interrupt OUT, 64 bytes
+
     public static byte[] ReportDescriptor()
     {
         // The bytes themselves are opaque to everything under test; only their identity
@@ -132,6 +171,26 @@ public static class TestDevices
 
         return new DeviceAttach(device, blocks);
     }
+
+    /// <summary>
+    /// An attach carrying the controller's real configuration descriptor. Used wherever the
+    /// composite path is under test, because a hand-built fixture cannot prove that the bytes
+    /// Windows receives are the bytes the hardware sent.
+    /// </summary>
+    public static DeviceAttach RealAttach(byte device = 0) => new(device,
+    [
+        new DescriptorBlock(DescriptorKind.Device, DeviceDescriptor()),
+        new DescriptorBlock(DescriptorKind.Configuration, DualSenseConfigurationDescriptor()),
+        new DescriptorBlock(DescriptorKind.HidReport, ReportDescriptor()),
+        new DescriptorBlock(DescriptorKind.FeatureReport, FeatureReport(0x05, 41)),
+        new DescriptorBlock(DescriptorKind.FeatureReport, FeatureReport(0x09, 20)),
+        new DescriptorBlock(DescriptorKind.FeatureReport, FeatureReport(0x20, 64)),
+    ]);
+
+    /// <summary>The same controller served whole: audio function as well as HID.</summary>
+    public static VirtualHidDevice CompositeDevice(
+        Action<byte[]>? onOutput = null, Action<byte[]>? onHaptic = null, byte number = 0) =>
+        new(RealAttach(number), onOutput ?? (_ => { }), haptics: true, onHaptic: onHaptic ?? (_ => { }));
 
     public static VirtualHidDevice Device(
         Action<byte[]>? onOutput = null, byte number = 0,

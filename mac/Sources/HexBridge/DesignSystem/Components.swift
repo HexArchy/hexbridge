@@ -52,13 +52,13 @@ struct StatusCard<Trailing: View>: View {
                 .padding(.top, Space.xs + 1)
 
             VStack(alignment: .leading, spacing: Space.xs) {
-                Text(status.headline)
+                Text(headline)
                     .font(.dsHeading)
                     .foregroundStyle(status.tone.text(palette))
                     .contentTransition(.opacity)
                     .fixedSize(horizontal: false, vertical: true)
-                if !status.detail.isEmpty {
-                    Text(status.detail)
+                if !detail.isEmpty {
+                    Text(detail)
                         .font(.dsCaption)
                         .foregroundStyle(palette.textDim)
                         .contentTransition(.opacity)
@@ -82,8 +82,16 @@ struct StatusCard<Trailing: View>: View {
         .animation(Motion.standard(Motion.base, reduced: motion.reduceMotion), value: status.tone)
         .animation(Motion.standard(Motion.short, reduced: motion.reduceMotion), value: status.headline)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(status.headline). \(status.detail)")
+        .accessibilityLabel("\(headline). \(detail)")
     }
+
+    private var headline: String { Wording.plain(status.headline) }
+
+    /// One sentence. Whatever the feature added after the full stop explains
+    /// the state rather than naming it, and this card exists to name it — the
+    /// explanation belongs on the pane, or in the log with the error code that
+    /// `plain` has just taken out of here.
+    private var detail: String { Wording.firstSentence(Wording.plain(status.detail)) }
 }
 
 extension StatusCard where Trailing == EmptyView {
@@ -145,6 +153,10 @@ struct LevelMeter: View {
     /// Linear sample peak, 0…1.
     let peak: Float
     var muted = false
+    /// `пик −12,9 dBFS` under the bar. A number for somebody setting a gain,
+    /// which is a settings-window job; in the popover the bar itself is the
+    /// whole answer, so the caption is off there.
+    var showsCaption = true
 
     @Environment(\.palette) private var palette
     @State private var displayed: Double = 0
@@ -179,12 +191,14 @@ struct LevelMeter: View {
             .frame(height: Metrics.meterHeight)
             .clipShape(Capsule())
 
-            HStack(spacing: Space.xs) {
-                Text(muted ? "заглушено" : caption)
-                    .font(.dsCaption)
-                    .foregroundStyle(palette.textDim)
-                    .monospacedDigit()
-                Spacer()
+            if showsCaption {
+                HStack(spacing: Space.xs) {
+                    Text(muted ? "заглушено" : caption)
+                        .font(.dsCaption)
+                        .foregroundStyle(palette.textDim)
+                        .monospacedDigit()
+                    Spacer()
+                }
             }
         }
         .onChange(of: peak) { _, _ in step() }
@@ -273,6 +287,8 @@ struct FeatureRow: View {
     let title: String
     let symbolName: String
     let status: FeatureStatus
+    /// A sentence already shown above this row. See `Wording.stateLine`.
+    var echoing: String = ""
     @Binding var isEnabled: Bool
 
     @Environment(\.palette) private var palette
@@ -289,7 +305,10 @@ struct FeatureRow: View {
                 Text(title)
                     .font(.dsLabel.weight(.medium))
                     .foregroundStyle(palette.text)
-                Text(status.headline)
+                // The name is already on the line above, so the state line
+                // never repeats it: «Буфер обмена» over «Буфер обмена общий»
+                // was two lines to say one thing.
+                Text(Wording.stateLine(title: title, status: status, avoiding: echoing))
                     .font(.dsCaption)
                     .foregroundStyle(status.tone.text(palette))
                     .lineLimit(1)
@@ -378,7 +397,7 @@ struct InlineAlert: View {
                 Image(systemName: tone.symbolName)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(tone.foreground(palette))
-                Text(text)
+                Text(Wording.plain(text))
                     .font(.dsCaption)
                     .foregroundStyle(tone.text(palette))
                     .textSelection(.enabled)

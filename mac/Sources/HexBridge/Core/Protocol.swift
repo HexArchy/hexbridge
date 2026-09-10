@@ -138,6 +138,81 @@ enum Wire {
         }
     }
 
+    /// The HD haptics channel: PCM for the voice-coil actuators, Windows → Mac.
+    ///
+    /// Apart from `DEV_OUT` because the two have nothing in common but the
+    /// socket. `DEV_OUT` carries a handful of absolute-state reports a second
+    /// and can afford to coalesce them; this is a continuous stream where every
+    /// block belongs to a moment, and a block that arrives late is worse than
+    /// one that never arrives at all.
+    enum Haptics {
+        /// The DualSense's audio function runs at 48 kHz and nothing here
+        /// resamples, so a block is a whole number of frames at that rate.
+        static let sampleRate = 48000
+
+        /// 5 ms, as the contract says. 240 frames on each of two channels is
+        /// 960 bytes, which fits a 1400-byte datagram with room for the wire
+        /// header, the tag and the block header. Four channels would not fit,
+        /// which is the arithmetic behind sending only the actuator pair.
+        static let framesPerBlock = 240
+
+        /// Bytes before the samples: device, channel count, block number.
+        static let headerSize = 6
+
+        struct Block {
+            let device: UInt8
+            /// 2 for the actuators alone, 4 if a sender ever includes the
+            /// speaker pair. Decoded either way; only the pair at the end is
+            /// ever played.
+            let channels: Int
+            /// Counts blocks, the ones a silent run left unsent included. The
+            /// gap between two consecutive numbers is therefore exactly how much
+            /// nothing belongs between them — the same arithmetic that covers a
+            /// block that was sent and lost.
+            let index: UInt32
+            /// Interleaved by channel.
+            let samples: [Int16]
+
+            var frames: Int { channels > 0 ? samples.count / channels : 0 }
+        }
+
+        static func encode(device: UInt8, channels: Int, index: UInt32, samples: [Int16]) -> [UInt8] {
+            var payload = [UInt8]()
+            payload.reserveCapacity(headerSize + samples.count * 2)
+            payload.append(device)
+            payload.append(UInt8(channels))
+            payload.appendLE(index)
+            for sample in samples { payload.appendLE(UInt16(bitPattern: sample)) }
+            return payload
+        }
+
+        static func decode(_ payload: [UInt8]) -> Block? {
+            guard payload.count >= headerSize else { return nil }
+            let channels = Int(payload[1])
+            guard channels > 0, channels <= 8 else { return nil }
+
+            let body = payload.count - headerSize
+            // A block that does not divide into whole frames is one we would
+            // have to guess at, and a guess here is a click in somebody's hand.
+            guard body % (channels * 2) == 0 else { return nil }
+
+            var samples = [Int16]()
+            samples.reserveCapacity(body / 2)
+            var offset = headerSize
+            while offset + 1 < payload.count {
+                samples.append(Int16(bitPattern: payload.readLE(at: offset) as UInt16))
+                offset += 2
+            }
+
+            return Block(
+                device: payload[0],
+                channels: channels,
+                index: payload.readLE(at: 2),
+                samples: samples
+            )
+        }
+    }
+
     /// Room ids let the relay pair two endpoints without ever holding the PSK.
     static func roomID(psk: SymmetricKey) -> UInt64 {
         var hasher = SHA256()

@@ -83,10 +83,38 @@ struct HexBridgeApp: App {
         WindowRouter.shared.installScriptingHook { popoverPresented = true }
     }
 
+    /// Ровно один экземпляр: побеждает свежезапущенный.
+    ///
+    /// Без этого приложение открывается сколько угодно раз, и каждая копия
+    /// держит свой захват звука и свой значок в строке меню. Копия, поднятая
+    /// launchd, будет перезапущена им и снимет ручную — процесс сходится к
+    /// одному экземпляру, а не зацикливается.
+    private static func terminateOtherInstances() {
+        guard let me = Bundle.main.bundleIdentifier else { return }
+        let others = NSRunningApplication
+            .runningApplications(withBundleIdentifier: me)
+            .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+        guard !others.isEmpty else { return }
+
+        for app in others {
+            app.terminate()
+        }
+
+        // Даём им уйти по-хорошему; звуковой захват освобождается не мгновенно.
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline, others.contains(where: { !$0.isTerminated }) {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        for app in others where !app.isTerminated {
+            app.forceTerminate()
+        }
+    }
+
     /// Deliberately not `@main`: the real entry point inspects argv first so
     /// `keygen` and friends never reach AppKit. `App` still supplies `main()`,
     /// we just call it at the moment of our choosing.
     static func launch(runtime: BridgeRuntime) -> Never {
+        terminateOtherInstances()
         AppBootstrap.model = AppModel(runtime: runtime)
         HexBridgeApp.main()
         // NSApplication.run() does not return; the compiler cannot know that.

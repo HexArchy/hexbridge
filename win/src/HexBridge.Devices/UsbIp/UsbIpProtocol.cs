@@ -52,6 +52,17 @@ public static class UsbIpProtocol
     public const int BusIdSize = 32;
     public const int PathSize = 256;
 
+    /// <summary><c>struct usbip_iso_packet_descriptor</c>: four big-endian words.</summary>
+    public const int IsoPacketSize = 16;
+
+    /// <summary>
+    /// A ceiling on <c>number_of_packets</c>. One URB covers a few milliseconds of audio and
+    /// a millisecond is eight microframes, so anything near this is already nonsense — but
+    /// without the ceiling a corrupt header would have us allocate whatever it asked for
+    /// before a single descriptor had been read.
+    /// </summary>
+    public const int MaxIsoPackets = 1024;
+
     // URB status codes, as negative Linux errnos — the only dialect vhci understands.
     public const int StatusSuccess = 0;
     public const int StatusStall = -32;        // -EPIPE, "the device refused this request"
@@ -203,6 +214,54 @@ public sealed record UsbIpDeviceInfo
     }
 }
 
+/// <summary>
+/// <c>struct usbip_iso_packet_descriptor</c>: one per microframe, appended to both
+/// CMD_SUBMIT and RET_SUBMIT of an isochronous transfer, after the data.
+///
+/// Isochronous is the one transfer type where a single URB describes many independent
+/// deliveries, and the descriptors are how the two sides agree on which bytes belong to
+/// which microframe. <c>offset</c> and <c>length</c> come from the host and say where in the
+/// transfer buffer this packet lives; <c>actual_length</c> and <c>status</c> come back from
+/// the device and say what really happened to it. A packet that misses its slot is not
+/// retried — that is the whole bargain of isochronous — so a non-zero status is information,
+/// not an error to recover from.
+/// </summary>
+public readonly record struct UsbIpIsoPacket(int Offset, int Length, int ActualLength, int Status)
+{
+    public void Write(Span<byte> dst)
+    {
+        BinaryPrimitives.WriteInt32BigEndian(dst, Offset);
+        BinaryPrimitives.WriteInt32BigEndian(dst[4..], Length);
+        BinaryPrimitives.WriteInt32BigEndian(dst[8..], ActualLength);
+        BinaryPrimitives.WriteInt32BigEndian(dst[12..], Status);
+    }
+
+    public static UsbIpIsoPacket Read(ReadOnlySpan<byte> src) => new(
+        BinaryPrimitives.ReadInt32BigEndian(src),
+        BinaryPrimitives.ReadInt32BigEndian(src[4..]),
+        BinaryPrimitives.ReadInt32BigEndian(src[8..]),
+        BinaryPrimitives.ReadInt32BigEndian(src[12..]));
+
+    /// <summary>Parses <paramref name="count"/> descriptors laid end to end.</summary>
+    public static UsbIpIsoPacket[] ReadAll(ReadOnlySpan<byte> src, int count)
+    {
+        var packets = new UsbIpIsoPacket[count];
+        for (var i = 0; i < count; i++)
+        {
+            packets[i] = Read(src.Slice(i * UsbIpProtocol.IsoPacketSize, UsbIpProtocol.IsoPacketSize));
+        }
+        return packets;
+    }
+
+    public static void WriteAll(Span<byte> dst, IReadOnlyList<UsbIpIsoPacket> packets)
+    {
+        for (var i = 0; i < packets.Count; i++)
+        {
+            packets[i].Write(dst.Slice(i * UsbIpProtocol.IsoPacketSize, UsbIpProtocol.IsoPacketSize));
+        }
+    }
+}
+
 /// <summary>The 20 bytes every URB packet starts with.</summary>
 public readonly record struct UrbHeader(uint Command, uint Seqnum, uint DevId, uint Direction, uint Endpoint)
 {
@@ -237,10 +296,20 @@ public sealed record UsbIpSubmit
     public byte[] Setup { get; init; } = new byte[UsbIpProtocol.SetupSize];
     public byte[] TransferBuffer { get; init; } = [];
 
+    /// <summary>
+    /// The descriptors that followed the data, empty for everything that is not isochronous.
+    /// Read off the socket separately because they come after a payload whose length the
+    /// fixed header is the only place to learn.
+    /// </summary>
+    public IReadOnlyList<UsbIpIsoPacket> IsoPackets { get; init; } = [];
+
     public uint Seqnum => Header.Seqnum;
     public bool IsIn => Header.IsIn;
     public bool IsControl => Header.Endpoint == 0;
     public bool IsIsochronous => NumberOfPackets >= 0;
+
+    /// <summary>Bytes of descriptor that follow the data on the wire.</summary>
+    public int IsoDescriptorBytes => IsIsochronous ? NumberOfPackets * UsbIpProtocol.IsoPacketSize : 0;
 
     /// <summary>Parses the fixed 48 bytes. The OUT data, if any, follows on the socket.</summary>
     public static UsbIpSubmit ReadHeader(ReadOnlySpan<byte> src)
@@ -256,8 +325,12 @@ public sealed record UsbIpSubmit
             TransferBufferLength = BinaryPrimitives.ReadInt32BigEndian(src[24..]),
             StartFrame = BinaryPrimitives.ReadInt32BigEndian(src[28..]),
             // 0xFFFFFFFF is the modern "not isochronous"; a plain 0 means the same from
-            // an older stack, and no real transfer has zero packets.
-            NumberOfPackets = packets is UsbIpProtocol.NonIsochronous or 0 ? -1 : (int)packets,
+            // an older stack, and no real transfer has zero packets. The saturating cast
+            // keeps a nonsense count from wrapping to a negative one, which would read as
+            // "not isochronous" and leave the descriptors sitting unread on the socket.
+            NumberOfPackets = packets is UsbIpProtocol.NonIsochronous or 0
+                ? -1
+                : (int)Math.Min(packets, int.MaxValue),
             Interval = BinaryPrimitives.ReadInt32BigEndian(src[36..]),
             Setup = setup,
         };
@@ -266,7 +339,12 @@ public sealed record UsbIpSubmit
     public byte[] ToArray()
     {
         var payload = IsIn ? Array.Empty<byte>() : TransferBuffer;
-        var bytes = new byte[UsbIpProtocol.UrbHeaderSize + payload.Length];
+        // Header, then the data an OUT transfer carries, then one descriptor per packet.
+        // That order is the specification's and it is also the only one that can be parsed:
+        // the descriptor count is in the header and the data length is in the header too,
+        // so whichever came last would still be findable — but vhci reads them in this one.
+        var bytes = new byte[
+            UsbIpProtocol.UrbHeaderSize + payload.Length + IsoPackets.Count * UsbIpProtocol.IsoPacketSize];
         var span = bytes.AsSpan();
 
         (Header with { Command = UsbIpProtocol.CmdSubmit }).Write(span);
@@ -278,6 +356,7 @@ public sealed record UsbIpSubmit
         BinaryPrimitives.WriteInt32BigEndian(span[36..], Interval);
         Setup.AsSpan(0, Math.Min(Setup.Length, UsbIpProtocol.SetupSize)).CopyTo(span[40..]);
         payload.CopyTo(span[UsbIpProtocol.UrbHeaderSize..]);
+        UsbIpIsoPacket.WriteAll(span[(UsbIpProtocol.UrbHeaderSize + payload.Length)..], IsoPackets);
         return bytes;
     }
 }
@@ -291,6 +370,9 @@ public sealed record UsbIpSubmitReply
     public int NumberOfPackets { get; init; } = -1;
     public int ErrorCount { get; init; }
     public byte[] Data { get; init; } = [];
+
+    /// <summary>One per packet for an isochronous transfer, empty for everything else.</summary>
+    public IReadOnlyList<UsbIpIsoPacket> IsoPackets { get; init; } = [];
 
     /// <summary>Bytes actually transferred. Never more than the request asked for.</summary>
     public int ActualLength { get; init; }
@@ -325,9 +407,60 @@ public sealed record UsbIpSubmitReply
             ActualLength = Math.Clamp(accepted, 0, Math.Max(0, transferBufferLength)),
         };
 
+    /// <summary>
+    /// Completes an isochronous URB.
+    ///
+    /// Three rules hold here and vhci enforces all three. <c>number_of_packets</c> must equal
+    /// what the request asked for — the driver compares it against the URB it still holds and
+    /// tears the session down if they differ, so even a refusal has to carry a full set of
+    /// descriptors. No packet's <c>actual_length</c> may exceed its own <c>length</c>. And the
+    /// total may not exceed <c>transfer_buffer_length</c>, which is issue #187 again: an
+    /// over-long answer is an EOVERFLOW handed to Windows rather than a forgiving host.
+    ///
+    /// Packets are dropped from the tail rather than scaled if the total would not fit. A
+    /// short block of haptics is a moment that felt weaker than it should; a mangled one is a
+    /// crack.
+    /// </summary>
+    public static UsbIpSubmitReply ForIsochronous(
+        uint seqnum,
+        int status,
+        int startFrame,
+        ReadOnlySpan<byte> data,
+        IReadOnlyList<UsbIpIsoPacket> packets,
+        int transferBufferLength)
+    {
+        var limit = Math.Max(0, transferBufferLength);
+        var clamped = new UsbIpIsoPacket[packets.Count];
+        var total = 0;
+        var errors = 0;
+
+        for (var i = 0; i < packets.Count; i++)
+        {
+            var packet = packets[i];
+            var length = Math.Max(0, packet.Length);
+            var actual = Math.Clamp(packet.ActualLength, 0, Math.Min(length, limit - total));
+            total += actual;
+            if (packet.Status != UsbIpProtocol.StatusSuccess) errors++;
+            clamped[i] = packet with { Length = length, ActualLength = actual };
+        }
+
+        return new UsbIpSubmitReply
+        {
+            Seqnum = seqnum,
+            Status = status,
+            StartFrame = startFrame,
+            NumberOfPackets = packets.Count,
+            ErrorCount = errors,
+            ActualLength = total,
+            IsoPackets = clamped,
+            Data = data[..Math.Min(data.Length, total)].ToArray(),
+        };
+    }
+
     public byte[] ToArray()
     {
-        var bytes = new byte[UsbIpProtocol.UrbHeaderSize + Data.Length];
+        var bytes = new byte[
+            UsbIpProtocol.UrbHeaderSize + Data.Length + IsoPackets.Count * UsbIpProtocol.IsoPacketSize];
         var span = bytes.AsSpan();
 
         // devid, direction and ep are zero in every reply: vhci matches on seqnum alone,
@@ -341,22 +474,47 @@ public sealed record UsbIpSubmitReply
         BinaryPrimitives.WriteInt32BigEndian(span[36..], ErrorCount);
         // Bytes 40..47 are padding and must be zero.
         Data.CopyTo(span[UsbIpProtocol.UrbHeaderSize..]);
+        UsbIpIsoPacket.WriteAll(span[(UsbIpProtocol.UrbHeaderSize + Data.Length)..], IsoPackets);
         return bytes;
     }
 
-    /// <summary>Parses the fixed 48 bytes; <paramref name="data"/> is what followed them.</summary>
+    /// <summary>
+    /// Parses the fixed 48 bytes; <paramref name="data"/> is what followed them, descriptors
+    /// included.
+    ///
+    /// The descriptors are the tail of that block, however much payload came before them —
+    /// which is not always <c>actual_length</c>. An isochronous OUT reply reports the bytes
+    /// the device took and sends none of them back, so its descriptors are the whole of what
+    /// followed the header. Reading from the end rather than from the offset is what makes
+    /// one parser right for both directions, since nothing in the reply says which it is.
+    /// </summary>
     public static UsbIpSubmitReply Read(ReadOnlySpan<byte> src, ReadOnlySpan<byte> data)
     {
-        var packets = BinaryPrimitives.ReadUInt32BigEndian(src[32..]);
+        var raw = BinaryPrimitives.ReadUInt32BigEndian(src[32..]);
+        var count = raw is UsbIpProtocol.NonIsochronous or 0
+            ? -1
+            : (int)Math.Min(raw, int.MaxValue);
+        var actual = BinaryPrimitives.ReadInt32BigEndian(src[24..]);
+
+        var descriptors = Array.Empty<UsbIpIsoPacket>();
+        var payload = data;
+        var descriptorBytes = count > 0 ? count * UsbIpProtocol.IsoPacketSize : 0;
+        if (descriptorBytes > 0 && data.Length >= descriptorBytes)
+        {
+            descriptors = UsbIpIsoPacket.ReadAll(data[^descriptorBytes..], count);
+            payload = data[..^descriptorBytes];
+        }
+
         return new UsbIpSubmitReply
         {
             Seqnum = BinaryPrimitives.ReadUInt32BigEndian(src[4..]),
             Status = BinaryPrimitives.ReadInt32BigEndian(src[20..]),
-            ActualLength = BinaryPrimitives.ReadInt32BigEndian(src[24..]),
+            ActualLength = actual,
             StartFrame = BinaryPrimitives.ReadInt32BigEndian(src[28..]),
-            NumberOfPackets = packets is UsbIpProtocol.NonIsochronous or 0 ? -1 : (int)packets,
+            NumberOfPackets = count,
             ErrorCount = BinaryPrimitives.ReadInt32BigEndian(src[36..]),
-            Data = data.ToArray(),
+            IsoPackets = descriptors,
+            Data = payload.ToArray(),
         };
     }
 }

@@ -2,42 +2,21 @@ import SwiftUI
 
 /// The clipboard block inside the menu bar popover.
 ///
-/// One line of what happened last, a progress bar only while something is
-/// actually moving, and the switch's counterpart action. A feature whose whole
-/// job is invisible needs exactly one thing on screen: proof it is working.
+/// A feature whose whole job is to be invisible has nothing to show while it is
+/// working: the row above says so in one word, and counters of objects sent and
+/// received are not why anybody opened the menu bar. The only thing that earns
+/// a pixel here is a transfer in progress — a 12 MB screenshot takes long
+/// enough that the silence would read as a failure.
 struct ClipboardCard: View {
     @Bindable var feature: ClipboardFeature
 
     @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.sm) {
-            if let flight = feature.flight {
-                ProgressView(value: flight.fraction)
-                    .progressViewStyle(.linear)
-                    .tint(palette.okFg)
-            }
-
-            if !feature.status.detail.isEmpty {
-                Text(feature.status.detail)
-                    .font(.dsCaption)
-                    .foregroundStyle(feature.status.tone.text(palette))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let alert = feature.status.alert, feature.status.state == .error {
-                InlineAlert(text: alert, tone: .bad)
-            }
-
-            Text("отправлено \(feature.sent) · принято \(feature.received)")
-                .font(.dsCaption.monospacedDigit())
-                .foregroundStyle(palette.textDim)
-
-            if let action = feature.status.primaryAction {
-                Button(action.title, action: action.perform)
-                    .buttonStyle(.dsSecondary)
-                    .frame(maxWidth: .infinity)
-            }
+        if let flight = feature.flight {
+            ProgressView(value: flight.fraction)
+                .progressViewStyle(.linear)
+                .tint(palette.okFg)
         }
     }
 }
@@ -51,29 +30,29 @@ struct ClipboardSettingsPane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.lg) {
+                // §6.1: one action per screen. «Выключить общий буфер» is what
+                // the switch in «Основное» does, so it is not offered again
+                // here — and when the feature is off, the empty state below is
+                // the one place that offers to turn it on.
                 StatusCard(status: feature.status) {
-                    if let action = feature.status.primaryAction {
+                    if let action = feature.status.primaryAction, !Wording.duplicatesSwitch(action.title) {
                         Button(action.title, action: action.perform)
                             .buttonStyle(.dsSecondary)
                             .fixedSize()
                     }
                 }
 
-                if feature.isEnabled {
-                    privacy
-                }
-
                 if !feature.isEnabled {
                     EmptyState(
                         symbolName: "doc.on.clipboard",
                         title: "Общий буфер выключен",
-                        text: "Пока фича выключена, скопированное на этом Mac никуда не уходит. Включите её, если хотите переносить текст и картинки между машинами одним Cmd-C.",
+                        text: "Скопированное на этом Mac никуда не уходит.",
                         action: FeatureAction(title: "Включить общий буфер") { feature.isEnabled = true }
                     )
                 } else {
+                    privacy
                     transfer
                     telemetry
-                    formats
                 }
             }
             .padding(Space.xl)
@@ -86,35 +65,32 @@ struct ClipboardSettingsPane: View {
     /// have to remember what they agreed to.
     private var privacy: some View {
         InlineAlert(
-            text: "Всё, что вы копируете на любой из двух машин, отправляется на другую — включая пароли, если они окажутся в буфере. Канал шифруется тем же ключом, что и звук, но содержимое буфера покидает этот Mac.",
+            text: "Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG.",
             tone: .warn
         )
     }
 
+    /// The bar, and only the bar. What is moving and which way is already the
+    /// status card's headline right above it — a card that said it again under
+    /// a heading of its own was the same sentence twice on one screen.
     @ViewBuilder
     private var transfer: some View {
         if let flight = feature.flight {
-            VStack(alignment: .leading, spacing: Space.sm) {
-                SectionLabel(text: "Сейчас передаётся")
-                Card(padding: Space.md) {
-                    VStack(alignment: .leading, spacing: Space.sm) {
-                        Text(flight.direction == .outgoing
-                             ? "Отправляем: \(flight.description)"
-                             : "Принимаем: \(flight.description)")
-                            .font(.dsLabel)
-                            .foregroundStyle(palette.text)
-                        ProgressView(value: flight.fraction)
-                            .progressViewStyle(.linear)
-                            .tint(palette.okFg)
-                        Text("\(flight.chunksDone) из \(flight.chunkCount) блоков")
-                            .font(.dsCaption.monospacedDigit())
-                            .foregroundStyle(palette.textDim)
-                    }
+            Card(padding: Space.md) {
+                VStack(alignment: .leading, spacing: Space.sm) {
+                    ProgressView(value: flight.fraction)
+                        .progressViewStyle(.linear)
+                        .tint(palette.okFg)
+                    Text("\(flight.chunksDone) из \(flight.chunkCount) блоков")
+                        .font(.dsCaption.monospacedDigit())
+                        .foregroundStyle(palette.textDim)
                 }
             }
         }
     }
 
+    /// What crossed last, which is the only proof an invisible feature can
+    /// offer. Three tiles and one line: what it was and which way it went.
     private var telemetry: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
             SectionLabel(text: "Последняя передача")
@@ -123,39 +99,17 @@ struct ClipboardSettingsPane: View {
                 MetricTile(caption: "принято", value: "\(feature.received)")
                 MetricTile(caption: "когда", value: feature.lastWhenText)
             }
-            Card(padding: Space.md) {
-                VStack(alignment: .leading, spacing: Space.sm) {
-                    LabeledContent("Что") {
-                        Text(feature.lastDescription ?? "—")
-                            .font(.dsLabel)
-                            .foregroundStyle(palette.text)
-                    }
-                    LabeledContent("Куда") {
-                        Text(feature.lastDirectionText)
-                            .font(.dsLabel)
-                            .foregroundStyle(palette.text)
-                    }
-                }
-                .font(.dsLabel)
-                .foregroundStyle(palette.textDim)
-            }
-            Text("Здесь показывается только вид и размер объекта — само содержимое буфера нигде не записывается.")
+            Text(lastLine)
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var formats: some View {
-        VStack(alignment: .leading, spacing: Space.sm) {
-            SectionLabel(text: "Что передаётся")
-            Card(padding: Space.md) {
-                VStack(alignment: .leading, spacing: Space.sm) {
-                    CheckRow(title: "Текст", detail: "UTF-8, целиком", state: .ok)
-                    CheckRow(title: "Картинки", detail: "PNG, до 16 МиБ", state: .ok)
-                    CheckRow(title: "Файлы и всё остальное", detail: "не передаётся", state: .pending)
-                }
-            }
+    private var lastLine: String {
+        guard let description = feature.lastDescription else {
+            return "Пока ничего не передавалось. Записывается вид и размер объекта, не содержимое."
         }
+        return "\(description) — \(feature.lastDirectionText). Записывается вид и размер объекта, не содержимое."
     }
 }

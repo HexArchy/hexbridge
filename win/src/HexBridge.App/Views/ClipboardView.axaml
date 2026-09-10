@@ -22,27 +22,26 @@
         tab a month later should not have to remember what they agreed to: the clipboard is
         where passwords live, and the honest sentence belongs where the feature is watched.
       -->
+      <!-- The honest sentence, not a reassuring one, and one sentence of it:
+           the clipboard is where passwords spend the seconds between a manager
+           and a login form, and that is the whole of what somebody needs to
+           know before switching this on. -->
       <Border CornerRadius="8" Padding="14,12"
               Background="{DynamicResource WarnBg}"
               BorderBrush="{DynamicResource WarnBorder}"
               BorderThickness="1"
               IsVisible="{Binding IsOn}">
-        <StackPanel Spacing="6">
-          <TextBlock Classes="section" Text="СОДЕРЖИМОЕ УХОДИТ НА MAC" />
-          <TextBlock Classes="body" TextWrapping="Wrap"
-                     Text="Всё, что копируется на любой из двух машин, отправляется на другую — включая пароли, если они окажутся в буфере. Канал шифруется тем же ключом, что и звук. Передаются только текст и картинки PNG." />
-        </StackPanel>
+        <TextBlock Classes="body" TextWrapping="Wrap"
+                   Text="Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG." />
       </Border>
 
-      <Border Classes="card" IsVisible="{Binding IsTransferring}">
-        <StackPanel Spacing="10">
-          <TextBlock Classes="section" Text="СЕЙЧАС ПЕРЕДАЁТСЯ" />
-          <TextBlock Classes="body" Text="{Binding TransferText}" />
-          <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" Height="6" />
-        </StackPanel>
-      </Border>
+      <!-- The bar only. What is moving and which way is the headline above it. -->
+      <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" Height="6"
+                   IsVisible="{Binding IsTransferring}" />
 
-      <UniformGrid Columns="2">
+      <!-- Counters of nothing, under a heading, are three rows of «—». While
+           the feature is off the status card is the whole page. -->
+      <UniformGrid Columns="2" IsVisible="{Binding IsOn}">
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Отправлено объектов" />
@@ -57,7 +56,7 @@
         </Border>
       </UniformGrid>
 
-      <Border Classes="card">
+      <Border Classes="card" IsVisible="{Binding IsOn}">
         <StackPanel Spacing="12">
           <TextBlock Classes="section" Text="ПОСЛЕДНЯЯ ПЕРЕДАЧА" />
           <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto">
@@ -68,8 +67,8 @@
             <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Когда" />
             <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding LastWhenText}" />
           </Grid>
-          <TextBlock Classes="caption"
-                     Text="Здесь показывается только вид и размер объекта — само содержимое буфера нигде не записывается." />
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="Записывается вид и размер объекта, не содержимое." />
         </StackPanel>
       </Border>
 

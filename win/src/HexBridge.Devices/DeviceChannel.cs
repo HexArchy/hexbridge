@@ -35,6 +35,16 @@ public sealed record DeviceAttach(byte Device, IReadOnlyList<DescriptorBlock> Bl
 public readonly record struct DeviceInput(byte Device, uint Index, byte[] Report);
 
 /// <summary>
+/// One block of HD haptics: 5 ms of interleaved S16LE PCM for the voice-coil actuators.
+///
+/// <see cref="Index"/> counts blocks rather than packets, and it counts the ones that were
+/// never sent as well. A run of silence is skipped on the wire, so the gap the Mac sees in
+/// the numbering is what tells it how long that silence was — the same arithmetic that turns
+/// a lost block into the right amount of nothing.
+/// </summary>
+public readonly record struct HapticBlock(byte Device, byte Channels, uint Index, byte[] Pcm);
+
+/// <summary>
 /// Codecs for the device channel payloads. Byte-for-byte the layouts in docs/PROTOCOL.md,
 /// with no I/O anywhere near them so a test can drive every branch.
 /// </summary>
@@ -141,5 +151,44 @@ public static class DeviceChannel
     {
         device = payload.Length >= 1 ? payload[0] : (byte)0;
         return payload.Length >= 1;
+    }
+
+    // MARK: - Haptics
+
+    /// <summary>Bytes before the PCM: device, channel count, block number.</summary>
+    public const int HapticHeaderSize = 6;
+
+    /// <summary>
+    /// HAPTIC: the device, how many channels are interleaved in this block, the block number,
+    /// then the samples.
+    /// </summary>
+    public static byte[] WriteHaptic(byte device, byte channels, uint index, ReadOnlySpan<byte> pcm)
+    {
+        var bytes = new byte[HapticHeaderSize + pcm.Length];
+        bytes[0] = device;
+        bytes[1] = channels;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(2), index);
+        pcm.CopyTo(bytes.AsSpan(HapticHeaderSize));
+        return bytes;
+    }
+
+    public static bool TryReadHaptic(ReadOnlySpan<byte> payload, out HapticBlock block)
+    {
+        block = default;
+        if (payload.Length < HapticHeaderSize) return false;
+
+        var channels = payload[1];
+        // A block that does not divide into whole frames is a block we would have to guess
+        // at, and a guess here is a click in somebody's hand.
+        if (channels is 0 or > 8) return false;
+        var pcm = payload[HapticHeaderSize..];
+        if (pcm.Length % (channels * 2) != 0) return false;
+
+        block = new HapticBlock(
+            payload[0],
+            channels,
+            BinaryPrimitives.ReadUInt32LittleEndian(payload[2..]),
+            pcm.ToArray());
+        return true;
     }
 }

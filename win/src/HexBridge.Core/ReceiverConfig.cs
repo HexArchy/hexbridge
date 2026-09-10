@@ -37,6 +37,20 @@ public sealed class ReceiverConfig
     public bool Clipboard { get; set; }
 
     /// <summary>
+    /// HD haptics: serve the controller's audio function alongside its HID interface, so the
+    /// PCM a game writes to the voice-coil actuators reaches the Mac.
+    ///
+    /// Off in a fresh config, and separate from <see cref="Gamepad"/> on purpose. Adaptive
+    /// triggers, rumble and lighting travel as HID output reports and need none of this;
+    /// haptics need an isochronous endpoint, which means presenting a composite device, which
+    /// means Windows loading usbaudio.sys on top of usbip-win2's vhci. That driver has an open
+    /// bug in the lifetime of a request on exactly that path — issue #181, a bugcheck when an
+    /// audio pin is closed. Anyone who hits it has to be able to keep the controller and drop
+    /// the haptics, and with this off not one byte of the audio path is reachable.
+    /// </summary>
+    public bool Haptics { get; set; }
+
+    /// <summary>
     /// Where the USB/IP server listens. usbip-win2 dials 3240 by default and the vhci
     /// driver runs on this machine, so there is no reason to open this beyond loopback.
     /// </summary>

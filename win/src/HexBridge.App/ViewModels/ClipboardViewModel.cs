@@ -10,7 +10,7 @@ namespace HexBridge.App.ViewModels;
 public sealed partial class ClipboardViewModel : ObservableObject
 {
     [ObservableProperty] private string _headline = "Общий буфер выключен";
-    [ObservableProperty] private string _subline = "Включите общий буфер обмена в настройках";
+    [ObservableProperty] private string _subline = "Включите его в настройках";
 
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
@@ -36,7 +36,7 @@ public sealed partial class ClipboardViewModel : ObservableObject
         if (state is null)
         {
             Headline = "Общий буфер выключен";
-            Subline = "Включите общий буфер обмена в настройках и перезапустите приём";
+            Subline = "Включите его в настройках";
             IsGood = IsWaiting = IsBad = IsOn = IsTransferring = false;
             LastText = LastDirectionText = LastWhenText = "—";
             SentText = ReceivedText = "0";

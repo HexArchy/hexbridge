@@ -20,11 +20,8 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
     public byte Number { get; }
 
     [ObservableProperty] private string _title = "—";
-    [ObservableProperty] private string _identityText = "—";
-    [ObservableProperty] private string _busIdText = "—";
     [ObservableProperty] private string _kindText = "—";
     [ObservableProperty] private string _stateText = "—";
-    [ObservableProperty] private string _portText = "—";
 
     [ObservableProperty] private string _rateText = "—";
     [ObservableProperty] private string _batteryText = "—";
@@ -40,6 +37,9 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _canVisualise;
     [ObservableProperty] private bool _showsSummary = true;
+
+    /// <summary>Windows has the device. The manual attach command is offered only when it does not.</summary>
+    [ObservableProperty] private bool _isImported;
 
     /// <summary>
     /// Live input for the visualisation (§8). A reference to the publisher rather than a
@@ -63,11 +63,8 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
     public void Apply(ForwardedDeviceState device, string serverListen)
     {
         Title = device.Product;
-        IdentityText = device.Identity;
-        BusIdText = device.BusId;
         KindText = device.ProfileName ?? "HID-устройство";
-        StateText = device.Imported ? "подключено к Windows" : "собрано, ждёт vhci";
-        PortText = device.VhciPort is { } port ? $"порт {port}" : "—";
+        StateText = device.Imported ? "Windows видит устройство" : "готово, Windows его ещё не забрала";
 
         RateText = $"{device.ReportsPerSecond:F0} отч/с";
         BatteryText = device.Battery ?? "—";
@@ -78,13 +75,14 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
 
         CanVisualise = device.CanVisualise;
         ShowsSummary = !device.CanVisualise;
+        IsImported = device.Imported;
         Input = device.CanVisualise ? device.Input : null;
         Mood = !device.CanVisualise ? PadMood.Inactive
             : device.Imported ? PadMood.Forwarding
             : PadMood.Reading;
         VisualCaption = device.Imported
-            ? $"{device.Product} — проброшен, {device.ReportsPerSecond:F0} отч/с"
-            : $"{device.Product} — собран, Windows его пока не видит";
+            ? $"{device.Product} — Windows видит его, {device.ReportsPerSecond:F0} отч/с"
+            : $"{device.Product} — Windows его пока не видит";
 
         AttachCommand =
             $"usbip.exe attach --receive-mode=low-latency -r {DevicesViewModel.Host(serverListen)} -b {device.BusId}";
@@ -98,21 +96,19 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
 public sealed partial class DevicesViewModel : ObservableObject
 {
     [ObservableProperty] private string _headline = "Проброс выключен";
-    [ObservableProperty] private string _subline = "Включите проброс устройств в настройках";
+    [ObservableProperty] private string _subline = "Включите приём устройств в настройках";
 
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
     [ObservableProperty] private bool _isBad;
 
-    // Driver.
-    [ObservableProperty] private bool _driverInstalled;
+    // Driver. Only the missing case reaches the screen; the path to usbip.exe is
+    // a setting and is shown on the settings page.
     [ObservableProperty] private bool _driverMissing;
-    [ObservableProperty] private string _driverText = "—";
     [ObservableProperty] private string _driverHint = UsbIpAttacher.InstallHint;
 
-    // Forwarding.
-    [ObservableProperty] private string _serverText = "—";
-    [ObservableProperty] private string _clientText = "нет";
+    // Forwarding. The USB/IP server address and the client state left the page:
+    // they describe the plumbing, and every device card says what it is doing.
     [ObservableProperty] private string _slotsText = "—";
     [ObservableProperty] private bool _hasDevices;
 
@@ -124,11 +120,11 @@ public sealed partial class DevicesViewModel : ObservableObject
         if (s is null)
         {
             Headline = "Проброс выключен";
-            Subline = "Включите проброс устройств в настройках и перезапустите приём";
+            Subline = "Включите приём устройств в настройках";
             IsGood = IsWaiting = IsBad = false;
             Devices.Clear();
             HasDevices = false;
-            SlotsText = "—";
+            SlotsText = "0 из 4";
             return;
         }
 
@@ -138,15 +134,9 @@ public sealed partial class DevicesViewModel : ObservableObject
         IsWaiting = s.Status is FeatureStatus.Waiting or FeatureStatus.Warning;
         IsBad = s.Status is FeatureStatus.Failed;
 
-        DriverInstalled = s.DriverInstalled;
         DriverMissing = !s.DriverInstalled;
-        DriverText = s.DriverPath ?? "не найден";
         DriverHint = s.DriverHint;
 
-        ServerText = string.IsNullOrEmpty(s.ServerListen) ? "—" : s.ServerListen;
-        ClientText = s.Devices.Any(d => d.Imported) ? "подключён, устройства импортированы"
-            : s.ClientConnected ? "подключён"
-            : "нет";
         SlotsText = $"{s.Devices.Count} из {s.MaxDevices}";
 
         Reconcile(s);

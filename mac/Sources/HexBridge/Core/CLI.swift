@@ -62,6 +62,7 @@ enum CLI {
       hexbridge devices list         показать подключённые HID-устройства
       hexbridge devices probe        полная диагностика: чтение, запись, дескрипторы
       hexbridge devices monitor      живое состояние устройства, Ctrl-C для выхода
+      hexbridge devices haptics      проиграть PCM в актуаторы и проверить их гироскопом
                                      (gamepad — синоним devices, сохранён для старых скриптов)
       hexbridge init --target HOST:PORT --psk KEY
                                      записать конфиг и выйти
@@ -147,8 +148,10 @@ enum CLI {
             DeviceProbe.list { print($0) }
         case "monitor":
             DeviceProbe.monitor(selector: selector) { print($0) }
+        case "haptics":
+            DeviceProbe.haptics(selector: selector) { print($0) }
         case nil:
-            fail("укажите действие: \(args.subcommand ?? "devices") list | probe | monitor")
+            fail("укажите действие: \(args.subcommand ?? "devices") list | probe | monitor | haptics")
         case let other?:
             fail("неизвестное действие: \(args.subcommand ?? "devices") \(other)")
         }
