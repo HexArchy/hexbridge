@@ -12,7 +12,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $source = $PSScriptRoot
-$taskName = "HexBridge Receiver"
+# Обе: вторая — имя задачи из установок под прежним названием проекта.
+$taskNames = @("HexBridge Receiver", "MicBridge Receiver")
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 
 function Say($text) { Write-Host "==> $text" -ForegroundColor Cyan }
@@ -27,7 +28,9 @@ if (-not (Test-Path (Join-Path $source "HexBridge.exe"))) {
 
 Say "останавливаю запущенное"
 
-if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+foreach ($taskName in $taskNames) {
+    if (-not (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) { continue }
+
     Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($KeepConsoleTask) {
         Warn "задача «$taskName» оставлена, но остановлена (-KeepConsoleTask)"
@@ -37,8 +40,11 @@ if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
     }
 }
 
-Get-Process -Name "HexBridge", "HexBridge.Receiver" -ErrorAction SilentlyContinue |
-    Stop-Process -Force -ErrorAction SilentlyContinue
+# MicBridge — прежнее имя проекта. Установки той поры надо убрать явно, иначе
+# останется висеть запись автозапуска, указывающая на удалённый файл.
+Get-Process -Name "HexBridge", "HexBridge.Receiver", "MicBridge", "MicBridge.Receiver" `
+    -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path $runKey -Name "MicBridge" -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 700
 
 # ── 2. Забрать существующий config.json ───────────────────────────────────────
@@ -46,10 +52,15 @@ Start-Sleep -Milliseconds 700
 
 $newConfig = Join-Path $source "config.json"
 $oldConfig = $null
+# Пути с MicBridge — прежнее имя проекта. Установка тех времён несёт рабочий ключ,
+# и потерять его значит разорвать уже настроенную связь с Mac.
 foreach ($candidate in @(
     (Join-Path $InstallDir "config.json"),
+    "$env:LOCALAPPDATA\MicBridge\config.json",
     "C:\HexBridge-Windows\config.json",
-    "C:\HexBridge\config.json"
+    "C:\MicBridge-Windows\config.json",
+    "C:\HexBridge\config.json",
+    "C:\MicBridge\config.json"
 )) {
     if (Test-Path $candidate) { $oldConfig = $candidate; break }
 }

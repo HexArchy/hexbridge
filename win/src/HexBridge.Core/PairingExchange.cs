@@ -226,11 +226,25 @@ public sealed class PairingExchangeServer : IAsyncDisposable
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
 
         await using var stream = client.GetStream();
-        var requestLine = await ReadRequestLineAsync(stream, timeout.Token);
+        var requestLine = await ReadRequestAsync(stream, timeout.Token);
         var answer = PairingExchangeProtocol.Answer(requestLine, Code, Uri);
 
         await stream.WriteAsync(PairingExchangeProtocol.Render(answer), timeout.Token);
         await stream.FlushAsync(timeout.Token);
+
+        // Close the sending half explicitly and let the peer see EOF. Closing the whole
+        // socket outright is what Windows turns into an RST when anything is still sitting
+        // unread in the receive queue, and an RST throws away the response we just wrote —
+        // the client then fails with WSAECONNRESET instead of reading it. macOS is forgiving
+        // here, so this only ever showed up on the target platform.
+        try
+        {
+            client.Client.Shutdown(SocketShutdown.Send);
+        }
+        catch (SocketException)
+        {
+            // The peer may already be gone; the answer was still delivered.
+        }
 
         if (answer.IsGranted)
         {
@@ -244,20 +258,48 @@ public sealed class PairingExchangeServer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Reads just the first line. The headers after it are of no interest, and refusing to
-    /// buffer them means a client cannot make this process hold an unbounded string.
+    /// Returns the request line and consumes the headers that follow it.
+    ///
+    /// Only the first line carries meaning, but the rest still has to leave the receive
+    /// queue: data left unread there is exactly what makes Windows reset the connection on
+    /// close. The headers are counted rather than kept, so a client cannot make this process
+    /// hold an unbounded string.
     /// </summary>
-    private static async Task<string> ReadRequestLineAsync(Stream stream, CancellationToken token)
+    private static async Task<string> ReadRequestAsync(Stream stream, CancellationToken token)
     {
         var builder = new StringBuilder(128);
         var buffer = new byte[1];
-        while (builder.Length < 2048)
+        var consumed = 0;
+        var blankRun = 0;
+        var inRequestLine = true;
+
+        while (consumed < 8192)
         {
             var read = await stream.ReadAsync(buffer, token);
             if (read == 0) break;
-            if (buffer[0] == '\n') break;
-            if (buffer[0] != '\r') builder.Append((char)buffer[0]);
+            consumed++;
+
+            var c = (char)buffer[0];
+            if (c == '\r') continue;
+
+            if (c == '\n')
+            {
+                if (inRequestLine)
+                {
+                    inRequestLine = false;
+                    blankRun = 1;
+                    continue;
+                }
+
+                // A second newline in a row ends the header block.
+                if (++blankRun >= 2) break;
+                continue;
+            }
+
+            blankRun = 0;
+            if (inRequestLine && builder.Length < 2048) builder.Append(c);
         }
+
         return builder.ToString();
     }
 
