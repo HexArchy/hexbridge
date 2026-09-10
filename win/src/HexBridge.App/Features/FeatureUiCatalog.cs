@@ -1,5 +1,6 @@
 using HexBridge.App.ViewModels;
-using HexBridge.DualSense;
+using HexBridge.Clipboard;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 
 namespace HexBridge.App.Features;
@@ -14,7 +15,8 @@ public static class FeatureUiCatalog
     private static readonly Func<IFeatureUiModule>[] Factories =
     [
         () => new MicrophoneUiModule(),
-        () => new DualSenseUiModule(),
+        () => new DevicesUiModule(),
+        () => new ClipboardUiModule(),
     ];
 
     /// <summary>
@@ -55,15 +57,28 @@ public sealed class MicrophoneUiModule : IFeatureUiModule
     public void Reset() => Quality.Reset();
 }
 
-/// <summary>The gamepad's single page: driver, forwarding and controller.</summary>
-public sealed class DualSenseUiModule : IFeatureUiModule
+/// <summary>The passthrough's single page: driver, forwarding and one card per device.</summary>
+public sealed class DevicesUiModule : IFeatureUiModule
 {
-    public string FeatureId => "dualsense";
+    public string FeatureId => "devices";
 
-    public DualSenseViewModel Gamepad { get; } = new();
+    public DevicesViewModel Devices { get; } = new();
 
-    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("DualSense", Gamepad)];
+    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Устройства", Devices)];
 
     public void Apply(ReceiverSnapshot snapshot) =>
-        Gamepad.Apply(snapshot.Feature<DualSenseState>(FeatureId));
+        Devices.Apply(snapshot.Feature<DevicesState>(FeatureId));
+}
+
+/// <summary>The clipboard's single page: what it is, what it costs, and what crossed last.</summary>
+public sealed class ClipboardUiModule : IFeatureUiModule
+{
+    public string FeatureId => "clipboard";
+
+    public ClipboardViewModel Clipboard { get; } = new();
+
+    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Буфер обмена", Clipboard)];
+
+    public void Apply(ReceiverSnapshot snapshot) =>
+        Clipboard.Apply(snapshot.Feature<ClipboardState>(FeatureId));
 }

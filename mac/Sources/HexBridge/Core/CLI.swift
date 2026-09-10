@@ -51,7 +51,7 @@ enum KeyFactory {
 
 enum CLI {
     static let usage = """
-    hexbridge — пробрасывает микрофон и DualSense с Mac на игровой ПК с Windows.
+    hexbridge — пробрасывает микрофон и USB-устройства с Mac на игровой ПК с Windows.
 
     Использование:
       hexbridge [флаги]              запустить передачу (меню-бар + UI)
@@ -59,9 +59,10 @@ enum CLI {
       hexbridge list-devices         показать устройства ввода
       hexbridge keygen               сгенерировать общий ключ (PSK)
       hexbridge probe                проверить, что микрофон реально захватывается
-      hexbridge gamepad list         показать подключённые DualSense
-      hexbridge gamepad probe        полная диагностика DualSense: чтение, запись, дескрипторы
-      hexbridge gamepad monitor      живое состояние контроллера, Ctrl-C для выхода
+      hexbridge devices list         показать подключённые HID-устройства
+      hexbridge devices probe        полная диагностика: чтение, запись, дескрипторы
+      hexbridge devices monitor      живое состояние устройства, Ctrl-C для выхода
+                                     (gamepad — синоним devices, сохранён для старых скриптов)
       hexbridge init --target HOST:PORT --psk KEY
                                      записать конфиг и выйти
 
@@ -74,7 +75,12 @@ enum CLI {
       --gain F        программное усиление, 1.0 — без изменений
       --loss N        ожидаемые потери в процентах для FEC (по умолчанию 10)
       --name S        имя узла в логах приёмника
-      --gamepad       пробрасывать DualSense на приёмник (по умолчанию выключено)
+      --gamepad       включить проброс устройств (по умолчанию выключено)
+      --forward LIST  что пробрасывать: VID:PID через запятую, до четырёх.
+                      По умолчанию не пробрасывается ничего — устройство
+                      остаётся подключённым и к Mac, поэтому клавиатура
+                      печатала бы сразу на двух машинах.
+      --hid SEL       для devices probe/monitor: VID:PID или часть имени
       --headless      не поднимать интерфейс, только передача и лог в stdout
       --quiet         не печатать строку статистики раз в 5 секунд
 
@@ -119,8 +125,8 @@ enum CLI {
             }
             exit(0)
 
-        case "gamepad":
-            runGamepad(args)
+        case "gamepad", "devices":
+            runDevices(args)
             exit(0)
 
         default:
@@ -128,20 +134,23 @@ enum CLI {
         }
     }
 
-    /// `gamepad …` is the only two-word subcommand. It stays here with the other
-    /// early exits because it must not drag AppKit in: probing over ssh has to work.
-    private static func runGamepad(_ args: Arguments) {
+    /// `devices …` is the only two-word subcommand. It stays here with the other
+    /// early exits because it must not drag AppKit in: probing over ssh has to
+    /// work. `gamepad` is kept as a synonym: it is in scripts and in muscle
+    /// memory, and breaking it would buy nothing.
+    private static func runDevices(_ args: Arguments) {
+        let selector = args.value("hid")
         switch args.object {
         case "probe":
-            GamepadProbe.run { print($0) }
+            DeviceProbe.run(selector: selector) { print($0) }
         case "list":
-            GamepadProbe.list { print($0) }
+            DeviceProbe.list { print($0) }
         case "monitor":
-            GamepadProbe.monitor { print($0) }
+            DeviceProbe.monitor(selector: selector) { print($0) }
         case nil:
-            fail("укажите действие: gamepad list | probe | monitor")
+            fail("укажите действие: \(args.subcommand ?? "devices") list | probe | monitor")
         case let other?:
-            fail("неизвестное действие: gamepad \(other)")
+            fail("неизвестное действие: \(args.subcommand ?? "devices") \(other)")
         }
     }
 
@@ -160,6 +169,15 @@ enum CLI {
         if let value = args.value("name") { config.name = value }
         if args.has("gamepad") { config.gamepad = true }
         if args.has("no-gamepad") { config.gamepad = false }
+        if let list = args.value("forward") {
+            // An explicit empty list is a legitimate way to say "forward
+            // nothing", and it must be distinguishable from "never chosen".
+            config.forwardedDevices = list
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .compactMap { DeviceIdentity($0)?.description }
+        }
         return (config, path)
     }
 

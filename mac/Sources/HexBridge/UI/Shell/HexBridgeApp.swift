@@ -39,11 +39,12 @@ struct HexBridgeApp: App {
         // that type, not on `Scene`. Verified working on macOS 26.6.2 with
         // MenuBarExtraAccess 1.3.1; see mac/docs/STAGE-MINUS-1.md.
         .menuBarExtraAccess(isPresented: $popoverPresented) { statusItem in
+            // Nothing here may write back to the status item. This closure runs
+            // from MenuBarExtraAccess's own KVO observer, so assigning
+            // `isVisible` re-triggers the observer, which re-runs this closure —
+            // a render loop that cost ~22% CPU permanently and made the popover
+            // visibly laggy to open.
             captureActions()
-            // §7.1: an LSUIElement app is terminated by the system when the
-            // user drags the icon out of the menu bar. Noticing it here is the
-            // only chance to say something first.
-            statusItem.isVisible = true
         }
         .menuBarExtraStyle(.window)
 

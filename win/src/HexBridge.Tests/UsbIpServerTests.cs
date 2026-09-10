@@ -1,6 +1,6 @@
 using System.Net;
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.Tests;
 
@@ -12,13 +12,13 @@ namespace HexBridge.Tests;
 public class UsbIpServerTests : IAsyncLifetime
 {
     private readonly List<byte[]> _outputReports = [];
-    private VirtualDualSense _device = null!;
+    private VirtualHidDevice _device = null!;
     private UsbIpServer _server = null!;
 
     public Task InitializeAsync()
     {
         _device = TestDevices.Device(_outputReports.Add);
-        _server = new UsbIpServer(() => _device, (_, _) => { });
+        _server = new UsbIpServer(() => [_device], (_, _) => { });
         _server.Start(new IPEndPoint(IPAddress.Loopback, 0));
         return Task.CompletedTask;
     }
@@ -67,7 +67,7 @@ public class UsbIpServerTests : IAsyncLifetime
     [Fact]
     public async Task DeviceListIsEmptyWhileNoControllerIsAttached()
     {
-        await using var empty = new UsbIpServer(() => null, (_, _) => { });
+        await using var empty = new UsbIpServer(() => [], (_, _) => { });
         empty.Start(new IPEndPoint(IPAddress.Loopback, 0));
 
         await using var client = await UsbIpTestClient.ConnectAsync(empty.LocalEndPoint!);

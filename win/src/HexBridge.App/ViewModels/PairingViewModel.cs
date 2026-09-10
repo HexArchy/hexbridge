@@ -4,7 +4,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 using Net.Codecrete.QrCodeGenerator;
 
@@ -169,7 +169,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         Checks.Add(new CheckItem(3, "Ключи совпадают"));
         Checks.Add(new CheckItem(4, "Приёмник нашёл аудиоустройство"));
         Checks.Add(new CheckItem(5, "Звук проходит насквозь"));
-        Checks.Add(new CheckItem(6, "Контроллер"));
+        Checks.Add(new CheckItem(6, "Проброшенные устройства"));
     }
 
     // MARK: - Step bookkeeping
@@ -477,10 +477,10 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
             await RunSoundCheckAsync(token);
 
-            var pad = _snapshot.Feature<DualSenseState>("dualsense");
+            var devices = _snapshot.Feature<DevicesState>("devices");
             await Advance(Checks[5],
-                () => PairingChecks.Controller(config.Gamepad, pad?.DriverInstalled ?? false,
-                    pad?.Attached ?? false, pad?.Product), gap, token);
+                () => PairingChecks.Controller(config.Gamepad, devices?.DriverInstalled ?? false,
+                    devices?.Attached ?? false, Named(devices)), gap, token);
 
             Conclude();
         }
@@ -494,6 +494,13 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
             _checks?.Dispose();
             _checks = null;
         }
+    }
+
+    /// <summary>Every forwarded device on one line, or null when there are none.</summary>
+    private static string? Named(DevicesState? devices)
+    {
+        if (devices is null || devices.Devices.Count == 0) return null;
+        return string.Join(", ", devices.Devices.Select(d => d.Product));
     }
 
     private static async Task Advance(CheckItem item, Func<CheckOutcome> evaluate, TimeSpan gap, CancellationToken token)

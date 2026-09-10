@@ -1,5 +1,5 @@
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.Tests;
 
@@ -19,14 +19,18 @@ public static class TestDevices
     public const int InputReportLength = 64;
     public const int OutputReportLength = 48;
 
-    public static byte[] DeviceDescriptor() =>
+    /// <summary>A wheel-shaped stand-in: a real VID/PID that no profile knows.</summary>
+    public const ushort UnknownVendor = 0x046D;
+    public const ushort UnknownProduct = 0xC29B;
+
+    public static byte[] DeviceDescriptor(ushort vendor = Vendor, ushort product = Product) =>
     [
         0x12, 0x01,             // bLength, bDescriptorType
         0x00, 0x02,             // bcdUSB 2.00
         0x00, 0x00, 0x00,       // class, subclass, protocol: per-interface
         0x40,                   // bMaxPacketSize0
-        0x4C, 0x05,             // idVendor  054C, little-endian
-        0xE6, 0x0C,             // idProduct 0CE6
+        (byte)(vendor & 0xFF), (byte)(vendor >> 8),     // idVendor, little-endian
+        (byte)(product & 0xFF), (byte)(product >> 8),   // idProduct
         0x00, 0x01,             // bcdDevice 0100
         0x01, 0x02, 0x00,       // iManufacturer, iProduct, iSerialNumber (none)
         0x01,                   // bNumConfigurations
@@ -109,11 +113,12 @@ public static class TestDevices
         return bytes;
     }
 
-    public static DeviceAttach Attach(byte device = 0, bool withFeatures = true)
+    public static DeviceAttach Attach(
+        byte device = 0, bool withFeatures = true, ushort vendor = Vendor, ushort product = Product)
     {
         var blocks = new List<DescriptorBlock>
         {
-            new(DescriptorKind.Device, DeviceDescriptor()),
+            new(DescriptorKind.Device, DeviceDescriptor(vendor, product)),
             new(DescriptorKind.Configuration, ConfigurationDescriptor()),
             new(DescriptorKind.HidReport, ReportDescriptor()),
         };
@@ -128,8 +133,10 @@ public static class TestDevices
         return new DeviceAttach(device, blocks);
     }
 
-    public static VirtualDualSense Device(Action<byte[]>? onOutput = null, byte number = 0) =>
-        new(Attach(number), onOutput ?? (_ => { }));
+    public static VirtualHidDevice Device(
+        Action<byte[]>? onOutput = null, byte number = 0,
+        ushort vendor = Vendor, ushort product = Product) =>
+        new(Attach(number, vendor: vendor, product: product), onOutput ?? (_ => { }));
 
     public static byte[] Setup(byte requestType, byte request, ushort value, ushort index, ushort length) =>
     [

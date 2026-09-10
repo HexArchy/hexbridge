@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.Tests;
 
@@ -32,22 +32,41 @@ public sealed class UsbIpTestClient : IAsyncDisposable
 
     // MARK: - Operational phase
 
-    public async Task<(OpHeader Header, uint Count, UsbIpDeviceInfo? Device, UsbIpInterfaceInfo[] Interfaces)>
-        DeviceListAsync()
+    public sealed record ListedDevice(UsbIpDeviceInfo Device, UsbIpInterfaceInfo[] Interfaces);
+
+    /// <summary>
+    /// Reads a whole OP_REP_DEVLIST. Entries are variable length — a device struct followed
+    /// by one four-byte record per interface — so the only way to find the second entry is
+    /// to have parsed the first, which is exactly what a multi-device reply has to survive.
+    /// </summary>
+    public async Task<(OpHeader Header, uint Count, ListedDevice[] Devices)> DeviceListAllAsync()
     {
         await Write(new OpHeader(UsbIpProtocol.Version, UsbIpProtocol.OpReqDevList, 0).ToArray());
 
         var header = OpHeader.Read(await Read(UsbIpProtocol.OpHeaderSize));
         var count = BinaryPrimitives.ReadUInt32BigEndian(await Read(4));
-        if (count == 0) return (header, 0, null, []);
 
-        var device = UsbIpDeviceInfo.Read(await Read(UsbIpProtocol.UsbDeviceSize));
-        var interfaces = new UsbIpInterfaceInfo[device.NumInterfaces];
-        for (var i = 0; i < interfaces.Length; i++)
+        var listed = new List<ListedDevice>((int)count);
+        for (var entry = 0u; entry < count; entry++)
         {
-            interfaces[i] = UsbIpInterfaceInfo.Read(await Read(UsbIpProtocol.UsbInterfaceSize));
+            var device = UsbIpDeviceInfo.Read(await Read(UsbIpProtocol.UsbDeviceSize));
+            var interfaces = new UsbIpInterfaceInfo[device.NumInterfaces];
+            for (var i = 0; i < interfaces.Length; i++)
+            {
+                interfaces[i] = UsbIpInterfaceInfo.Read(await Read(UsbIpProtocol.UsbInterfaceSize));
+            }
+            listed.Add(new ListedDevice(device, interfaces));
         }
-        return (header, count, device, interfaces);
+        return (header, count, [.. listed]);
+    }
+
+    public async Task<(OpHeader Header, uint Count, UsbIpDeviceInfo? Device, UsbIpInterfaceInfo[] Interfaces)>
+        DeviceListAsync()
+    {
+        var (header, count, devices) = await DeviceListAllAsync();
+        return devices.Length == 0
+            ? (header, count, null, [])
+            : (header, count, devices[0].Device, devices[0].Interfaces);
     }
 
     public async Task<(OpHeader Header, UsbIpDeviceInfo? Device)> ImportAsync(string busId)

@@ -12,12 +12,30 @@ struct Config: Codable {
     var gain: Double = 1.0
     var expectedLossPercent: Int = 10
     var name: String = Host.current().localizedName ?? "mac"
-    /// Gamepad passthrough. Optional rather than `Bool = false` on purpose:
-    /// synthesised `Codable` treats a missing key as an error, not as the
-    /// default, so a non-optional field would make every config file written
+    /// Device passthrough master switch. Optional rather than `Bool = false` on
+    /// purpose: synthesised `Codable` treats a missing key as an error, not as
+    /// the default, so a non-optional field would make every config file written
     /// before this feature fail to load — and a failed load silently falls back
     /// to an empty config, taking the target and the key with it.
+    ///
+    /// The JSON key keeps its old name: the on-disk shape is deployed.
     var gamepad: Bool?
+
+    /// Which devices the user chose to forward, as `VID:PID` or
+    /// `VID:PID:SERIAL`. Up to four are honoured at a time.
+    ///
+    /// Empty by default and never populated automatically. Devices are opened
+    /// without seizing them, so the Mac goes on receiving everything it
+    /// forwards — a keyboard nobody asked for would type on two machines at
+    /// once. Nil means "never chosen", which is the only state the DualSense
+    /// migration below is allowed to fill in.
+    var forwardedDevices: [String]?
+
+    /// Shared clipboard. Optional for the same reason as `gamepad`, and
+    /// defaulting to **off**: the clipboard holds passwords, and a feature that
+    /// shipped enabled would send them to the other machine before anybody read
+    /// a settings page.
+    var clipboard: Bool?
 
     /// Microphone feature switch. Optional for the same reason as `gamepad`,
     /// and defaulting to **on**: every config written before the feature list
@@ -38,6 +56,9 @@ struct Config: Codable {
 
     var streamsMicrophone: Bool { microphone ?? true }
 
+    /// Off unless asked for. See `clipboard`.
+    var sharesClipboard: Bool { clipboard ?? false }
+
     var appTheme: AppTheme { theme.flatMap(AppTheme.init(rawValue:)) ?? .system }
 
     /// The one question «настроено или нет» (§7.2, state «Не настроен»).
@@ -45,10 +66,26 @@ struct Config: Codable {
         !target.isEmpty && (try? symmetricKey()) != nil
     }
 
-    /// Off unless asked for: the receiver ignores the device channel until it
-    /// learns to build a virtual controller, and sending 250 packets a second
-    /// that nothing reads is not a good default.
-    var forwardsGamepad: Bool { gamepad ?? false }
+    /// Off unless asked for: sending 250 packets a second per device that
+    /// nothing reads is not a good default.
+    var forwardsDevices: Bool { gamepad ?? false }
+
+    /// The devices chosen for forwarding, decoded.
+    ///
+    /// A config written before the picker existed carries `gamepad: true` and no
+    /// list, and it described a machine that forwarded its DualSense. Reading
+    /// that as "forward nothing" would silently break a working setup, so it is
+    /// read as "forward the DualSense" until the user touches the list.
+    var selectedDevices: Set<DeviceIdentity> {
+        guard let forwardedDevices else {
+            guard gamepad == true else { return [] }
+            return [DeviceIdentity(
+                vendorID: DeviceProfile.dualSenseVendorID,
+                productID: DeviceProfile.dualSenseProductIDs[0]
+            )]
+        }
+        return Set(forwardedDevices.compactMap(DeviceIdentity.init))
+    }
 
     static let defaultPath = FileManager.default
         .homeDirectoryForCurrentUser

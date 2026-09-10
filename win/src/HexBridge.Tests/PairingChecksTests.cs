@@ -250,7 +250,7 @@ public class PairingChecksTests
     [Fact]
     public void AMissingDriverIsNamedBeforeAMissingController()
     {
-        // The driver is the thing the user can act on; «контроллер не подключён» when the
+        // The driver is the thing the user can act on; «устройство не подключено» when the
         // driver was never installed would send them to look at the wrong end of the cable.
         var outcome = PairingChecks.Controller(true, driverInstalled: false, attached: true, "DualSense");
 
@@ -264,7 +264,7 @@ public class PairingChecksTests
         var outcome = PairingChecks.Controller(true, driverInstalled: true, attached: false, null);
 
         Assert.Equal(CheckState.Failed, outcome.State);
-        Assert.Contains("не подключён", outcome.Detail, StringComparison.Ordinal);
+        Assert.Contains("не подключено", outcome.Detail, StringComparison.Ordinal);
     }
 
     // MARK: - Tone

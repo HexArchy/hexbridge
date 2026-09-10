@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.Tests;
 

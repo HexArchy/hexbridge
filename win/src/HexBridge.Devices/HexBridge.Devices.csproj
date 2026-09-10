@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HexBridge.Devices</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../HexBridge.Core/HexBridge.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The descriptor and string helpers are implementation detail everywhere but in a test. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="HexBridge.Tests" />
+  </ItemGroup>
+
+</Project>

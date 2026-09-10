@@ -1,5 +1,5 @@
 using System.Buffers.Binary;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.Tests;
 

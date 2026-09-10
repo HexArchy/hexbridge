@@ -76,7 +76,11 @@ final class AppModel: FeatureHost {
         self.runtime = runtime
         self.config = runtime.config
         self.selectedPane = UserDefaults.standard.string(forKey: Self.paneKey) ?? "general"
-        features = [MicrophoneFeature(host: self), DualSenseFeature(host: self)]
+        features = [
+            MicrophoneFeature(host: self),
+            DevicesFeature(host: self),
+            ClipboardFeature(host: self),
+        ]
     }
 
     // MARK: - Shell-level derived state
@@ -284,7 +288,7 @@ final class AppModel: FeatureHost {
     }
 
     func runLinkCheck() {
-        linkCheck.run(config: config, live: runtime, gamepad: runtime.gamepadStatus())
+        linkCheck.run(config: config, live: runtime, devices: runtime.deviceStatus())
     }
 
     // MARK: - Pairing

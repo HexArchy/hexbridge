@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 
 namespace HexBridge.Tests;
@@ -45,7 +45,7 @@ public class FeatureHostTests
     public void TheMicrophoneAndTheGamepadClaimDisjointTypes()
     {
         var microphone = new MicrophoneFeature();
-        var gamepad = new DualSenseFeature();
+        var gamepad = new DevicesFeature();
 
         Assert.Empty(microphone.HandledTypes.Intersect(gamepad.HandledTypes));
         Assert.Contains(PacketType.Audio, microphone.HandledTypes);
@@ -61,7 +61,7 @@ public class FeatureHostTests
     public void TheGamepadIsOptionalAndTheMicrophoneIsNot()
     {
         Assert.False(new MicrophoneFeature().IsOptional);
-        Assert.True(new DualSenseFeature().IsOptional);
+        Assert.True(new DevicesFeature().IsOptional);
     }
 
     [Fact]
@@ -70,11 +70,11 @@ public class FeatureHostTests
         var config = Config();
         config.Gamepad = false;
 
-        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DualSenseFeature());
+        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DevicesFeature());
         await receiver.StartAsync(config);
         await Task.Delay(300);
 
-        var state = receiver.Snapshot.Features["dualsense"];
+        var state = receiver.Snapshot.Features["devices"];
         Assert.Equal(FeatureStatus.Disabled, state.Status);
     }
 
@@ -84,7 +84,7 @@ public class FeatureHostTests
         var config = Config();
         Assert.True(config.TryGetKey(out var key, out _));
 
-        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DualSenseFeature());
+        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DevicesFeature());
         await receiver.StartAsync(config);
 
         using var aes = new AesGcm(key, Wire.TagSize);
@@ -116,17 +116,18 @@ public class FeatureHostTests
         }
 
         // The snapshot is republished on the host's own tick, so it lags the ack slightly.
-        DualSenseState? state = null;
+        DevicesState? state = null;
         for (var attempt = 0; attempt < 50 && state?.Attached != true; attempt++)
         {
             await Task.Delay(50);
-            state = receiver.Snapshot.Feature<DualSenseState>("dualsense");
+            state = receiver.Snapshot.Feature<DevicesState>("devices");
         }
 
         Assert.NotNull(state);
         Assert.True(state!.Attached);
-        Assert.Equal(TestDevices.Vendor, state.VendorId);
-        Assert.Equal("1-1", state.BusId);
+        var only = Assert.Single(state.Devices);
+        Assert.Equal(TestDevices.Vendor, only.VendorId);
+        Assert.Equal("1-1", only.BusId);
     }
 
     [Fact]
@@ -135,7 +136,7 @@ public class FeatureHostTests
         var config = Config();
         Assert.True(config.TryGetKey(out var key, out _));
 
-        await using var receiver = new ReceiverService(new DualSenseFeature());
+        await using var receiver = new ReceiverService(new DevicesFeature());
         await receiver.StartAsync(config);
 
         using var aes = new AesGcm(key, Wire.TagSize);
@@ -161,16 +162,17 @@ public class FeatureHostTests
                 DeviceChannel.WriteInput(new DeviceInput(0, index, TestDevices.InputReport((byte)index))));
         }
 
-        DualSenseState? state = null;
-        for (var attempt = 0; attempt < 50 && (state?.ReportsReceived ?? 0) < 3; attempt++)
+        DevicesState? state = null;
+        for (var attempt = 0; attempt < 50 && (state?.Devices.FirstOrDefault()?.ReportsReceived ?? 0) < 3; attempt++)
         {
             await Task.Delay(50);
-            state = receiver.Snapshot.Feature<DualSenseState>("dualsense");
+            state = receiver.Snapshot.Feature<DevicesState>("devices");
         }
 
         Assert.NotNull(state);
-        Assert.Equal(3, state!.ReportsReceived);
-        Assert.Equal(2, state.ReportsLost);
+        var forwarded = Assert.Single(state!.Devices);
+        Assert.Equal(3, forwarded.ReportsReceived);
+        Assert.Equal(2, forwarded.ReportsLost);
     }
 
     [Fact]
@@ -179,7 +181,7 @@ public class FeatureHostTests
         var config = Config();
         Assert.True(config.TryGetKey(out var key, out _));
 
-        await using var receiver = new ReceiverService(new DualSenseFeature());
+        await using var receiver = new ReceiverService(new DevicesFeature());
         await receiver.StartAsync(config);
 
         using var aes = new AesGcm(key, Wire.TagSize);

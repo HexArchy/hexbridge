@@ -133,14 +133,14 @@ public static class PairingChecks
             : new CheckOutcome(CheckState.Running, "скажите что-нибудь вслух");
     }
 
-    /// <summary>6. The controller, if the user asked for one.</summary>
+    /// <summary>6. The forwarded devices, if the user asked for any.</summary>
     public static CheckOutcome Controller(bool enabled, bool driverInstalled, bool attached, string? product)
     {
         if (!enabled) return CheckOutcome.Skip("проброс выключен");
         if (!driverInstalled) return CheckOutcome.Fail("драйвер не установлен");
         return attached
-            ? CheckOutcome.Pass(product ?? "контроллер проброшен")
-            : CheckOutcome.Fail("контроллер не подключён к Mac");
+            ? CheckOutcome.Pass(product ?? "устройство проброшено")
+            : CheckOutcome.Fail("устройство не подключено к Mac");
     }
 }
 

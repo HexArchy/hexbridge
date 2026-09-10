@@ -21,7 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="src/HexBridge.Core/HexBridge.Core.csproj" />
     <ProjectReference Include="src/HexBridge.Microphone/HexBridge.Microphone.csproj" />
-    <ProjectReference Include="src/HexBridge.DualSense/HexBridge.DualSense.csproj" />
+    <ProjectReference Include="src/HexBridge.Devices/HexBridge.Devices.csproj" />
+    <ProjectReference Include="src/HexBridge.Clipboard/HexBridge.Clipboard.csproj" />
   </ItemGroup>
 
 </Project>

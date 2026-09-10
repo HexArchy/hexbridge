@@ -5,7 +5,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 
 namespace HexBridge.App.Controls;
 
@@ -126,8 +126,8 @@ internal static class PadGeometry
 /// </summary>
 public sealed class ControllerVisual : Control
 {
-    public static readonly StyledProperty<DualSenseInputSource?> SourceProperty =
-        AvaloniaProperty.Register<ControllerVisual, DualSenseInputSource?>(nameof(Source));
+    public static readonly StyledProperty<HidInputSource?> SourceProperty =
+        AvaloniaProperty.Register<ControllerVisual, HidInputSource?>(nameof(Source));
 
     public static readonly StyledProperty<PadMood> MoodProperty =
         AvaloniaProperty.Register<ControllerVisual, PadMood>(nameof(Mood), PadMood.Inactive);
@@ -174,7 +174,7 @@ public sealed class ControllerVisual : Control
         AvaloniaProperty.Register<ControllerVisual, IBrush?>(nameof(OffBrush));
 
     /// <summary>Live input, polled at this control's own frame rate rather than pushed.</summary>
-    public DualSenseInputSource? Source
+    public HidInputSource? Source
     {
         get => GetValue(SourceProperty);
         set => SetValue(SourceProperty, value);

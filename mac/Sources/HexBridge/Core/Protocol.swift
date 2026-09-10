@@ -84,6 +84,10 @@ enum Wire {
             case device = 1
             case configuration = 2
             case hidReport = 3
+            /// A snapshot of a feature report, first byte the report id. Sent
+            /// with the descriptors because the receiver has to answer
+            /// `GET_REPORT` from games without a network round trip.
+            case featureReport = 4
         }
 
         struct Descriptor {
@@ -124,6 +128,13 @@ enum Wire {
         static func decodeOutput(_ payload: [UInt8]) -> (device: UInt8, report: [UInt8])? {
             guard payload.count >= 2 else { return nil }
             return (payload[0], Array(payload.dropFirst()))
+        }
+
+        /// `DEV_ACK`: one byte, the device number. The receiver sends one for
+        /// every `DEV_ATTACH`, not only the first, so a lost ack is cured by the
+        /// next repeat.
+        static func decodeAck(_ payload: [UInt8]) -> UInt8? {
+            payload.first
         }
     }
 

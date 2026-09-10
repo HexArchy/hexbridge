@@ -57,6 +57,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _latencyMs = 50;
 
     [ObservableProperty] private bool _gamepad = true;
+
+    /// <summary>Off by default, and the view says out loud what turning it on means.</summary>
+    [ObservableProperty] private bool _clipboard;
+
     [ObservableProperty] private bool _usbIpAutoAttach = true;
     [ObservableProperty] private string _usbIpListen = "127.0.0.1:3240";
     [ObservableProperty] private string _usbIpPath = "";
@@ -92,6 +96,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Gain = config.Gain;
         LatencyMs = config.LatencyMs;
         Gamepad = config.Gamepad;
+        Clipboard = config.Clipboard;
         UsbIpAutoAttach = config.UsbIpAutoAttach;
         UsbIpListen = config.UsbIpListen;
         UsbIpPath = config.UsbIpPath ?? "";
@@ -127,6 +132,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         config.Gain = (float)Gain;
         config.LatencyMs = LatencyMs;
         config.Gamepad = Gamepad;
+        config.Clipboard = Clipboard;
         config.UsbIpAutoAttach = UsbIpAutoAttach;
         config.UsbIpListen = string.IsNullOrWhiteSpace(UsbIpListen) ? "127.0.0.1:3240" : UsbIpListen.Trim();
         config.UsbIpPath = string.IsNullOrWhiteSpace(UsbIpPath) ? null : UsbIpPath.Trim();

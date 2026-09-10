@@ -69,11 +69,11 @@
 
         <Border Classes="card">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="DUALSENSE" />
+            <TextBlock Classes="section" Text="УСТРОЙСТВА" />
 
-            <CheckBox IsChecked="{Binding Gamepad}" Content="Пробрасывать DualSense с Mac" />
-            <TextBlock Classes="caption"
-                       Text="Контроллер, воткнутый в Mac, появится в Windows как настоящий USB-геймпад. Нужен драйвер usbip-win2." />
+            <CheckBox IsChecked="{Binding Gamepad}" Content="Принимать устройства с Mac" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="До четырёх USB-устройств, выбранных на Mac, появятся здесь как настоящие USB-устройства: контроллеры, рули, педали, HOTAS. Что именно пробрасывать, решает Mac — тут только приём. Нужен драйвер usbip-win2." />
 
             <CheckBox IsChecked="{Binding UsbIpAutoAttach}"
                       IsEnabled="{Binding Gamepad}"
@@ -94,6 +94,30 @@
               <TextBlock Classes="caption"
                          Text="Заполняйте, только если драйвер установлен не в стандартную папку." />
             </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="БУФЕР ОБМЕНА" />
+
+            <CheckBox IsChecked="{Binding Clipboard}" Content="Общий буфер обмена с Mac" />
+
+            <!--
+              The honest sentence, not a reassuring one. Anything copied on either machine
+              leaves it, and the clipboard is where passwords spend the seconds between a
+              manager and a login form.
+            -->
+            <Border CornerRadius="8" Padding="14,12"
+                    Background="{DynamicResource WarnBg}"
+                    BorderBrush="{DynamicResource WarnBorder}"
+                    BorderThickness="1">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="section" Text="ЧТО ЭТО ЗНАЧИТ" />
+                <TextBlock Classes="body" TextWrapping="Wrap"
+                           Text="Всё, что вы скопируете на этом ПК, уйдёт на Mac, и наоборот — включая пароли, если они окажутся в буфере. Передача шифруется тем же ключом, что и звук, но содержимое буфера покидает эту машину. Передаются только текст и картинки PNG." />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 

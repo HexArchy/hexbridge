@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using Concentus;
 using Concentus.Enums;
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 
 namespace HexBridge.Tests;
@@ -107,7 +107,7 @@ public class MicrophoneTests
         };
         Assert.True(config.TryGetKey(out var key, out _));
 
-        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DualSenseFeature());
+        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DevicesFeature());
         await receiver.StartAsync(config);
 
         using var aes = new AesGcm(key, Wire.TagSize);
@@ -142,8 +142,12 @@ public class MicrophoneTests
             await Task.Delay(5);
         }
 
+        // Both conditions, or the wait ends on a snapshot published while the last few
+        // packets were still in flight and the count below is read too early.
         MicrophoneState? microphone = null;
-        for (var attempt = 0; attempt < 60 && (microphone?.Decoded ?? 0) < 5; attempt++)
+        for (var attempt = 0;
+             attempt < 60 && ((microphone?.Decoded ?? 0) < 5 || (microphone?.Received ?? 0) < 25);
+             attempt++)
         {
             await Task.Delay(50);
             microphone = receiver.Snapshot.Feature<MicrophoneState>("microphone");
@@ -155,7 +159,7 @@ public class MicrophoneTests
         Assert.Null(microphone.Fault);
         Assert.Equal("null (звук никуда не выводится)", microphone.OutputDescription);
 
-        var gamepad = receiver.Snapshot.Feature<DualSenseState>("dualsense");
+        var gamepad = receiver.Snapshot.Feature<DevicesState>("devices");
         Assert.True(gamepad!.Attached);
         Assert.Equal(ReceiverStatus.Live, receiver.Snapshot.Status);
     }
@@ -176,7 +180,7 @@ public class MicrophoneTests
         };
         Assert.True(config.TryGetKey(out var key, out _));
 
-        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DualSenseFeature());
+        await using var receiver = new ReceiverService(new MicrophoneFeature(), new DevicesFeature());
         await receiver.StartAsync(config);
 
         using var aes = new AesGcm(key, Wire.TagSize);

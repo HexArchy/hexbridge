@@ -22,8 +22,10 @@ final class Sender {
     /// using it for jitter-buffer ordering would look like one lost frame a second.
     private var frameIndex: UInt32 = 0
     /// Same reasoning for HID input reports, and separate from audio so that a
-    /// gap in one stream is never blamed on the other.
-    private var deviceReportIndex: UInt32 = 0
+    /// gap in one stream is never blamed on the other — and one counter per
+    /// device, because a shared counter would make every switch between two
+    /// forwarded devices look like a lost report on both of them.
+    private var deviceReportIndex = [UInt32](repeating: 0, count: 4)
     private let lock = NSLock()
 
     // Counters, read by the stats printer.
@@ -44,6 +46,15 @@ final class Sender {
     /// Called on the connection queue when the host sends a DEV_OUT. Set it
     /// before `start()`; it is not synchronised.
     var onDeviceOutput: ((UInt8, [UInt8]) -> Void)?
+
+    /// Called on the connection queue for every bulk packet (types 9…12). Set it
+    /// before `start()`; it is not synchronised. The transport does not look
+    /// inside — reliable delivery is `BulkChannel`'s job, not the socket's.
+    var onBulkPacket: ((Wire.PacketType, [UInt8]) -> Void)?
+
+    /// Called on the connection queue when the host confirms a DEV_ATTACH.
+    /// Same threading contract as `onDeviceOutput`.
+    var onDeviceAck: ((UInt8) -> Void)?
 
     var muted = false
 
@@ -156,16 +167,18 @@ final class Sender {
 
     // MARK: - Device channel
 
-    /// Announces the gamepad. Repeated once a second by the caller until the
-    /// receiver shows a sign of life, because a receiver that started late has
-    /// no other way to learn the device exists.
+    /// Announces one HID device. Repeated once a second by the caller until
+    /// DEV_ACK comes back, because a receiver that started late has no other way
+    /// to learn the device exists.
     func sendDeviceAttach(device: UInt8, descriptors: [Wire.DeviceChannel.Descriptor]) {
         let payload = Wire.DeviceChannel.attachPayload(device: device, descriptors: descriptors)
-        // 24 header + 16 tag, and DualSense needs 529 bytes of payload, so this
-        // never fragments. Guard anyway: a future device might not be so small.
+        // 24 header + 16 tag. A DualSense with its three feature snapshots needs
+        // 663 bytes, well inside the MTU — but an arbitrary HID device can have
+        // a far bigger report descriptor, and a silently truncated attach would
+        // be much worse than a refused one.
         guard payload.count + Wire.headerSize + Wire.tagSize <= Wire.maxPacket else {
             lock.lock()
-            lastError = "дескрипторы устройства не помещаются в пакет (\(payload.count) байт)"
+            lastError = "дескрипторы устройства \(device) не помещаются в пакет (\(payload.count) байт)"
             lock.unlock()
             return
         }
@@ -176,11 +189,16 @@ final class Sender {
         send(type: .deviceDetach, flags: [], payload: Wire.DeviceChannel.detachPayload(device: device))
     }
 
-    /// One HID input report. Called up to 250 times a second.
+    /// One HID input report. Called up to 250 times a second per device.
     func sendDeviceInput(device: UInt8, report: [UInt8]) {
+        // Device numbers are 0…3 by contract; anything else has no counter and
+        // no virtual port waiting for it on the other side.
+        guard device < UInt8(deviceReportIndex.count) else { return }
+
         lock.lock()
-        let index = deviceReportIndex
-        deviceReportIndex &+= 1
+        let slot = Int(device)
+        let index = deviceReportIndex[slot]
+        deviceReportIndex[slot] &+= 1
         deviceReportsSent &+= 1
         lock.unlock()
 
@@ -189,6 +207,14 @@ final class Sender {
             flags: [],
             payload: Wire.DeviceChannel.inputPayload(device: device, index: index, report: report)
         )
+    }
+
+    // MARK: - Reliable channel
+
+    /// One packet of the reliable-delivery layer. `BulkChannel` decides what to
+    /// send and when; this only puts the bytes on the socket.
+    func sendBulk(type: Wire.PacketType, payload: [UInt8]) {
+        send(type: type, flags: [], payload: payload)
     }
 
     // MARK: - Private
@@ -242,6 +268,11 @@ final class Sender {
             deviceOutputsReceived &+= 1
             lock.unlock()
             onDeviceOutput?(device, report)
+        case .deviceAck:
+            guard let device = Wire.DeviceChannel.decodeAck(payload) else { return }
+            onDeviceAck?(device)
+        case .bulkOffer, .bulkChunk, .bulkAck, .bulkDone:
+            onBulkPacket?(header.type, payload)
         default:
             return
         }

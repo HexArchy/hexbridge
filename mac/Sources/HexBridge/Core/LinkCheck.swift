@@ -33,7 +33,7 @@ final class LinkCheck {
         Row(id: 2, title: "Ключи совпадают"),
         Row(id: 3, title: "Приёмник принимает поток"),
         Row(id: 4, title: "Звук проходит насквозь"),
-        Row(id: 5, title: "Контроллер"),
+        Row(id: 5, title: "Проброшенные устройства"),
     ]
 
     private var task: Task<Void, Never>?
@@ -47,7 +47,7 @@ final class LinkCheck {
     /// `live` is the running pipeline, when there is one. Reusing it matters:
     /// opening a second socket to a receiver that is already streaming would
     /// look to it like a second Mac claiming the room.
-    func run(config: Config, live: BridgeRuntime?, gamepad: GamepadBridge.Status?) {
+    func run(config: Config, live: BridgeRuntime?, devices: DeviceBridge.Status?) {
         cancel()
         rows = Self.blank
         verdict = nil
@@ -60,13 +60,13 @@ final class LinkCheck {
             && live?.config.psk == config.psk
 
         task = Task { [weak self] in
-            await self?.perform(config: config, live: usesLive ? live : nil, gamepad: gamepad)
+            await self?.perform(config: config, live: usesLive ? live : nil, devices: devices)
         }
     }
 
     // MARK: - The run
 
-    private func perform(config: Config, live: BridgeRuntime?, gamepad: GamepadBridge.Status?) async {
+    private func perform(config: Config, live: BridgeRuntime?, devices: DeviceBridge.Status?) async {
         defer {
             running = false
             finished = true
@@ -143,19 +143,24 @@ final class LinkCheck {
         await set(4, .pending, detail: "нет в протоколе",
                   explanation: "Сквозная проверка требует, чтобы приёмник присылал свой уровень звука. В текущей версии протокола такого поля нет — проверьте звук в самой игре.")
 
-        // 6. Controller.
-        if !config.forwardsGamepad {
+        // 6. Forwarded devices.
+        if !config.forwardsDevices {
             await set(5, .pending, detail: "проброс выключен")
-        } else if let gamepad, gamepad.connected {
-            if gamepad.attachAcknowledged {
-                await set(5, .ok, detail: "\(gamepad.product), приёмник подтвердил")
+        } else if config.selectedDevices.isEmpty {
+            await set(5, .pending, detail: "ничего не выбрано",
+                      explanation: "По умолчанию не пробрасывается ничего. Выберите устройства в настройках — по одному, явно.")
+        } else if let devices, !devices.devices.isEmpty {
+            let names = devices.devices.map(\.product).joined(separator: ", ")
+            let silent = devices.devices.filter { !$0.attachAcknowledged }
+            if silent.isEmpty {
+                await set(5, .ok, detail: "\(names) — приёмник подтвердил")
             } else {
-                await set(5, .failed, detail: "приёмник молчит",
-                          explanation: "Контроллер прочитан на Mac, но приёмник ни разу не прислал команду в ответ — виртуальное устройство на Windows, скорее всего, не создано.")
+                await set(5, .failed, detail: "приёмник молчит про \(silent.map(\.product).joined(separator: ", "))",
+                          explanation: "Устройство прочитано на Mac, но приёмник не прислал DEV_ACK — виртуальное устройство на Windows, скорее всего, не создано.")
             }
         } else {
-            await set(5, .failed, detail: "контроллер не подключён",
-                      explanation: "Подключите DualSense к Mac кабелем USB. По Bluetooth проброс не работает.")
+            await set(5, .failed, detail: "выбранные устройства не подключены",
+                      explanation: "Подключите выбранные устройства к Mac кабелем USB. По Bluetooth проброс не работает: приёмнику нужны USB-дескрипторы.")
         }
 
         let failures = rows.filter { $0.state == .failed }
@@ -174,7 +179,7 @@ final class LinkCheck {
         case 1: return "Windows не отвечает"
         case 2: return "Ключи не совпадают"
         case 3: return "Звук не доходит до Windows"
-        case 5: return "Контроллер не проброшен"
+        case 5: return "Устройства не проброшены"
         default: return row.title
         }
     }

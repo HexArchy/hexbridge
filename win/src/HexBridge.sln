@@ -11,9 +11,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.Receiver", "..\He
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.Microphone", "HexBridge.Microphone\HexBridge.Microphone.csproj", "{F985B0DC-780B-4096-A8B7-220A4720FB6A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.DualSense", "HexBridge.DualSense\HexBridge.DualSense.csproj", "{4C01DE0E-1CE9-4B57-BAC5-46EA7A1B5B54}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.Devices", "HexBridge.Devices\HexBridge.Devices.csproj", "{4C01DE0E-1CE9-4B57-BAC5-46EA7A1B5B54}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.Tests", "HexBridge.Tests\HexBridge.Tests.csproj", "{B6E208F4-7CD6-4E02-90BC-FFEACB747932}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexBridge.Clipboard", "HexBridge.Clipboard\HexBridge.Clipboard.csproj", "{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,6 +99,18 @@ Global
 		{B6E208F4-7CD6-4E02-90BC-FFEACB747932}.Release|x64.Build.0 = Release|Any CPU
 		{B6E208F4-7CD6-4E02-90BC-FFEACB747932}.Release|x86.ActiveCfg = Release|Any CPU
 		{B6E208F4-7CD6-4E02-90BC-FFEACB747932}.Release|x86.Build.0 = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|x64.Build.0 = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Debug|x86.Build.0 = Debug|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|x64.ActiveCfg = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|x64.Build.0 = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|x86.ActiveCfg = Release|Any CPU
+		{4D9B9EF4-A842-4C20-841C-4BA00FAABD07}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

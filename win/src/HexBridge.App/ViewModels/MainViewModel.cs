@@ -3,7 +3,8 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexBridge.App.Features;
-using HexBridge.DualSense;
+using HexBridge.Clipboard;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 
 namespace HexBridge.App.ViewModels;
@@ -23,7 +24,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     // one entry here and in FeatureUiCatalog, and changes nothing else.
     private readonly ReceiverService _receiver = new(
         new MicrophoneFeature(),
-        new DualSenseFeature());
+        new DevicesFeature(),
+        new ClipboardFeature());
 
     private readonly IReadOnlyList<IFeatureUiModule> _modules;
     private readonly DispatcherTimer _timer;

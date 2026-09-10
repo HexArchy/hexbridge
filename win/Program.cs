@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using HexBridge;
-using HexBridge.DualSense;
+using HexBridge.Clipboard;
+using HexBridge.Devices;
 using HexBridge.Microphone;
 
 const string Usage = """
@@ -22,7 +23,7 @@ hexbridge-receiver — принимает микрофон с Mac и отдаё�
   --latency MS      запрошенная задержка WASAPI (по умолчанию 50)
   --relay H:P       регистрироваться на релее вместо прямого приёма
   --output MODE     wasapi (по умолчанию), null или wav:путь — для диагностики
-  --no-gamepad      не пробрасывать DualSense, только звук
+  --no-gamepad      не пробрасывать USB-устройства, только звук
   --usbip PATH      путь к usbip.exe, если он не в C:\Program Files\USBip
   --quiet           не печатать строку статистики раз в 5 секунд
 """;
@@ -90,7 +91,8 @@ if (!config.TryGetKey(out _, out _))
 // feature is a new class and one more entry here.
 await using var receiver = new ReceiverService(
     new MicrophoneFeature(),
-    new DualSenseFeature());
+    new DevicesFeature(),
+    new ClipboardFeature());
 receiver.Log += entry =>
 {
     if (entry.Level == LogLevel.Error) Console.Error.WriteLine(entry.Message);

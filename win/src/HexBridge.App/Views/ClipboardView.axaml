@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.ClipboardView"
+             x:DataType="vm:ClipboardViewModel">
+
+  <ScrollViewer Padding="24">
+    <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch">
+
+      <Border Classes="status"
+              Classes.ok="{Binding IsGood}"
+              Classes.warn="{Binding IsWaiting}"
+              Classes.bad="{Binding IsBad}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="display" Text="{Binding Headline}" />
+          <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Subline}" />
+        </StackPanel>
+      </Border>
+
+      <!--
+        The privacy line lives on the page, not only in the settings. Somebody who opens this
+        tab a month later should not have to remember what they agreed to: the clipboard is
+        where passwords live, and the honest sentence belongs where the feature is watched.
+      -->
+      <Border CornerRadius="8" Padding="14,12"
+              Background="{DynamicResource WarnBg}"
+              BorderBrush="{DynamicResource WarnBorder}"
+              BorderThickness="1"
+              IsVisible="{Binding IsOn}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="section" Text="СОДЕРЖИМОЕ УХОДИТ НА MAC" />
+          <TextBlock Classes="body" TextWrapping="Wrap"
+                     Text="Всё, что копируется на любой из двух машин, отправляется на другую — включая пароли, если они окажутся в буфере. Канал шифруется тем же ключом, что и звук. Передаются только текст и картинки PNG." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding IsTransferring}">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="section" Text="СЕЙЧАС ПЕРЕДАЁТСЯ" />
+          <TextBlock Classes="body" Text="{Binding TransferText}" />
+          <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" Height="6" />
+        </StackPanel>
+      </Border>
+
+      <UniformGrid Columns="2">
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Отправлено объектов" />
+            <TextBlock Classes="metric" Text="{Binding SentText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Принято объектов" />
+            <TextBlock Classes="metric" Text="{Binding ReceivedText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section" Text="ПОСЛЕДНЯЯ ПЕРЕДАЧА" />
+          <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Что" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding LastText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Куда" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding LastDirectionText}" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Когда" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding LastWhenText}" />
+          </Grid>
+          <TextBlock Classes="caption"
+                     Text="Здесь показывается только вид и размер объекта — само содержимое буфера нигде не записывается." />
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

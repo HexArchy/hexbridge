@@ -23,8 +23,18 @@ public sealed class ReceiverConfig
     public float Gain { get; set; } = 1.0f;
     public int LatencyMs { get; set; } = 50;
 
-    /// <summary>Forward a DualSense from the Mac as a virtual USB device.</summary>
+    /// <summary>
+    /// Accept HID devices from the Mac and present them as virtual USB devices. The JSON
+    /// name is frozen: a config written by an older build must keep working.
+    /// </summary>
     public bool Gamepad { get; set; } = true;
+
+    /// <summary>
+    /// Share the clipboard with the Mac in both directions. Off in a fresh config and it
+    /// stays off until somebody asks: the clipboard holds passwords, and this sends whatever
+    /// is on it to another machine.
+    /// </summary>
+    public bool Clipboard { get; set; }
 
     /// <summary>
     /// Where the USB/IP server listens. usbip-win2 dials 3240 by default and the vhci
