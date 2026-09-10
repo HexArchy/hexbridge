@@ -77,6 +77,8 @@ final class AppModel: FeatureHost {
     private var muteSignal: DispatchSourceSignal?
     private var deviceRefreshTick = 0
     private var retryTick = 0
+    /// Seconds between start attempts; doubles on each failure, capped at 15 minutes.
+    private var retryEvery = 15
     private var loggedSummary: String?
 
     private static let paneKey = "ru.hexarch.hexbridge.settingsPane"
@@ -251,6 +253,7 @@ final class AppModel: FeatureHost {
                     // Гасим прошлое предупреждение при успехе: баннер про
                     // недоданный доступ иначе висит и после того, как доступ выдали.
                     self.noticeText = failure
+                    if failure == nil { self.retryEvery = 15 }
                     self.needsRestart = false
                     self.restarting = false
                     self.starting = false
@@ -305,8 +308,14 @@ final class AppModel: FeatureHost {
         guard features.contains(where: { $0.id == "microphone" && $0.isEnabled }) else { return }
 
         retryTick += 1
-        guard retryTick >= 15 else { return }   // tick is 20 Hz-driven but coalesced to 1 s
+        guard retryTick >= retryEvery else { return }
         retryTick = 0
+
+        // Back off. The case this guards against is a microphone permission that
+        // macOS will not grant without someone clicking: every attempt puts another
+        // prompt on screen and parks a thread on the answer for the full timeout.
+        // Retrying every fifteen seconds turned that into a prompt storm.
+        retryEvery = min(retryEvery * 2, 900)
         startPipeline()
     }
 

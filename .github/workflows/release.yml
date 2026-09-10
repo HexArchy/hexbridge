@@ -36,7 +36,7 @@ jobs:
           HEXBRIDGE_VERSION: ${{ steps.version.outputs.value }}
         run: bash mac/scripts/build-app.sh
 
-      - name: Упаковать
+      - name: Archive
         run: ditto -c -k --keepParent mac/build/HexBridge.app HexBridge-macOS-arm64.zip
 
       # The appcast is built here and not in the publish job, for two reasons:
@@ -73,11 +73,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet test win/src/HexBridge.sln -c Release
-      - name: Опубликовать
+      - name: Publish
         run: |
           dotnet publish win/src/HexBridge.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish/app
           dotnet publish win/HexBridge.Receiver.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish/cli
-      - name: Собрать пакет
+      - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path package -Force | Out-Null
@@ -145,14 +145,14 @@ jobs:
             velopack/releases.win.json
 
   relay:
-    name: Релей
+    name: Relay
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - name: Собрать под обе архитектуры
+      - name: Build both architectures
         working-directory: relay
         run: |
           GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../hexbridge-relay-linux-amd64 .
@@ -163,7 +163,7 @@ jobs:
           path: hexbridge-relay-linux-*
 
   publish:
-    name: Опубликовать релиз
+    name: Publish the release
     needs: [macos, windows, velopack, relay]
     runs-on: ubuntu-24.04
     steps:
@@ -178,7 +178,7 @@ jobs:
       # переносит на игровой ПК вручную, и это единственный способ убедиться,
       # что доехало то же самое. appcast.xml в них не участвует: он сам подписан
       # EdDSA, и его контрольная сумма ничего не добавляет.
-      - name: Посчитать контрольные суммы
+      - name: Compute checksums
         working-directory: artifacts
         run: sha256sum $(ls | grep -v '^appcast.xml$') > SHA256SUMS.txt && cat SHA256SUMS.txt
 
@@ -195,7 +195,7 @@ jobs:
             fi
           done
 
-      - name: Создать релиз
+      - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}

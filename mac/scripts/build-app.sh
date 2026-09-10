@@ -108,7 +108,20 @@ PLIST
 # Nested code first, outside-in last: a signature over the bundle is a signature
 # over the hashes of what is inside it, so re-signing the framework afterwards
 # would invalidate the one on the app.
-echo "==> подписываю"
+# Стабильная подпись, если она есть.
+#
+# macOS привязывает выданное разрешение на микрофон не только к идентификатору
+# бандла, но и к подписи. Ad-hoc подпись содержит хеш самого кода, поэтому меняется
+# с каждой сборкой, и разрешение приходится выдавать заново после каждого
+# обновления. Самоподписанный сертификат из связки ключей эту привязку
+# стабилизирует. Как его завести — в docs/UPDATES.md.
+SIGN_ID="${CODESIGN_IDENTITY:--}"
+if [ "$SIGN_ID" != "-" ]; then
+    echo "==> подписываю личностью $SIGN_ID"
+else
+    echo "==> подписываю ad-hoc (разрешения слетят при следующей сборке)"
+fi
+
 if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
     # Sparkle carries two XPC services and an updater app of its own. Each is
     # code in its own right and each has to be signed, or Gatekeeper refuses the
@@ -116,11 +129,11 @@ if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
     find "$APP/Contents/Frameworks/Sparkle.framework" \
         \( -name "*.xpc" -o -name "*.app" \) -print0 |
         while IFS= read -r -d "" nested; do
-            codesign --force --sign - --timestamp=none "$nested"
+            codesign --force --sign "$SIGN_ID" --timestamp=none "$nested"
         done
-    codesign --force --sign - --timestamp=none "$APP/Contents/Frameworks/Sparkle.framework"
+    codesign --force --sign "$SIGN_ID" --timestamp=none "$APP/Contents/Frameworks/Sparkle.framework"
 fi
-codesign --force --sign - --identifier "$IDENTIFIER" "$APP"
+codesign --force --sign "$SIGN_ID" --identifier "$IDENTIFIER" "$APP"
 
 echo "готово: $APP"
 echo "проверка: $APP/Contents/MacOS/HexBridge probe"

@@ -20,19 +20,19 @@ jobs:
 
       # Кодек берём готовый: собирать libopus из исходников на каждый прогон дорого,
       # а Package.swift и так умеет искать его по OPUS_PREFIX.
-      - name: Установить libopus
+      - name: Install libopus
         run: brew install opus
 
       # --disable-keychain --disable-netrc: все зависимости публичные, а без этих
       # флагов SwiftPM спрашивает у Keychain пароль для хоста с бинарным артефактом
       # Sparkle и на машине, где Keychain не может показать диалог, зависает молча.
-      - name: Собрать
+      - name: Build
         run: swift build -c release --package-path mac --disable-keychain --disable-netrc
 
-      - name: Тесты
+      - name: Tests
         run: bash mac/scripts/test.sh
 
-      - name: Проверить CLI
+      - name: Smoke-test the CLI
         run: |
           BIN=mac/.build/release/HexBridge
           "$BIN" help > /dev/null
@@ -41,10 +41,10 @@ jobs:
           [ ${#KEY} -eq 44 ] || { echo "keygen вернул ключ длиной ${#KEY}, ожидалось 44"; exit 1; }
           "$BIN" list-devices || true   # на раннере может не быть устройств ввода
 
-      - name: Собрать .app
+      - name: Build .app
         run: bash mac/scripts/build-app.sh
 
-      - name: Упаковать
+      - name: Archive
         run: ditto -c -k --keepParent mac/build/HexBridge.app HexBridge-macOS.zip
 
       - uses: actions/upload-artifact@v4
@@ -63,27 +63,27 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Собрать
+      - name: Build
         run: dotnet build win/src/HexBridge.sln -c Release --no-incremental
 
       # Тесты протокола USB/IP — единственный способ проверить разбор пакетов,
       # не имея под рукой vhci-драйвера.
-      - name: Тесты
+      - name: Tests
         run: dotnet test win/src/HexBridge.sln -c Release --no-build --verbosity normal
 
-      - name: Опубликовать приложение
+      - name: Publish the app
         run: >
           dotnet publish win/src/HexBridge.App -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -p:EnableCompressionInSingleFile=true -o publish/app
 
-      - name: Опубликовать консольный приёмник
+      - name: Publish the console receiver
         run: >
           dotnet publish win/HexBridge.Receiver.csproj -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -p:EnableCompressionInSingleFile=true -o publish/cli
 
-      - name: Собрать пакет
+      - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path package -Force | Out-Null
@@ -102,7 +102,7 @@ jobs:
           if-no-files-found: error
 
   relay:
-    name: Релей
+    name: Relay
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -112,7 +112,7 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: relay/go.sum
 
-      - name: Проверить и собрать
+      - name: Vet and build
         working-directory: relay
         run: |
           go vet ./...
@@ -127,14 +127,14 @@ jobs:
           if-no-files-found: error
 
   secrets:
-    name: Проверка на секреты
+    name: Secret scan
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
       # Однажды ключ уже чуть не уехал в репозиторий внутри собранного пакета.
       # Дешевле ловить это в CI, чем вычищать из истории.
-      - name: Искать ключи и конфиги в дереве
+      - name: Look for keys and configs in the tree
         run: |
           set -e
           fail=0

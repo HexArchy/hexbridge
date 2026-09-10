@@ -195,3 +195,30 @@ in as a `--signParams` flag and nothing else in the pipeline changes.
   user's machine.
 * **Sparkle delta updates** (`BinaryDelta`) are not used: they require the previous
   archive on the runner. The user downloads the full zip, which is 2 MB.
+
+## Keeping the microphone permission across rebuilds
+
+macOS ties a granted microphone permission to the code signature, not just to the
+bundle identifier. An ad-hoc signature embeds a hash of the code itself, so it
+changes with every build — which is why the permission has to be granted again
+after each update, and why a launchd-started agent can sit waiting on a prompt
+nobody is there to answer.
+
+A self-signed certificate fixes this for local builds: the signing identity stays
+the same while the code changes, so the grant survives.
+
+```bash
+# Create one, once. Keychain Access → Certificate Assistant → Create a Certificate:
+#   Name: HexBridge Local
+#   Identity Type: Self Signed Root
+#   Certificate Type: Code Signing
+# Then build with it:
+CODESIGN_IDENTITY="HexBridge Local" mac/scripts/build-app.sh
+```
+
+`build-app.sh` falls back to ad-hoc when `CODESIGN_IDENTITY` is unset, and says
+which one it used.
+
+This does not help people installing a release build: those are signed in CI,
+where no such certificate exists. The real fix there is a Developer ID signature,
+which is a paid Apple certificate rather than a line of code.
