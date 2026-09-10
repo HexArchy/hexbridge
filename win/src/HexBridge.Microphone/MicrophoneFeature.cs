@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Microphone;
 
 /// <summary>
@@ -22,7 +24,7 @@ public sealed class MicrophoneFeature : IFeature
     private string? _fault;
 
     public string Id => "microphone";
-    public string Title => "Микрофон";
+    public string Title => Strings.Feature_Microphone_Title;
     public bool IsOptional => false;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
@@ -46,7 +48,7 @@ public sealed class MicrophoneFeature : IFeature
             // native load failure surface somewhere less obvious.
             _ => OperatingSystem.IsWindows()
                 ? new WasapiSink(provider, config.Device, config.LatencyMs)
-                : throw new PlatformNotSupportedException("вывод в WASAPI доступен только на Windows"),
+                : throw new PlatformNotSupportedException(Strings.Audio_WasapiOutputWindowsOnly),
         };
 
         try
@@ -70,7 +72,7 @@ public sealed class MicrophoneFeature : IFeature
         }
         _rate.Reset();
 
-        context.Log(LogLevel.Info, $"hexbridge: вывод звука — {sink.Describe()}");
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_Output, sink.Describe()));
     }
 
     public Task StopAsync()
@@ -131,7 +133,7 @@ public sealed class MicrophoneFeature : IFeature
             return new MicrophoneState
             {
                 Status = fault is null ? FeatureStatus.Stopped : FeatureStatus.Failed,
-                Headline = fault is null ? "Остановлено" : "Ошибка",
+                Headline = fault is null ? Strings.Feature_Mic_Stopped : Strings.Feature_Mic_Failed,
                 Detail = fault,
                 Fault = fault,
             };
@@ -143,7 +145,7 @@ public sealed class MicrophoneFeature : IFeature
             Status = fault is not null ? FeatureStatus.Failed
                 : received == 0 ? FeatureStatus.Waiting
                 : FeatureStatus.Live,
-            Headline = fault is not null ? "Ошибка вывода" : "Звук идёт",
+            Headline = fault is not null ? Strings.Feature_Mic_OutputFailed : Strings.Feature_Mic_Live,
             Detail = fault ?? sink.Describe(),
             Fault = fault,
             OutputDescription = sink.Describe(),

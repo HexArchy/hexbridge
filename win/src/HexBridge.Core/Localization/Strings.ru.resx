@@ -1,0 +1,1939 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Russian. This is the wording the interface shipped with, not a translation of the English.
+
+  Keys are shared with Strings.resx one for one: a key present in one table and
+  missing from the other is a build-green way to ship an empty label, so LocalizationTests
+  compares the two sets on every run.
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Units and shared formats -->
+  <data name="Unit_Ms" xml:space="preserve">
+    <value>{0} мс</value>
+  </data>
+  <data name="Unit_Seconds" xml:space="preserve">
+    <value>{0} с</value>
+  </data>
+  <data name="Unit_Dbfs" xml:space="preserve">
+    <value>{0} dBFS</value>
+  </data>
+  <data name="Unit_Db" xml:space="preserve">
+    <value>{0} дБ</value>
+  </data>
+  <data name="Unit_Hz" xml:space="preserve">
+    <value>{0} Гц</value>
+  </data>
+  <data name="Unit_Kbits" xml:space="preserve">
+    <value>{0} кбит/с</value>
+  </data>
+  <data name="Unit_Percent" xml:space="preserve">
+    <value>{0} %</value>
+  </data>
+  <data name="Unit_Bytes" xml:space="preserve">
+    <value>{0} Б</value>
+  </data>
+  <data name="Unit_Kilobytes" xml:space="preserve">
+    <value>{0} КБ</value>
+  </data>
+  <data name="Unit_Megabytes" xml:space="preserve">
+    <value>{0} МБ</value>
+  </data>
+  <data name="Unit_Mebibytes" xml:space="preserve">
+    <value>{0} МиБ</value>
+  </data>
+  <data name="Unit_FramesPerSecond" xml:space="preserve">
+    <value>{0} пак/с</value>
+  </data>
+  <data name="Unit_UpdatesPerSecond" xml:space="preserve">
+    <value>{0} отч/с</value>
+  </data>
+  <data name="Unit_Duration_Hours" xml:space="preserve">
+    <value>{0} ч {1} м</value>
+  </data>
+  <data name="Unit_Duration_Minutes" xml:space="preserve">
+    <value>{0} м {1} с</value>
+  </data>
+  <data name="Unit_Duration_Seconds" xml:space="preserve">
+    <value>{0} с</value>
+  </data>
+  <data name="Unit_Frames_one" xml:space="preserve">
+    <value>{0} кадр</value>
+  </data>
+  <data name="Unit_Frames_few" xml:space="preserve">
+    <value>{0} кадра</value>
+  </data>
+  <data name="Unit_Frames_many" xml:space="preserve">
+    <value>{0} кадров</value>
+  </data>
+  <data name="Unit_Frames_other" xml:space="preserve">
+    <value>{0} кадров</value>
+  </data>
+  <data name="Unit_Bytes_one" xml:space="preserve">
+    <value>{0} байт</value>
+  </data>
+  <data name="Unit_Bytes_few" xml:space="preserve">
+    <value>{0} байта</value>
+  </data>
+  <data name="Unit_Bytes_many" xml:space="preserve">
+    <value>{0} байт</value>
+  </data>
+  <data name="Unit_Bytes_other" xml:space="preserve">
+    <value>{0} байт</value>
+  </data>
+  <data name="Unit_Devices_one" xml:space="preserve">
+    <value>{0} устройство</value>
+  </data>
+  <data name="Unit_Devices_few" xml:space="preserve">
+    <value>{0} устройства</value>
+  </data>
+  <data name="Unit_Devices_many" xml:space="preserve">
+    <value>{0} устройств</value>
+  </data>
+  <data name="Unit_Devices_other" xml:space="preserve">
+    <value>{0} устройств</value>
+  </data>
+  <data name="Unit_Hosts_one" xml:space="preserve">
+    <value>{0} HexBridge</value>
+  </data>
+  <data name="Unit_Hosts_few" xml:space="preserve">
+    <value>{0} HexBridge</value>
+  </data>
+  <data name="Unit_Hosts_many" xml:space="preserve">
+    <value>{0} HexBridge</value>
+  </data>
+  <data name="Unit_Hosts_other" xml:space="preserve">
+    <value>{0} HexBridge</value>
+  </data>
+  <data name="Common_Empty" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Common_Arrow" xml:space="preserve">
+    <value>{0} → {1}</value>
+  </data>
+
+  <!-- Shell: header, tray, tabs -->
+  <data name="App_Tagline_Sharing" xml:space="preserve">
+    <value>микрофон этого компьютера и общий буфер обмена</value>
+  </data>
+  <data name="App_Tagline_Receiving" xml:space="preserve">
+    <value>микрофон, геймпады и буфер обмена со второй машины</value>
+  </data>
+  <data name="App_Button_Start" xml:space="preserve">
+    <value>Запустить</value>
+  </data>
+  <data name="App_Button_Pause" xml:space="preserve">
+    <value>Пауза</value>
+  </data>
+  <data name="App_Button_Mute" xml:space="preserve">
+    <value>Заглушить</value>
+  </data>
+  <data name="App_Button_Unmute" xml:space="preserve">
+    <value>Включить микрофон</value>
+  </data>
+  <data name="App_Headline_Live" xml:space="preserve">
+    <value>Связь есть</value>
+  </data>
+  <data name="App_Headline_Muted" xml:space="preserve">
+    <value>Микрофон заглушен</value>
+  </data>
+  <data name="App_Headline_Lost" xml:space="preserve">
+    <value>Связь пропала</value>
+  </data>
+  <data name="App_Headline_Waiting" xml:space="preserve">
+    <value>Ждём вторую машину</value>
+  </data>
+  <data name="App_Headline_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="App_Headline_Paused" xml:space="preserve">
+    <value>На паузе</value>
+  </data>
+  <data name="App_Headline_StoppedSharing" xml:space="preserve">
+    <value>Передача остановлена</value>
+  </data>
+  <data name="App_Headline_StoppedReceiving" xml:space="preserve">
+    <value>Приём остановлен</value>
+  </data>
+  <data name="Tray_Show" xml:space="preserve">
+    <value>Показать окно</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Выход</value>
+  </data>
+  <data name="Tray_Tip_Live" xml:space="preserve">
+    <value>HexBridge — звук идёт, {0} пак/с</value>
+  </data>
+  <data name="Tray_Tip_MutedSharing" xml:space="preserve">
+    <value>HexBridge — микрофон заглушен</value>
+  </data>
+  <data name="Tray_Tip_MutedReceiving" xml:space="preserve">
+    <value>HexBridge — микрофон заглушен на второй машине</value>
+  </data>
+  <data name="Tray_Tip_Lost" xml:space="preserve">
+    <value>HexBridge — связь пропала</value>
+  </data>
+  <data name="Tray_Tip_Waiting" xml:space="preserve">
+    <value>HexBridge — ждём вторую машину</value>
+  </data>
+  <data name="Tray_Tip_Failed" xml:space="preserve">
+    <value>HexBridge — ошибка, откройте окно</value>
+  </data>
+  <data name="Tray_Tip_Paused" xml:space="preserve">
+    <value>HexBridge — на паузе</value>
+  </data>
+  <data name="Tray_Tip_StoppedSharing" xml:space="preserve">
+    <value>HexBridge — передача остановлена</value>
+  </data>
+  <data name="Tray_Tip_StoppedReceiving" xml:space="preserve">
+    <value>HexBridge — приём остановлен</value>
+  </data>
+  <data name="Tab_Status" xml:space="preserve">
+    <value>Статус</value>
+  </data>
+  <data name="Tab_Quality" xml:space="preserve">
+    <value>Качество</value>
+  </data>
+  <data name="Tab_Devices" xml:space="preserve">
+    <value>Устройства</value>
+  </data>
+  <data name="Tab_Clipboard" xml:space="preserve">
+    <value>Буфер обмена</value>
+  </data>
+  <data name="Tab_Settings" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="Tab_Log" xml:space="preserve">
+    <value>Журнал</value>
+  </data>
+
+  <!-- Status page -->
+  <data name="Status_Section_Level" xml:space="preserve">
+    <value>УРОВЕНЬ</value>
+  </data>
+  <data name="Status_Section_Connection" xml:space="preserve">
+    <value>СОЕДИНЕНИЕ</value>
+  </data>
+  <data name="Status_Label_Address" xml:space="preserve">
+    <value>Адрес</value>
+  </data>
+  <data name="Status_Label_Peer_Sharing" xml:space="preserve">
+    <value>Принимает</value>
+  </data>
+  <data name="Status_Label_Peer_Receiving" xml:space="preserve">
+    <value>Отдаёт микрофон</value>
+  </data>
+  <data name="Status_Label_Endpoint_Sharing" xml:space="preserve">
+    <value>Звук берётся с</value>
+  </data>
+  <data name="Status_Label_Endpoint_Receiving" xml:space="preserve">
+    <value>Звук идёт в</value>
+  </data>
+  <data name="Status_Peer_NotConnected" xml:space="preserve">
+    <value>не подключён</value>
+  </data>
+  <data name="Status_Peer_Silent" xml:space="preserve">
+    <value>ещё не отвечала</value>
+  </data>
+  <data name="Status_Peer_Unnamed" xml:space="preserve">
+    <value>имя неизвестно</value>
+  </data>
+  <data name="Status_Peer_Fallback" xml:space="preserve">
+    <value>вторая машина</value>
+  </data>
+  <data name="Status_Endpoint_Microphone" xml:space="preserve">
+    <value>микрофон</value>
+  </data>
+  <data name="Status_Endpoint_Output" xml:space="preserve">
+    <value>вывод</value>
+  </data>
+  <data name="Status_GameHint" xml:space="preserve">
+    <value>В играх и голосовых чатах выбирайте микрофон «{0}»</value>
+  </data>
+  <data name="Status_Headline_Live" xml:space="preserve">
+    <value>Звук идёт</value>
+  </data>
+  <data name="Status_Headline_Muted" xml:space="preserve">
+    <value>Микрофон заглушен</value>
+  </data>
+  <data name="Status_Sub_Muted_Sharing" xml:space="preserve">
+    <value>звук не отправляется, связь держится</value>
+  </data>
+  <data name="Status_Sub_Muted_Receiving" xml:space="preserve">
+    <value>{0} поставил микрофон на мут</value>
+  </data>
+  <data name="Status_Headline_Lost" xml:space="preserve">
+    <value>Связь пропала</value>
+  </data>
+  <data name="Status_Sub_Lost_For" xml:space="preserve">
+    <value>нет пакетов уже {0}</value>
+  </data>
+  <data name="Status_Sub_Lost" xml:space="preserve">
+    <value>нет пакетов</value>
+  </data>
+  <data name="Status_Headline_Waiting" xml:space="preserve">
+    <value>Ждём вторую машину</value>
+  </data>
+  <data name="Status_Sub_Waiting_Sharing" xml:space="preserve">
+    <value>звук уходит на {0}, ответа пока нет</value>
+  </data>
+  <data name="Status_Sub_Waiting_Receiving" xml:space="preserve">
+    <value>порт {0} открыт</value>
+  </data>
+  <data name="Status_Headline_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Status_Sub_Failed" xml:space="preserve">
+    <value>не удалось запустить</value>
+  </data>
+  <data name="Status_Headline_StoppedSharing" xml:space="preserve">
+    <value>Передача остановлена</value>
+  </data>
+  <data name="Status_Sub_StoppedSharing" xml:space="preserve">
+    <value>Нажмите «Запустить», чтобы отдавать микрофон</value>
+  </data>
+  <data name="Status_Headline_StoppedReceiving" xml:space="preserve">
+    <value>Приём остановлен</value>
+  </data>
+  <data name="Status_Sub_StoppedReceiving" xml:space="preserve">
+    <value>Нажмите «Запустить», чтобы принимать звук со второй машины</value>
+  </data>
+
+  <!-- Quality page -->
+  <data name="Quality_Metric_Rate" xml:space="preserve">
+    <value>Пакетов в секунду</value>
+  </data>
+  <data name="Quality_Metric_Rtt" xml:space="preserve">
+    <value>Задержка</value>
+  </data>
+  <data name="Quality_Tip_Rtt" xml:space="preserve">
+    <value>Время до второй машины и обратно.</value>
+  </data>
+  <data name="Quality_Metric_Uptime" xml:space="preserve">
+    <value>Аптайм</value>
+  </data>
+  <data name="Quality_Section_Buffer" xml:space="preserve">
+    <value>БУФЕР</value>
+  </data>
+  <data name="Quality_Buffer_Note" xml:space="preserve">
+    <value>Больше буфер — меньше щелчков, но выше задержка.</value>
+  </data>
+  <data name="Quality_Metric_Sent" xml:space="preserve">
+    <value>Отправлено кадров</value>
+  </data>
+  <data name="Quality_Metric_FrameSize" xml:space="preserve">
+    <value>Размер пакета</value>
+  </data>
+  <data name="Quality_Tip_FrameSize" xml:space="preserve">
+    <value>Размер последнего пакета Opus. Столько стоит одна двадцатимиллисекундная порция звука.</value>
+  </data>
+  <data name="Quality_Metric_Bitrate" xml:space="preserve">
+    <value>Битрейт</value>
+  </data>
+  <data name="Quality_Metric_RemoteReceived" xml:space="preserve">
+    <value>Принято там</value>
+  </data>
+  <data name="Quality_Tip_RemoteReceived" xml:space="preserve">
+    <value>Сколько кадров досчиталась вторая машина. Её цифра, не наша.</value>
+  </data>
+  <data name="Quality_Metric_RemoteLost" xml:space="preserve">
+    <value>Потеряно там</value>
+  </data>
+  <data name="Quality_Tip_RemoteLost" xml:space="preserve">
+    <value>Кадры, которых вторая машина не дождалась или восстановила приблизительно.</value>
+  </data>
+  <data name="Quality_Metric_Loss" xml:space="preserve">
+    <value>Доля потерь</value>
+  </data>
+  <data name="Quality_Metric_Concealed" xml:space="preserve">
+    <value>Скрытые кадры</value>
+  </data>
+  <data name="Quality_Tip_Concealed" xml:space="preserve">
+    <value>Кадры, которых не было вовремя: Opus восстановил их приблизительно.</value>
+  </data>
+  <data name="Quality_Metric_Late" xml:space="preserve">
+    <value>Поздние</value>
+  </data>
+  <data name="Quality_Tip_Late" xml:space="preserve">
+    <value>Пакеты, пришедшие после того, как их момент уже отыграли.</value>
+  </data>
+  <data name="Quality_Metric_Underruns" xml:space="preserve">
+    <value>Недоборы</value>
+  </data>
+  <data name="Quality_Tip_Underruns" xml:space="preserve">
+    <value>Буфер опустел, и звук пришлось добить тишиной.</value>
+  </data>
+  <data name="Quality_Metric_Decoded" xml:space="preserve">
+    <value>Декодировано</value>
+  </data>
+  <data name="Quality_Metric_Discarded" xml:space="preserve">
+    <value>Отброшено</value>
+  </data>
+  <data name="Quality_Tip_Discarded" xml:space="preserve">
+    <value>Пакеты с чужим ключом, повторы и мусор из сети.</value>
+  </data>
+  <data name="Quality_Section_History" xml:space="preserve">
+    <value>ПОСЛЕДНИЕ 60 СЕКУНД</value>
+  </data>
+  <data name="Quality_Chart_Level" xml:space="preserve">
+    <value>Уровень сигнала</value>
+  </data>
+  <data name="Quality_Chart_Depth" xml:space="preserve">
+    <value>Глубина буфера, кадров</value>
+  </data>
+  <data name="Quality_Depth" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Quality_Target" xml:space="preserve">
+    <value>цель {0} · подрезка от {1}</value>
+  </data>
+
+  <!-- Devices page -->
+  <data name="Devices_Headline_Off" xml:space="preserve">
+    <value>Проброс выключен</value>
+  </data>
+  <data name="Devices_Sub_Off" xml:space="preserve">
+    <value>Включите приём устройств в настройках</value>
+  </data>
+  <data name="Devices_Section_DriverNeeded" xml:space="preserve">
+    <value>НУЖЕН ДРАЙВЕР USBIP-WIN2</value>
+  </data>
+  <data name="Devices_Slots" xml:space="preserve">
+    <value>Занято номеров: {0}</value>
+  </data>
+  <data name="Devices_Slots_Value" xml:space="preserve">
+    <value>{0} из {1}</value>
+  </data>
+  <data name="Devices_Empty" xml:space="preserve">
+    <value>Что пробрасывать, выбирают на второй машине. Каждое выбранное устройство появится здесь.</value>
+  </data>
+  <data name="Devices_Metric_Rate" xml:space="preserve">
+    <value>Отчётов в секунду</value>
+  </data>
+  <data name="Devices_Metric_Battery" xml:space="preserve">
+    <value>Батарея</value>
+  </data>
+  <data name="Devices_Expander_Details" xml:space="preserve">
+    <value>Подробности</value>
+  </data>
+  <data name="Devices_Label_Received" xml:space="preserve">
+    <value>Принято отчётов</value>
+  </data>
+  <data name="Devices_Label_Outputs" xml:space="preserve">
+    <value>Отправлено команд</value>
+  </data>
+  <data name="Devices_Label_Lost" xml:space="preserve">
+    <value>Потеряно отчётов</value>
+  </data>
+  <data name="Devices_Label_Dropped" xml:space="preserve">
+    <value>Не забрано Windows</value>
+  </data>
+  <data name="Devices_Attach_Hint" xml:space="preserve">
+    <value>Если автоподключение не сработало, эту команду можно выполнить вручную:</value>
+  </data>
+  <data name="Devices_Kind_Hid" xml:space="preserve">
+    <value>HID-устройство</value>
+  </data>
+  <data name="Devices_State_Imported" xml:space="preserve">
+    <value>Windows видит устройство</value>
+  </data>
+  <data name="Devices_State_Waiting" xml:space="preserve">
+    <value>готово, Windows его ещё не забрала</value>
+  </data>
+  <data name="Devices_Caption_Imported" xml:space="preserve">
+    <value>{0} — Windows видит его, {1}</value>
+  </data>
+  <data name="Devices_Caption_Waiting" xml:space="preserve">
+    <value>{0} — Windows его пока не видит</value>
+  </data>
+  <data name="Devices_Battery_Charging" xml:space="preserve">
+    <value>{0}%, заряжается</value>
+  </data>
+  <data name="Devices_Battery_Full" xml:space="preserve">
+    <value>заряжен</value>
+  </data>
+  <data name="Devices_Battery_Status" xml:space="preserve">
+    <value>статус 0x{0}</value>
+  </data>
+  <data name="Devices_Driver_InstallHint" xml:space="preserve">
+    <value>Установите драйвер usbip-win2 0.9.8.0: скачайте USBip-0.9.8.0-x64.exe со страницы github.com/vadimgrn/usbip-win2/releases и запустите. Ни Secure Boot, ни тестовый режим подписи отключать не нужно — бинарники подписаны Microsoft.</value>
+  </data>
+
+  <!-- Clipboard page -->
+  <data name="Clipboard_Headline_Off" xml:space="preserve">
+    <value>Общий буфер выключен</value>
+  </data>
+  <data name="Clipboard_Sub_Off" xml:space="preserve">
+    <value>Включите его в настройках</value>
+  </data>
+  <data name="Clipboard_Privacy" xml:space="preserve">
+    <value>Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG.</value>
+  </data>
+  <data name="Clipboard_Metric_Sent" xml:space="preserve">
+    <value>Отправлено объектов</value>
+  </data>
+  <data name="Clipboard_Metric_Received" xml:space="preserve">
+    <value>Принято объектов</value>
+  </data>
+  <data name="Clipboard_Section_Last" xml:space="preserve">
+    <value>ПОСЛЕДНЯЯ ПЕРЕДАЧА</value>
+  </data>
+  <data name="Clipboard_Label_What" xml:space="preserve">
+    <value>Что</value>
+  </data>
+  <data name="Clipboard_Label_Where" xml:space="preserve">
+    <value>Куда</value>
+  </data>
+  <data name="Clipboard_Label_When" xml:space="preserve">
+    <value>Когда</value>
+  </data>
+  <data name="Clipboard_Note_Recorded" xml:space="preserve">
+    <value>Записывается вид и размер объекта, не содержимое.</value>
+  </data>
+  <data name="Clipboard_Direction_Out" xml:space="preserve">
+    <value>отсюда на вторую машину</value>
+  </data>
+  <data name="Clipboard_Direction_In" xml:space="preserve">
+    <value>со второй машины сюда</value>
+  </data>
+  <data name="Clipboard_Transfer_Out" xml:space="preserve">
+    <value>Отправляем: {0}</value>
+  </data>
+  <data name="Clipboard_Transfer_In" xml:space="preserve">
+    <value>Принимаем: {0}</value>
+  </data>
+  <data name="Clipboard_When_JustNow" xml:space="preserve">
+    <value>только что</value>
+  </data>
+  <data name="Clipboard_When_Seconds" xml:space="preserve">
+    <value>{0} с назад</value>
+  </data>
+  <data name="Clipboard_When_Minutes" xml:space="preserve">
+    <value>{0} мин назад</value>
+  </data>
+  <data name="Clipboard_When_Hours" xml:space="preserve">
+    <value>{0} ч назад</value>
+  </data>
+  <data name="Clipboard_Item_Text" xml:space="preserve">
+    <value>текст, {0}</value>
+  </data>
+  <data name="Clipboard_Item_Image" xml:space="preserve">
+    <value>изображение, {0}</value>
+  </data>
+  <data name="Clipboard_Item_Data" xml:space="preserve">
+    <value>данные, {0}</value>
+  </data>
+
+  <!-- Log page -->
+  <data name="Log_Section" xml:space="preserve">
+    <value>ЖУРНАЛ</value>
+  </data>
+  <data name="Log_Follow" xml:space="preserve">
+    <value>Прокручивать</value>
+  </data>
+  <data name="Log_Copy" xml:space="preserve">
+    <value>Скопировать</value>
+  </data>
+  <data name="Log_Clear" xml:space="preserve">
+    <value>Очистить</value>
+  </data>
+
+  <!-- Settings page -->
+  <data name="Settings_Section_Role" xml:space="preserve">
+    <value>РОЛЬ ЭТОГО КОМПЬЮТЕРА</value>
+  </data>
+  <data name="Settings_Button_ChangeRole" xml:space="preserve">
+    <value>Сменить</value>
+  </data>
+  <data name="Settings_Pair_Heading" xml:space="preserve">
+    <value>Связь со второй машиной</value>
+  </data>
+  <data name="Settings_Pair_Caption" xml:space="preserve">
+    <value>Отпечаток должен совпасть на обеих машинах.</value>
+  </data>
+  <data name="Settings_Button_Check" xml:space="preserve">
+    <value>Проверить связь</value>
+  </data>
+  <data name="Settings_Button_Pair" xml:space="preserve">
+    <value>Связать заново</value>
+  </data>
+  <data name="Settings_Section_Network" xml:space="preserve">
+    <value>СЕТЬ</value>
+  </data>
+  <data name="Settings_Label_Listen" xml:space="preserve">
+    <value>Слушать (адрес и порт)</value>
+  </data>
+  <data name="Settings_Caption_Listen" xml:space="preserve">
+    <value>Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на второй машине.</value>
+  </data>
+  <data name="Settings_Label_Target" xml:space="preserve">
+    <value>Адрес второй машины</value>
+  </data>
+  <data name="Settings_Caption_Target" xml:space="preserve">
+    <value>Обычно его подставляет мастер связывания. Свой порт этот компьютер выбирает сам.</value>
+  </data>
+  <data name="Settings_Expander_KeyRelay" xml:space="preserve">
+    <value>Ключ и релей вручную</value>
+  </data>
+  <data name="Settings_Label_Psk" xml:space="preserve">
+    <value>Общий ключ</value>
+  </data>
+  <data name="Settings_Button_Reveal" xml:space="preserve">
+    <value>Показать</value>
+  </data>
+  <data name="Settings_Button_Copy" xml:space="preserve">
+    <value>Копировать</value>
+  </data>
+  <data name="Settings_Button_Generate" xml:space="preserve">
+    <value>Сгенерировать</value>
+  </data>
+  <data name="Settings_Caption_Psk" xml:space="preserve">
+    <value>Ровно тот же ключ должен стоять на второй машине.</value>
+  </data>
+  <data name="Settings_Label_Relay" xml:space="preserve">
+    <value>Релей</value>
+  </data>
+  <data name="Settings_Placeholder_Relay" xml:space="preserve">
+    <value>например, relay.example.com:47702</value>
+  </data>
+  <data name="Settings_Caption_Relay" xml:space="preserve">
+    <value>Нужен, только если машины не достучатся друг до друга напрямую.</value>
+  </data>
+  <data name="Settings_Section_Devices" xml:space="preserve">
+    <value>УСТРОЙСТВА</value>
+  </data>
+  <data name="Settings_Check_Gamepad" xml:space="preserve">
+    <value>Принимать устройства со второй машины</value>
+  </data>
+  <data name="Settings_Caption_Gamepad" xml:space="preserve">
+    <value>До четырёх устройств, выбранных на Mac: контроллеры, рули, педали, HOTAS. Нужен драйвер usbip-win2.</value>
+  </data>
+  <data name="Settings_Check_AutoAttach" xml:space="preserve">
+    <value>Подключать автоматически</value>
+  </data>
+  <data name="Settings_Expander_Driver" xml:space="preserve">
+    <value>Драйвер usbip-win2</value>
+  </data>
+  <data name="Settings_Label_UsbIpListen" xml:space="preserve">
+    <value>Адрес сервера USB/IP</value>
+  </data>
+  <data name="Settings_Caption_UsbIpListen" xml:space="preserve">
+    <value>Драйвер работает на этом же ПК — наружу порт открывать незачем.</value>
+  </data>
+  <data name="Settings_Label_UsbIpPath" xml:space="preserve">
+    <value>Путь к usbip.exe</value>
+  </data>
+  <data name="Settings_Caption_UsbIpPath" xml:space="preserve">
+    <value>Только если драйвер установлен не в стандартную папку.</value>
+  </data>
+  <data name="Settings_Section_Clipboard" xml:space="preserve">
+    <value>БУФЕР ОБМЕНА</value>
+  </data>
+  <data name="Settings_Check_Clipboard" xml:space="preserve">
+    <value>Общий буфер обмена со второй машиной</value>
+  </data>
+  <data name="Settings_Section_Capture" xml:space="preserve">
+    <value>ЗАХВАТ ЗВУКА</value>
+  </data>
+  <data name="Settings_Label_Source" xml:space="preserve">
+    <value>Источник</value>
+  </data>
+  <data name="Settings_Label_Microphone" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="Settings_Button_RefreshDevices" xml:space="preserve">
+    <value>Обновить список</value>
+  </data>
+  <data name="Settings_Label_Gain" xml:space="preserve">
+    <value>Усиление</value>
+  </data>
+  <data name="Settings_Caption_InputGain" xml:space="preserve">
+    <value>1,0 (0 дБ) — как есть. Поднимайте, если вас слышно тихо.</value>
+  </data>
+  <data name="Settings_Check_StartMuted" xml:space="preserve">
+    <value>Запускаться с заглушённым микрофоном</value>
+  </data>
+  <data name="Settings_Expander_Codec" xml:space="preserve">
+    <value>Кодек</value>
+  </data>
+  <data name="Settings_Label_Bitrate" xml:space="preserve">
+    <value>Битрейт</value>
+  </data>
+  <data name="Settings_Caption_Bitrate" xml:space="preserve">
+    <value>Голос всегда 48 кГц, моно, кадр 20 мс — это часть протокола. Меняется только сколько битрейта на кадр.</value>
+  </data>
+  <data name="Settings_Section_Output" xml:space="preserve">
+    <value>ВЫВОД ЗВУКА</value>
+  </data>
+  <data name="Settings_Label_Mode" xml:space="preserve">
+    <value>Режим</value>
+  </data>
+  <data name="Settings_Label_OutputDevice" xml:space="preserve">
+    <value>Устройство вывода</value>
+  </data>
+  <data name="Settings_Caption_Gain" xml:space="preserve">
+    <value>1,0 (0 дБ) — звук как есть. Поднимайте, только если вторая машина отдаёт тихо.</value>
+  </data>
+  <data name="Settings_Expander_Latency" xml:space="preserve">
+    <value>Задержка и буфер</value>
+  </data>
+  <data name="Settings_Label_Jitter" xml:space="preserve">
+    <value>Целевая глубина буфера</value>
+  </data>
+  <data name="Settings_Caption_Jitter" xml:space="preserve">
+    <value>Меньше — отзывчивее, больше — устойчивее к рывкам сети.</value>
+  </data>
+  <data name="Settings_Label_MaxJitter" xml:space="preserve">
+    <value>Предел, после которого буфер подрезается</value>
+  </data>
+  <data name="Settings_Label_Latency" xml:space="preserve">
+    <value>Задержка вывода</value>
+  </data>
+  <data name="Settings_Section_App" xml:space="preserve">
+    <value>ПРИЛОЖЕНИЕ</value>
+  </data>
+  <data name="Settings_Label_Language" xml:space="preserve">
+    <value>Язык</value>
+  </data>
+  <data name="Settings_Label_Theme" xml:space="preserve">
+    <value>Тема</value>
+  </data>
+  <data name="Settings_Check_StartOnLaunch" xml:space="preserve">
+    <value>Запускать передачу сразу при старте</value>
+  </data>
+  <data name="Settings_Check_StartMinimised" xml:space="preserve">
+    <value>Запускаться сразу в трей</value>
+  </data>
+  <data name="Settings_Check_Autostart" xml:space="preserve">
+    <value>Запускать при входе в Windows</value>
+  </data>
+  <data name="Settings_Caption_Tray" xml:space="preserve">
+    <value>Закрытие окна прячет приложение в трей, передача продолжается.</value>
+  </data>
+  <data name="Settings_Section_Updates" xml:space="preserve">
+    <value>ОБНОВЛЕНИЯ</value>
+  </data>
+  <data name="Settings_Check_AutoUpdate" xml:space="preserve">
+    <value>Проверять обновления раз в сутки</value>
+  </data>
+  <data name="Settings_Button_CheckNow" xml:space="preserve">
+    <value>Проверить сейчас</value>
+  </data>
+  <data name="Settings_Button_Download" xml:space="preserve">
+    <value>Скачать</value>
+  </data>
+  <data name="Settings_Button_Restart" xml:space="preserve">
+    <value>Перезапустить и установить</value>
+  </data>
+  <data name="Settings_Dirty" xml:space="preserve">
+    <value>Есть несохранённые изменения. Сохранение прервёт звук на секунду.</value>
+  </data>
+  <data name="Settings_Button_Revert" xml:space="preserve">
+    <value>Отменить</value>
+  </data>
+  <data name="Settings_Button_Save" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="Settings_Paired_Format" xml:space="preserve">
+    <value>пара для игр: {0}</value>
+  </data>
+  <data name="Settings_Input_Wasapi" xml:space="preserve">
+    <value>Микрофон этого компьютера</value>
+  </data>
+  <data name="Settings_Input_Tone" xml:space="preserve">
+    <value>Тон 440 Гц — проверка тракта</value>
+  </data>
+  <data name="Settings_Input_Null" xml:space="preserve">
+    <value>Тишина — только диагностика</value>
+  </data>
+  <data name="Settings_Bitrate_16" xml:space="preserve">
+    <value>16 кбит/с — узкий канал</value>
+  </data>
+  <data name="Settings_Bitrate_24" xml:space="preserve">
+    <value>24 кбит/с</value>
+  </data>
+  <data name="Settings_Bitrate_32" xml:space="preserve">
+    <value>32 кбит/с — как на Mac</value>
+  </data>
+  <data name="Settings_Bitrate_48" xml:space="preserve">
+    <value>48 кбит/с</value>
+  </data>
+  <data name="Settings_Bitrate_64" xml:space="preserve">
+    <value>64 кбит/с — запас по качеству</value>
+  </data>
+  <data name="Settings_Output_Wasapi" xml:space="preserve">
+    <value>Виртуальный кабель (WASAPI)</value>
+  </data>
+  <data name="Settings_Output_Null" xml:space="preserve">
+    <value>Никуда — только диагностика</value>
+  </data>
+  <data name="Settings_Output_Wav" xml:space="preserve">
+    <value>Запись в файл hexbridge.wav</value>
+  </data>
+  <data name="Settings_Theme_System" xml:space="preserve">
+    <value>Системная</value>
+  </data>
+  <data name="Settings_Theme_Light" xml:space="preserve">
+    <value>Светлая</value>
+  </data>
+  <data name="Settings_Theme_Dark" xml:space="preserve">
+    <value>Тёмная</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>Системный</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_Language_Russian" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="Settings_Device_Auto" xml:space="preserve">
+    <value>Определять автоматически</value>
+  </data>
+  <data name="Settings_Device_DefaultMic" xml:space="preserve">
+    <value>Микрофон по умолчанию</value>
+  </data>
+  <data name="Settings_Notice_WindowsOnly" xml:space="preserve">
+    <value>Список устройств доступен только на Windows.</value>
+  </data>
+  <data name="Settings_Notice_NoCable" xml:space="preserve">
+    <value>Виртуальный кабель не найден. Установите Steam или VB-Audio Virtual Cable.</value>
+  </data>
+  <data name="Settings_Notice_NoMicrophone" xml:space="preserve">
+    <value>Микрофонов не найдено. Подключите микрофон или гарнитуру.</value>
+  </data>
+  <data name="Settings_Notice_ListFailed" xml:space="preserve">
+    <value>Не удалось прочитать список устройств: {0}</value>
+  </data>
+  <data name="Settings_Error_Key" xml:space="preserve">
+    <value>Общий ключ: {0}. Нажмите «Сгенерировать» и вставьте тот же ключ на Mac.</value>
+  </data>
+  <data name="Settings_Error_NoTarget" xml:space="preserve">
+    <value>Не задан адрес второго компьютера. Свяжите машины кнопкой «Связать заново» или впишите адрес вида 192.168.1.10:47702.</value>
+  </data>
+  <data name="Settings_Error_Listen" xml:space="preserve">
+    <value>Не удаётся разобрать адрес «{0}». Пример: 0.0.0.0:47702</value>
+  </data>
+  <data name="Settings_Error_Relay" xml:space="preserve">
+    <value>Не удаётся разобрать адрес релея «{0}».</value>
+  </data>
+  <data name="Settings_Error_UsbIp" xml:space="preserve">
+    <value>Не удаётся разобрать адрес USB/IP «{0}». Пример: 127.0.0.1:3240</value>
+  </data>
+  <data name="Settings_Gain_Silence" xml:space="preserve">
+    <value>тишина</value>
+  </data>
+  <data name="Settings_Fingerprint_None" xml:space="preserve">
+    <value>ключ не задан</value>
+  </data>
+  <data name="Autostart_WindowsOnly" xml:space="preserve">
+    <value>автозапуск доступен только в Windows</value>
+  </data>
+  <data name="Autostart_KeyFailed" xml:space="preserve">
+    <value>не удалось открыть ветку автозапуска</value>
+  </data>
+  <data name="Autostart_NoExecutable" xml:space="preserve">
+    <value>не удалось определить путь к исполняемому файлу</value>
+  </data>
+
+  <!-- Role picker -->
+  <data name="Role_Title_FirstRun" xml:space="preserve">
+    <value>Что делает этот компьютер?</value>
+  </data>
+  <data name="Role_Title_Change" xml:space="preserve">
+    <value>Сменить роль</value>
+  </data>
+  <data name="Role_Button_Cancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="Role_Intro" xml:space="preserve">
+    <value>HexBridge соединяет две машины: на одной микрофон, на другой игры. Выберите, чем этот компьютер будет в этой паре.</value>
+  </data>
+  <data name="Role_Receiver_Extra" xml:space="preserve">
+    <value>Сюда же можно пробросить геймпад с Mac.</value>
+  </data>
+  <data name="Role_Sender_Caveat" xml:space="preserve">
+    <value>Геймпады и другие USB-устройства так пробросить нельзя — Windows не отдаёт их дескрипторы. Микрофон и общий буфер обмена работают.</value>
+  </data>
+  <data name="Role_Footnote_Sender" xml:space="preserve">
+    <value>Ключ создаст тот компьютер, который принимает: только он знает свой адрес. Здесь нужно будет ввести код с его экрана.</value>
+  </data>
+  <data name="Role_Footnote_Receiver" xml:space="preserve">
+    <value>Этот компьютер создаст общий ключ и покажет код — его нужно будет ввести на второй машине.</value>
+  </data>
+  <data name="Role_Confirm_Continue" xml:space="preserve">
+    <value>Продолжить</value>
+  </data>
+  <data name="Role_Confirm_Switch" xml:space="preserve">
+    <value>Переключить</value>
+  </data>
+  <data name="Role_Confirm_Keep" xml:space="preserve">
+    <value>Оставить как есть</value>
+  </data>
+  <data name="Role_Footer" xml:space="preserve">
+    <value>Роль можно сменить в любой момент — «Настройки» → «Роль этого компьютера».</value>
+  </data>
+  <data name="Role_Title_Sender" xml:space="preserve">
+    <value>Отдаёт свой микрофон</value>
+  </data>
+  <data name="Role_Title_Receiver" xml:space="preserve">
+    <value>Принимает чужой микрофон</value>
+  </data>
+  <data name="Role_Summary_Sender" xml:space="preserve">
+    <value>Микрофон подключён к этому компьютеру, а звук нужен на другом — там он подставится играм.</value>
+  </data>
+  <data name="Role_Summary_Receiver" xml:space="preserve">
+    <value>Микрофон подключён к другому компьютеру, а игры запускаются здесь — звук придёт сюда.</value>
+  </data>
+  <data name="Role_Peer_Sender" xml:space="preserve">
+    <value>компьютер, который принимает звук</value>
+  </data>
+  <data name="Role_Peer_Receiver" xml:space="preserve">
+    <value>компьютер с микрофоном</value>
+  </data>
+
+  <!-- Pairing wizard -->
+  <data name="Pairing_Title_Step1" xml:space="preserve">
+    <value>Связать этот компьютер со второй машиной</value>
+  </data>
+  <data name="Pairing_Title_Step2_Sharing" xml:space="preserve">
+    <value>Код со второй машины</value>
+  </data>
+  <data name="Pairing_Title_Step2_Receiving" xml:space="preserve">
+    <value>Код для второй машины</value>
+  </data>
+  <data name="Pairing_Title_Step3" xml:space="preserve">
+    <value>Ждём вторую машину</value>
+  </data>
+  <data name="Pairing_Title_Step4" xml:space="preserve">
+    <value>Проверка связи</value>
+  </data>
+  <data name="Pairing_Button_Close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="Pairing_Intro_Receiving" xml:space="preserve">
+    <value>HexBridge создаст общий ключ и покажет его в виде кода. На второй машине этот код нужно будет ввести один раз.</value>
+  </data>
+  <data name="Pairing_Intro_Sharing" xml:space="preserve">
+    <value>Ключ создаст вторая машина — та, что принимает звук: только она знает свой адрес. Здесь нужно будет ввести код с её экрана.</value>
+  </data>
+  <data name="Pairing_Label_MachineName" xml:space="preserve">
+    <value>Имя этого компьютера — вторая машина покажет его в списке</value>
+  </data>
+  <data name="Pairing_Readiness_Note" xml:space="preserve">
+    <value>Незакрытые строки не мешают связать машины — их можно починить потом.</value>
+  </data>
+  <data name="Pairing_Step2_Heading" xml:space="preserve">
+    <value>На второй машине</value>
+  </data>
+  <data name="Pairing_Step2_Line1" xml:space="preserve">
+    <value>1. Откройте HexBridge и начните связывание.</value>
+  </data>
+  <data name="Pairing_Step2_Line2" xml:space="preserve">
+    <value>2. На Mac — «Отсканировать код» и камеру на экран.</value>
+  </data>
+  <data name="Pairing_Step2_Line3" xml:space="preserve">
+    <value>3. На Windows или без камеры — наберите двенадцать символов.</value>
+  </data>
+  <data name="Pairing_Section_ShortCode" xml:space="preserve">
+    <value>КОРОТКИЙ КОД</value>
+  </data>
+  <data name="Pairing_Button_CopyCode" xml:space="preserve">
+    <value>Скопировать</value>
+  </data>
+  <data name="Pairing_Section_Fingerprint" xml:space="preserve">
+    <value>ОТПЕЧАТОК КЛЮЧА</value>
+  </data>
+  <data name="Pairing_Fingerprint_Note_Receiving" xml:space="preserve">
+    <value>Тот же отпечаток должен появиться на второй машине. Сам ключ никуда не показывается.</value>
+  </data>
+  <data name="Pairing_Fingerprint_Note_Sharing" xml:space="preserve">
+    <value>Он должен совпасть с тем, что показан на второй машине. Сам ключ нигде не показывается.</value>
+  </data>
+  <data name="Pairing_Intro_Enter" xml:space="preserve">
+    <value>Откройте HexBridge на второй машине, дойдите до экрана с кодом и наберите его здесь.</value>
+  </data>
+  <data name="Pairing_Section_Found" xml:space="preserve">
+    <value>НАЙДЕНО В СЕТИ</value>
+  </data>
+  <data name="Pairing_Section_Code" xml:space="preserve">
+    <value>КОД СО ВТОРОЙ МАШИНЫ</value>
+  </data>
+  <data name="Pairing_Caption_Uri" xml:space="preserve">
+    <value>Сюда же можно вставить ссылку hexbridge://pair целиком — тогда адрес не нужен.</value>
+  </data>
+  <data name="Pairing_Section_Address" xml:space="preserve">
+    <value>АДРЕС</value>
+  </data>
+  <data name="Pairing_Step3_Note" xml:space="preserve">
+    <value>Как только вторая машина заберёт ключ, проверка связи начнётся сама.</value>
+  </data>
+  <data name="Pairing_Footer_Receiving" xml:space="preserve">
+    <value>Ключ создаётся на этом компьютере: только он знает свой адрес.</value>
+  </data>
+  <data name="Pairing_Footer_Sharing" xml:space="preserve">
+    <value>Ключ создаёт вторая машина — та, что принимает звук.</value>
+  </data>
+  <data name="Pairing_Button_Regenerate" xml:space="preserve">
+    <value>Обновить код</value>
+  </data>
+  <data name="Pairing_Button_Retry" xml:space="preserve">
+    <value>Проверить ещё раз</value>
+  </data>
+  <data name="Pairing_Button_Next" xml:space="preserve">
+    <value>Далее</value>
+  </data>
+  <data name="Pairing_Button_OtherReady" xml:space="preserve">
+    <value>Вторая машина готова</value>
+  </data>
+  <data name="Pairing_Button_Connect" xml:space="preserve">
+    <value>Связать</value>
+  </data>
+  <data name="Pairing_Button_Done" xml:space="preserve">
+    <value>Готово</value>
+  </data>
+  <data name="Pairing_Ready_Driver" xml:space="preserve">
+    <value>Драйвер usbip-win2</value>
+  </data>
+  <data name="Pairing_Ready_Cable" xml:space="preserve">
+    <value>Виртуальный аудиокабель</value>
+  </data>
+  <data name="Pairing_Ready_Cable_Hint" xml:space="preserve">
+    <value>Без него принятый звук некуда отдать. Установите Steam или VB-Audio Virtual Cable.</value>
+  </data>
+  <data name="Pairing_Ready_Port" xml:space="preserve">
+    <value>Порт UDP</value>
+  </data>
+  <data name="Pairing_Ready_Port_Hint" xml:space="preserve">
+    <value>Разрешите HexBridge в брандмауэре Windows для частной сети.</value>
+  </data>
+  <data name="Pairing_Ready_Network" xml:space="preserve">
+    <value>Адрес в сети</value>
+  </data>
+  <data name="Pairing_Ready_Network_Hint" xml:space="preserve">
+    <value>Подключите этот компьютер к той же сети, что и вторую — по кабелю или по Wi-Fi.</value>
+  </data>
+  <data name="Pairing_Ready_Microphone" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="Pairing_Ready_Microphone_Hint" xml:space="preserve">
+    <value>Подключите микрофон или гарнитуру — это то, что будет уходить на вторую машину.</value>
+  </data>
+  <data name="Pairing_Ready_MicAccess" xml:space="preserve">
+    <value>Доступ к микрофону</value>
+  </data>
+  <data name="Pairing_Ready_MicAccess_Hint" xml:space="preserve">
+    <value>Разрешите приложениям доступ к микрофону: Параметры → Конфиденциальность → Микрофон.</value>
+  </data>
+  <data name="Pairing_Ready_Peer" xml:space="preserve">
+    <value>Вторая машина</value>
+  </data>
+  <data name="Pairing_Ready_Peer_Hint" xml:space="preserve">
+    <value>Откройте HexBridge на второй машине и дойдите там до экрана с кодом.</value>
+  </data>
+  <data name="Pairing_Ready_Checking" xml:space="preserve">
+    <value>проверяется</value>
+  </data>
+  <data name="Pairing_Ready_NotInstalled" xml:space="preserve">
+    <value>не установлен</value>
+  </data>
+  <data name="Pairing_Ready_NotFound" xml:space="preserve">
+    <value>не найден</value>
+  </data>
+  <data name="Pairing_Ready_NoNetwork" xml:space="preserve">
+    <value>сеть недоступна</value>
+  </data>
+  <data name="Pairing_Ready_PortAtStep4" xml:space="preserve">
+    <value>{0} — проверяется на шаге 4</value>
+  </data>
+  <data name="Pairing_Ready_AtStep4" xml:space="preserve">
+    <value>проверяется на шаге 4</value>
+  </data>
+  <data name="Pairing_Ready_NeedsCode" xml:space="preserve">
+    <value>нужен её код</value>
+  </data>
+  <data name="Pairing_Code_Expired" xml:space="preserve">
+    <value>Код истёк</value>
+  </data>
+  <data name="Pairing_Code_Valid" xml:space="preserve">
+    <value>Код действует ещё {0}</value>
+  </data>
+  <data name="Pairing_Discovery_Unavailable" xml:space="preserve">
+    <value>Автопоиск недоступен: {0}. Код и QR работают как обычно.</value>
+  </data>
+  <data name="Pairing_Discovery_Ok" xml:space="preserve">
+    <value>Mac найдёт этот ПК сам — выберите его в списке и введите код с этого экрана.</value>
+  </data>
+  <data name="Pairing_Browse_Unavailable" xml:space="preserve">
+    <value>Автопоиск недоступен: {0}. Введите адрес второй машины вручную.</value>
+  </data>
+  <data name="Pairing_Browse_Searching" xml:space="preserve">
+    <value>Ищем HexBridge в сети…</value>
+  </data>
+  <data name="Pairing_Browse_Empty" xml:space="preserve">
+    <value>Пока никого не видно. Откройте HexBridge на второй машине — или введите её адрес вручную.</value>
+  </data>
+  <data name="Pairing_Browse_Found" xml:space="preserve">
+    <value>Выберите машину и введите код с её экрана.</value>
+  </data>
+  <data name="Pairing_Host_Unnamed" xml:space="preserve">
+    <value>без имени</value>
+  </data>
+  <data name="Pairing_Host_NoAddress" xml:space="preserve">
+    <value>адрес выясняется</value>
+  </data>
+  <data name="Pairing_Host_Ours" xml:space="preserve">
+    <value>это ваша вторая машина</value>
+  </data>
+  <data name="Pairing_Host_Unpaired" xml:space="preserve">
+    <value>ещё ни с кем не связана</value>
+  </data>
+  <data name="Pairing_Host_Other" xml:space="preserve">
+    <value>связана с другой машиной</value>
+  </data>
+  <data name="Pairing_Error_ShortCode" xml:space="preserve">
+    <value>Код состоит из двенадцати символов — например ABCD-EFGH-JKLM. Можно вставить и ссылку hexbridge://pair целиком.</value>
+  </data>
+  <data name="Pairing_Error_NoHost" xml:space="preserve">
+    <value>Не указан адрес второй машины. Выберите её в списке или впишите вида 192.168.1.10.</value>
+  </data>
+  <data name="Pairing_Sound_Prompt_Sharing" xml:space="preserve">
+    <value>Скажите что-нибудь вслух рядом с этим компьютером</value>
+  </data>
+  <data name="Pairing_Sound_Prompt_Receiving" xml:space="preserve">
+    <value>Скажите что-нибудь вслух рядом со второй машиной</value>
+  </data>
+  <data name="Pairing_Sound_Note_Sharing" xml:space="preserve">
+    <value>Уровень измеряется здесь, до отправки.</value>
+  </data>
+  <data name="Pairing_Sound_Note_Receiving" xml:space="preserve">
+    <value>Уровень измеряется на этом компьютере, а не на второй машине.</value>
+  </data>
+  <data name="Pairing_Result_Ok" xml:space="preserve">
+    <value>Всё работает</value>
+  </data>
+  <data name="Pairing_Result_Ok_Sharing" xml:space="preserve">
+    <value>Микрофон этого компьютера уходит на {0}.</value>
+  </data>
+  <data name="Pairing_Result_Ok_Receiving_WithCapture" xml:space="preserve">
+    <value>Звук идёт на {0}. В играх выбирайте микрофон {1}.</value>
+  </data>
+  <data name="Pairing_Result_Ok_Receiving" xml:space="preserve">
+    <value>Звук идёт на {0}.</value>
+  </data>
+  <data name="Pairing_Peer_Fallback" xml:space="preserve">
+    <value>вторую машину</value>
+  </data>
+  <data name="Pairing_Fail_Address_Sharing" xml:space="preserve">
+    <value>Адрес второй машины не разбирается</value>
+  </data>
+  <data name="Pairing_Fail_Address_Receiving" xml:space="preserve">
+    <value>Адрес этого компьютера не определяется</value>
+  </data>
+  <data name="Pairing_Fail_Traffic_Sharing" xml:space="preserve">
+    <value>Вторая машина не отвечает</value>
+  </data>
+  <data name="Pairing_Fail_Traffic_Receiving" xml:space="preserve">
+    <value>Пакеты со второй машины не доходят</value>
+  </data>
+  <data name="Pairing_Fail_Keys" xml:space="preserve">
+    <value>Ключи не совпадают</value>
+  </data>
+  <data name="Pairing_Fail_Device_Sharing" xml:space="preserve">
+    <value>Микрофон не найден</value>
+  </data>
+  <data name="Pairing_Fail_Device_Receiving" xml:space="preserve">
+    <value>Принятый звук некуда отдать</value>
+  </data>
+  <data name="Pairing_Fail_Sound_Sharing" xml:space="preserve">
+    <value>Микрофон молчит</value>
+  </data>
+  <data name="Pairing_Fail_Sound_Receiving" xml:space="preserve">
+    <value>Звук не доходит</value>
+  </data>
+  <data name="Pairing_Fail_Controller" xml:space="preserve">
+    <value>Контроллер не проброшен</value>
+  </data>
+  <data name="Check_Address_Sharing" xml:space="preserve">
+    <value>Адрес второй машины разбирается</value>
+  </data>
+  <data name="Check_Address_Receiving" xml:space="preserve">
+    <value>Адрес разрешается</value>
+  </data>
+  <data name="Check_Traffic_Sharing" xml:space="preserve">
+    <value>Ответ приходит</value>
+  </data>
+  <data name="Check_Traffic_Receiving" xml:space="preserve">
+    <value>Пакеты доходят</value>
+  </data>
+  <data name="Check_Keys" xml:space="preserve">
+    <value>Ключи совпадают</value>
+  </data>
+  <data name="Check_Device_Sharing" xml:space="preserve">
+    <value>Микрофон найден</value>
+  </data>
+  <data name="Check_Device_Receiving" xml:space="preserve">
+    <value>Аудиоустройство найдено</value>
+  </data>
+  <data name="Check_Sound_Sharing" xml:space="preserve">
+    <value>Микрофон слышит голос</value>
+  </data>
+  <data name="Check_Sound_Receiving" xml:space="preserve">
+    <value>Звук проходит насквозь</value>
+  </data>
+  <data name="Check_Devices" xml:space="preserve">
+    <value>Проброшенные устройства</value>
+  </data>
+
+  <!-- Link check details -->
+  <data name="Check_Detail_NoAddress" xml:space="preserve">
+    <value>адрес не задан</value>
+  </data>
+  <data name="Check_Detail_NoNetwork" xml:space="preserve">
+    <value>сеть недоступна — этот ПК сейчас не виден по сети</value>
+  </data>
+  <data name="Check_Detail_Unresolved" xml:space="preserve">
+    <value>имя не разрешается в адрес</value>
+  </data>
+  <data name="Check_Detail_Unparsable" xml:space="preserve">
+    <value>не удаётся разобрать «{0}»</value>
+  </data>
+  <data name="Check_Detail_NoAnswer" xml:space="preserve">
+    <value>ответа нет за {0}</value>
+  </data>
+  <data name="Check_Detail_Flowing" xml:space="preserve">
+    <value>пакеты идут</value>
+  </data>
+  <data name="Check_Detail_NoKey" xml:space="preserve">
+    <value>общий ключ не задан или это не 32 байта в base64</value>
+  </data>
+  <data name="Check_Detail_Fingerprint" xml:space="preserve">
+    <value>отпечаток {0}</value>
+  </data>
+  <data name="Check_Detail_KeyMismatch" xml:space="preserve">
+    <value>ключи не совпадают — на этом ПК {0}</value>
+  </data>
+  <data name="Check_Detail_NoOutput" xml:space="preserve">
+    <value>устройство не найдено — установите Steam или VB-Audio Virtual Cable</value>
+  </data>
+  <data name="Check_Detail_NoInput" xml:space="preserve">
+    <value>микрофон не найден — подключите его и запустите передачу заново</value>
+  </data>
+  <data name="Check_Detail_Peak" xml:space="preserve">
+    <value>пик {0}</value>
+  </data>
+  <data name="Check_Detail_MicSilent" xml:space="preserve">
+    <value>микрофон молчит — проверьте, что выбран нужный и что доступ к нему разрешён</value>
+  </data>
+  <data name="Check_Detail_Silence" xml:space="preserve">
+    <value>тишина на этой машине</value>
+  </data>
+  <data name="Check_Detail_SaySomething" xml:space="preserve">
+    <value>скажите что-нибудь вслух</value>
+  </data>
+  <data name="Check_Detail_ForwardingOff" xml:space="preserve">
+    <value>проброс выключен</value>
+  </data>
+  <data name="Check_Detail_NoDriver" xml:space="preserve">
+    <value>драйвер не установлен</value>
+  </data>
+  <data name="Check_Detail_Forwarded" xml:space="preserve">
+    <value>устройство проброшено</value>
+  </data>
+  <data name="Check_Detail_NotOnMac" xml:space="preserve">
+    <value>устройство не подключено к Mac</value>
+  </data>
+  <data name="Check_Detail_NoForwardingHere" xml:space="preserve">
+    <value>отсюда устройства не пробрасываются</value>
+  </data>
+
+  <!-- Feature states -->
+  <data name="Feature_Disabled" xml:space="preserve">
+    <value>Выключено в настройках</value>
+  </data>
+  <data name="Feature_Unavailable" xml:space="preserve">
+    <value>Здесь недоступно</value>
+  </data>
+  <data name="Feature_NotStarted" xml:space="preserve">
+    <value>Не запущено</value>
+  </data>
+  <data name="Feature_Microphone_Title" xml:space="preserve">
+    <value>Микрофон</value>
+  </data>
+  <data name="Feature_Devices_Title" xml:space="preserve">
+    <value>Устройства</value>
+  </data>
+  <data name="Feature_Clipboard_Title" xml:space="preserve">
+    <value>Буфер обмена</value>
+  </data>
+  <data name="Feature_Mic_Stopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="Feature_Mic_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Feature_Mic_OutputFailed" xml:space="preserve">
+    <value>Ошибка вывода</value>
+  </data>
+  <data name="Feature_Mic_Live" xml:space="preserve">
+    <value>Звук идёт</value>
+  </data>
+  <data name="Feature_Cap_Stopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="Feature_Cap_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Feature_Cap_CaptureFailed" xml:space="preserve">
+    <value>Ошибка захвата</value>
+  </data>
+  <data name="Feature_Cap_Muted" xml:space="preserve">
+    <value>Микрофон заглушен</value>
+  </data>
+  <data name="Feature_Cap_Live" xml:space="preserve">
+    <value>Звук уходит</value>
+  </data>
+  <data name="Feature_Dev_Unavailable" xml:space="preserve">
+    <value>Отдавать геймпады умеет только Mac: Windows не выдаёт приложениям настоящие USB-дескрипторы своих HID-устройств, а без них собрать устройство на другой стороне не из чего. Принимать устройства этот компьютер по-прежнему умеет — для этого переключите роль.</value>
+  </data>
+  <data name="Feature_Dev_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Feature_Dev_Stopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="Feature_Dev_Waiting" xml:space="preserve">
+    <value>Ждём устройства</value>
+  </data>
+  <data name="Feature_Dev_One" xml:space="preserve">
+    <value>Устройство проброшено</value>
+  </data>
+  <data name="Feature_Dev_Many_one" xml:space="preserve">
+    <value>Проброшено устройств: {0}</value>
+  </data>
+  <data name="Feature_Dev_Many_few" xml:space="preserve">
+    <value>Проброшено устройств: {0}</value>
+  </data>
+  <data name="Feature_Dev_Many_many" xml:space="preserve">
+    <value>Проброшено устройств: {0}</value>
+  </data>
+  <data name="Feature_Dev_Many_other" xml:space="preserve">
+    <value>Проброшено устройств: {0}</value>
+  </data>
+  <data name="Feature_Dev_Partial" xml:space="preserve">
+    <value>Собрано {0}, подключено к Windows {1}</value>
+  </data>
+  <data name="Feature_Dev_Detail_Empty" xml:space="preserve">
+    <value>Выберите устройства на Mac и подключите их по USB</value>
+  </data>
+  <data name="Feature_Dev_Detail_AttachFailed" xml:space="preserve">
+    <value>usbip.exe не смог подключить часть устройств</value>
+  </data>
+  <data name="Feature_Dev_Detail_NoDriver" xml:space="preserve">
+    <value>Драйвер usbip-win2 не установлен</value>
+  </data>
+  <data name="Feature_Dev_PortBusy" xml:space="preserve">
+    <value>не удалось занять {0} для USB/IP: {1}. Обычно это значит, что порт уже слушает другой экземпляр HexBridge или сам usbipd.</value>
+  </data>
+  <data name="Feature_Dev_AttachUnparsed" xml:space="preserve">
+    <value>DEV_ATTACH не разобран</value>
+  </data>
+  <data name="Feature_Dev_NotBuilt" xml:space="preserve">
+    <value>устройство {0} не собрано: {1}</value>
+  </data>
+  <data name="Feature_Clip_Stopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="Feature_Clip_Failed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="Feature_Clip_ClipboardFailed" xml:space="preserve">
+    <value>Ошибка буфера обмена</value>
+  </data>
+  <data name="Feature_Clip_Transferring" xml:space="preserve">
+    <value>Передаём</value>
+  </data>
+  <data name="Feature_Clip_Waiting" xml:space="preserve">
+    <value>Ждём копирования</value>
+  </data>
+  <data name="Feature_Clip_Live" xml:space="preserve">
+    <value>Буфер обмена общий</value>
+  </data>
+  <data name="Feature_Clip_Detail_Empty" xml:space="preserve">
+    <value>Скопируйте что-нибудь — оно появится на другой машине</value>
+  </data>
+  <data name="Feature_Clip_Sent" xml:space="preserve">
+    <value>отправлено</value>
+  </data>
+  <data name="Feature_Clip_Received" xml:space="preserve">
+    <value>принято</value>
+  </data>
+  <data name="Feature_Clip_Last" xml:space="preserve">
+    <value>Последнее: {0}, {1} {2}</value>
+  </data>
+  <data name="Feature_Clip_WindowsOnly" xml:space="preserve">
+    <value>общий буфер обмена доступен только на Windows</value>
+  </data>
+
+  <!-- Audio devices -->
+  <data name="Audio_WasapiOutputWindowsOnly" xml:space="preserve">
+    <value>вывод в WASAPI доступен только на Windows</value>
+  </data>
+  <data name="Audio_WasapiCaptureWindowsOnly" xml:space="preserve">
+    <value>захват через WASAPI доступен только на Windows</value>
+  </data>
+  <data name="Audio_NoVirtualCable" xml:space="preserve">
+    <value>не найдено виртуальное устройство. Установите Steam (Steam Streaming Microphone) или VB-Audio Virtual Cable, либо укажите --device</value>
+  </data>
+  <data name="Audio_OutputNotFound" xml:space="preserve">
+    <value>устройство вывода не найдено: {0}</value>
+  </data>
+  <data name="Audio_InputNotFound" xml:space="preserve">
+    <value>устройство ввода не найдено: {0}</value>
+  </data>
+  <data name="Audio_NoMicrophone" xml:space="preserve">
+    <value>в системе нет ни одного микрофона. Подключите его и нажмите «Запустить»</value>
+  </data>
+  <data name="Audio_Encoder" xml:space="preserve">
+    <value>кодировщик Opus: {0}</value>
+  </data>
+  <data name="Audio_Device_Format" xml:space="preserve">
+    <value>{0} [{1} Гц, {2} ch]</value>
+  </data>
+  <data name="Audio_Device_PairedHint" xml:space="preserve">
+    <value> → в играх выбирайте «{0}»</value>
+  </data>
+  <data name="Audio_Device_Resampled" xml:space="preserve">
+    <value> → пересчёт в 48000 Гц</value>
+  </data>
+  <data name="Audio_FormatRefused" xml:space="preserve">
+    <value>«{0}» не принимает 48000 Гц / 2 канала / 32-bit float (текущий формат устройства: {1} Гц, {2} ch). Откройте Параметры звука → свойства этого устройства и выберите формат «2 канала, 32 бит, 48000 Гц». Исходная ошибка: {3}</value>
+  </data>
+  <data name="Audio_Sink_Wav" xml:space="preserve">
+    <value>файл {0}</value>
+  </data>
+  <data name="Audio_Sink_Null" xml:space="preserve">
+    <value>null (звук никуда не выводится)</value>
+  </data>
+  <data name="Audio_Source_Null" xml:space="preserve">
+    <value>null (ничего не захватывается)</value>
+  </data>
+  <data name="Audio_Source_Tone" xml:space="preserve">
+    <value>тон {0} Гц (проверка тракта)</value>
+  </data>
+  <data name="Audio_Source_File" xml:space="preserve">
+    <value>файл {0} ({1} с, по кругу)</value>
+  </data>
+  <data name="Audio_Source_NoSound" xml:space="preserve">
+    <value>в «{0}» нет звука</value>
+  </data>
+
+  <!-- Updates -->
+  <data name="Update_Off_Headline" xml:space="preserve">
+    <value>Проверка обновлений выключена</value>
+  </data>
+  <data name="Update_Off_Detail" xml:space="preserve">
+    <value>Включите её в настройках, если захотите узнавать о новых версиях.</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>Проверяю обновления…</value>
+  </data>
+  <data name="Update_Current" xml:space="preserve">
+    <value>Установлена последняя версия</value>
+  </data>
+  <data name="Update_Current_Detail" xml:space="preserve">
+    <value>Сейчас {0}.</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>Есть версия {0}</value>
+  </data>
+  <data name="Update_Available_Detail" xml:space="preserve">
+    <value>Скачать и установить? Приём звука прервётся на несколько секунд при перезапуске.</value>
+  </data>
+  <data name="Update_CheckFailed" xml:space="preserve">
+    <value>Не удалось проверить обновления</value>
+  </data>
+  <data name="Update_Downloading" xml:space="preserve">
+    <value>Скачиваю {0}…</value>
+  </data>
+  <data name="Update_Ready" xml:space="preserve">
+    <value>Версия {0} готова</value>
+  </data>
+  <data name="Update_Ready_Detail" xml:space="preserve">
+    <value>Установится при следующем запуске — или нажмите «Перезапустить».</value>
+  </data>
+  <data name="Update_DownloadFailed" xml:space="preserve">
+    <value>Не удалось скачать обновление</value>
+  </data>
+  <data name="Update_Summary" xml:space="preserve">
+    <value>Версия {0}. Проверка раз в сутки, установка — только по вашей команде.</value>
+  </data>
+  <data name="Update_Summary_Portable" xml:space="preserve">
+    <value>Эта сборка распакована из архива, а не установлена. Обновляется заменой файлов вручную.</value>
+  </data>
+  <data name="Update_Version_Unknown" xml:space="preserve">
+    <value>не установлено через инсталлятор</value>
+  </data>
+
+  <!-- Config, pairing code and transfer errors -->
+  <data name="Err_Psk" xml:space="preserve">
+    <value>psk должен быть 32 байта в base64</value>
+  </data>
+  <data name="Err_NoTarget" xml:space="preserve">
+    <value>не задан адрес второго компьютера — свяжите машины в мастере или впишите адрес в настройках</value>
+  </data>
+  <data name="Err_BadAddress" xml:space="preserve">
+    <value>не удаётся разобрать адрес «{0}»: {1}</value>
+  </data>
+  <data name="Err_Code_Empty" xml:space="preserve">
+    <value>код пустой</value>
+  </data>
+  <data name="Err_Code_NotOurs" xml:space="preserve">
+    <value>это не код связывания HexBridge — он начинается с «{0}://{1}?»</value>
+  </data>
+  <data name="Err_Code_NoVersion" xml:space="preserve">
+    <value>в коде нет номера версии</value>
+  </data>
+  <data name="Err_Code_Version" xml:space="preserve">
+    <value>код версии {0}, а эта сборка понимает только версию {1}</value>
+  </data>
+  <data name="Err_Code_NoHost" xml:space="preserve">
+    <value>в коде нет адреса</value>
+  </data>
+  <data name="Err_Code_NoPort" xml:space="preserve">
+    <value>в коде нет порта или он вне диапазона 1…65535</value>
+  </data>
+  <data name="Err_Code_BadKey" xml:space="preserve">
+    <value>ключ в коде повреждён</value>
+  </data>
+  <data name="Err_Code_KeyLength" xml:space="preserve">
+    <value>ключ в коде — {0} вместо 32</value>
+  </data>
+  <data name="Err_Exchange_NoHost" xml:space="preserve">
+    <value>не указан адрес второго компьютера</value>
+  </data>
+  <data name="Err_Exchange_BadCode" xml:space="preserve">
+    <value>код должен быть из двенадцати символов</value>
+  </data>
+  <data name="Err_Exchange_Timeout" xml:space="preserve">
+    <value>второй компьютер не ответил за {0} — проверьте адрес и брандмауэр</value>
+  </data>
+  <data name="Err_Exchange_Failed" xml:space="preserve">
+    <value>не получилось связаться с {0}: {1}</value>
+  </data>
+  <data name="Err_Exchange_Rejected" xml:space="preserve">
+    <value>второй компьютер не принял код — проверьте, что мастер там ещё открыт</value>
+  </data>
+  <data name="Err_Exchange_BadReply" xml:space="preserve">
+    <value>ответ не похож на код связывания: {0}</value>
+  </data>
+  <data name="Err_Bulk_Empty" xml:space="preserve">
+    <value>нечего передавать: объект пуст</value>
+  </data>
+  <data name="Err_Bulk_TooBig" xml:space="preserve">
+    <value>объект больше 16 МиБ ({0}) — это уже передача файлов</value>
+  </data>
+  <data name="Err_Port_Busy" xml:space="preserve">
+    <value>порт {0} занят другой службой — {1}</value>
+  </data>
+
+  <!-- Discovery verdicts -->
+  <data name="Discovery_NotPairedYet" xml:space="preserve">
+    <value>этот Mac ещё не связан ни с одним ПК — нужен короткий код с экрана ПК</value>
+  </data>
+  <data name="Discovery_TagMatched" xml:space="preserve">
+    <value>метка совпала: {0}</value>
+  </data>
+  <data name="Discovery_NothingSeen" xml:space="preserve">
+    <value>в сети не видно ни одного HexBridge</value>
+  </data>
+  <data name="Discovery_NoneOfOurs" xml:space="preserve">
+    <value>в сети {0} HexBridge, но ни один из них не наш</value>
+  </data>
+
+  <!-- Log lines -->
+  <data name="Log_Prefix" xml:space="preserve">
+    <value>hexbridge: {0}</value>
+  </data>
+  <data name="Log_Config" xml:space="preserve">
+    <value>hexbridge: конфиг {0}</value>
+  </data>
+  <data name="Log_ConfigSaveFailed" xml:space="preserve">
+    <value>hexbridge: не удалось сохранить конфиг: {0}</value>
+  </data>
+  <data name="Log_SettingsSaved" xml:space="preserve">
+    <value>hexbridge: настройки сохранены</value>
+  </data>
+  <data name="Log_RoleSet" xml:space="preserve">
+    <value>hexbridge: роль — {0}</value>
+  </data>
+  <data name="Log_Paired" xml:space="preserve">
+    <value>hexbridge: связано, отпечаток ключа {0}</value>
+  </data>
+  <data name="Log_NoKeyOpeningWizard" xml:space="preserve">
+    <value>hexbridge: {0} — запускаем мастер связывания</value>
+  </data>
+  <data name="Log_TrayUnavailable" xml:space="preserve">
+    <value>hexbridge: значок в трее недоступен: {0}</value>
+  </data>
+  <data name="Log_UpdatesUnavailable" xml:space="preserve">
+    <value>hexbridge: обновления недоступны — {0}</value>
+  </data>
+  <data name="Log_UpdateCheckFailed" xml:space="preserve">
+    <value>hexbridge: проверка обновлений не удалась — {0}</value>
+  </data>
+  <data name="Log_UpdateDownloadFailed" xml:space="preserve">
+    <value>hexbridge: загрузка обновления не удалась — {0}</value>
+  </data>
+  <data name="Log_UpdateApplying" xml:space="preserve">
+    <value>hexbridge: ставлю {0} и перезапускаюсь</value>
+  </data>
+  <data name="Log_QrFailed" xml:space="preserve">
+    <value>hexbridge: QR не построился: {0}</value>
+  </data>
+  <data name="Log_CodeAccepted" xml:space="preserve">
+    <value>hexbridge: код принят, отпечаток {0}</value>
+  </data>
+  <data name="Log_ExchangeUnavailable" xml:space="preserve">
+    <value>hexbridge: обмен по короткому коду недоступен: {0}</value>
+  </data>
+  <data name="Log_KeyTaken" xml:space="preserve">
+    <value>hexbridge: Mac забрал ключ связывания</value>
+  </data>
+  <data name="Log_Sending" xml:space="preserve">
+    <value>hexbridge: отдаю звук на {0}, локальный порт {1}</value>
+  </data>
+  <data name="Log_Listening" xml:space="preserve">
+    <value>hexbridge: слушаю {0}</value>
+  </data>
+  <data name="Log_Relay" xml:space="preserve">
+    <value>hexbridge: регистрируюсь на релее {0}</value>
+  </data>
+  <data name="Log_FeatureStartFailed" xml:space="preserve">
+    <value>hexbridge: «{0}» не запущено: {1}</value>
+  </data>
+  <data name="Log_FeatureRollback" xml:space="preserve">
+    <value>hexbridge: «{0}» при откате: {1}</value>
+  </data>
+  <data name="Log_FeatureStopFailed" xml:space="preserve">
+    <value>hexbridge: «{0}» при остановке: {1}</value>
+  </data>
+  <data name="Log_Session" xml:space="preserve">
+    <value>hexbridge: сессия {0} от {1}</value>
+  </data>
+  <data name="Log_DiscoveryFailed" xml:space="preserve">
+    <value>hexbridge: автопоиск не поднялся — {0}</value>
+  </data>
+  <data name="Log_AdvertisingUntagged" xml:space="preserve">
+    <value>hexbridge: объявляю себя в сети как «{0}» на порту {1}, без метки — ключа ещё нет</value>
+  </data>
+  <data name="Log_Advertising" xml:space="preserve">
+    <value>hexbridge: объявляю себя в сети как «{0}» на порту {1}, метка {2}</value>
+  </data>
+  <data name="Log_Output" xml:space="preserve">
+    <value>hexbridge: вывод звука — {0}</value>
+  </data>
+  <data name="Log_Capture" xml:space="preserve">
+    <value>hexbridge: захват звука — {0}</value>
+  </data>
+  <data name="Log_CaptureStoppedGone" xml:space="preserve">
+    <value>hexbridge: захват остановлен — устройство пропало</value>
+  </data>
+  <data name="Log_CaptureStopped" xml:space="preserve">
+    <value>hexbridge: захват остановлен: {0}</value>
+  </data>
+  <data name="Log_OutputStoppedGone" xml:space="preserve">
+    <value>hexbridge: вывод остановлен — устройство пропало</value>
+  </data>
+  <data name="Log_OutputStopped" xml:space="preserve">
+    <value>hexbridge: вывод остановлен: {0}</value>
+  </data>
+  <data name="Log_Bulk_Have" xml:space="preserve">
+    <value>bulk: {0} уже есть — не тянем</value>
+  </data>
+  <data name="Log_Bulk_HashFailed" xml:space="preserve">
+    <value>bulk: хеш не сошёлся, просим объект заново (попытка {0})</value>
+  </data>
+  <data name="Log_Bulk_GivingUp" xml:space="preserve">
+    <value>bulk: объект трижды пришёл битым — отказываемся</value>
+  </data>
+  <data name="Log_Bulk_NoAnswer" xml:space="preserve">
+    <value>bulk: {0} — вторая машина не ответила на десять предложений</value>
+  </data>
+  <data name="Log_Bulk_Stalled" xml:space="preserve">
+    <value>bulk: {0} — подтверждения прекратились</value>
+  </data>
+  <data name="Log_Bulk_Describe" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="Log_Clip_On" xml:space="preserve">
+    <value>буфер обмена: включён — содержимое буфера уходит на другую машину</value>
+  </data>
+  <data name="Log_Clip" xml:space="preserve">
+    <value>буфер обмена: {0}</value>
+  </data>
+  <data name="Log_Clip_Received" xml:space="preserve">
+    <value>буфер обмена: принято — {0}</value>
+  </data>
+  <data name="Log_Clip_ReadFailed" xml:space="preserve">
+    <value>буфер обмена: не удалось прочитать — {0}</value>
+  </data>
+  <data name="Log_Clip_NoPng" xml:space="preserve">
+    <value>буфер обмена: формат PNG не зарегистрирован, картинка не вставлена</value>
+  </data>
+  <data name="Log_Clip_NoOwnerWindow" xml:space="preserve">
+    <value>буфер обмена: не удалось создать окно-владельца, вставка пропущена</value>
+  </data>
+  <data name="Log_Clip_Busy" xml:space="preserve">
+    <value>буфер обмена: занят другим приложением, вставка пропущена</value>
+  </data>
+  <data name="Log_Clip_Refused" xml:space="preserve">
+    <value>буфер обмена: система отказалась принять данные</value>
+  </data>
+  <data name="Log_Clip_WriteFailed" xml:space="preserve">
+    <value>буфер обмена: не удалось записать — {0}</value>
+  </data>
+  <data name="Log_Clip_OwnerWindowFailed" xml:space="preserve">
+    <value>буфер обмена: окно-владелец не создалось</value>
+  </data>
+  <data name="Log_UsbIp_Listening" xml:space="preserve">
+    <value>usbip: сервер слушает {0}</value>
+  </data>
+  <data name="Log_UsbIp_ClientFound" xml:space="preserve">
+    <value>usbip: клиент найден — {0}</value>
+  </data>
+  <data name="Log_UsbIp_NoClient" xml:space="preserve">
+    <value>usbip: usbip.exe не найден, автоподключение недоступно</value>
+  </data>
+  <data name="Log_UsbIp_AttachFailed" xml:space="preserve">
+    <value>usbip: attach {0} не удался ({1}): {2}</value>
+  </data>
+  <data name="Log_UsbIp_AttachedPort" xml:space="preserve">
+    <value>usbip: {0} подключён к порту {1}</value>
+  </data>
+  <data name="Log_UsbIp_Attached" xml:space="preserve">
+    <value>usbip: {0} подключён</value>
+  </data>
+  <data name="Log_UsbIp_DetachFailed" xml:space="preserve">
+    <value>usbip: detach порта {0} ({1}) не удался: {2}</value>
+  </data>
+  <data name="Log_UsbIp_LaunchFailed" xml:space="preserve">
+    <value>не удалось запустить {0}</value>
+  </data>
+  <data name="Log_UsbIp_NoAnswer" xml:space="preserve">
+    <value>usbip.exe не ответил за 15 секунд</value>
+  </data>
+  <data name="Log_UsbIp_SessionLost" xml:space="preserve">
+    <value>usbip: сессия оборвалась: {0}</value>
+  </data>
+  <data name="Log_UsbIp_Version" xml:space="preserve">
+    <value>usbip: клиент говорит на версии 0x{0}, а мы на 0x{1}</value>
+  </data>
+  <data name="Log_UsbIp_NoSuchBusId" xml:space="preserve">
+    <value>usbip: запрошен busid {0}, отдать нечего</value>
+  </data>
+  <data name="Log_UsbIp_AlreadyImported" xml:space="preserve">
+    <value>usbip: busid {0} уже импортирован</value>
+  </data>
+  <data name="Log_UsbIp_Imported" xml:space="preserve">
+    <value>usbip: {0} импортирован, пошли URB</value>
+  </data>
+  <data name="Log_UsbIp_Detached" xml:space="preserve">
+    <value>usbip: {0} отключён</value>
+  </data>
+  <data name="Log_UsbIp_UnknownCommand" xml:space="preserve">
+    <value>usbip: неизвестная команда 0x{0}</value>
+  </data>
+  <data name="Log_UsbIp_BadCommand" xml:space="preserve">
+    <value>usbip: URB с командой {0}, закрываю сессию</value>
+  </data>
+  <data name="Log_UsbIp_BadIso" xml:space="preserve">
+    <value>usbip: URB заявляет {0} изохронных пакетов, закрываю сессию</value>
+  </data>
+  <data name="Log_UsbIp_InterruptIn" xml:space="preserve">
+    <value>usbip: прерывание IN: {0}</value>
+  </data>
+  <data name="Log_Dev_NumberOutOfRange" xml:space="preserve">
+    <value>устройства: номер {0} вне диапазона 0…{1}, отклонено</value>
+  </data>
+  <data name="Log_Dev" xml:space="preserve">
+    <value>устройства: {0}</value>
+  </data>
+  <data name="Log_Dev_NoFeatureReports" xml:space="preserve">
+    <value>устройства: нет снимков feature-репортов {0}</value>
+  </data>
+  <data name="Log_Dev_Built" xml:space="preserve">
+    <value>устройства: {0} ({1}) собран, busid {2}</value>
+  </data>
+  <data name="Log_Dev_HapticsReady" xml:space="preserve">
+    <value>хаптика: {0} отдан композитом, изохронный OUT готов</value>
+  </data>
+  <data name="Log_Dev_HapticsMissing" xml:space="preserve">
+    <value>хаптика: у {0} нет пригодного изохронного OUT — триггеры и вибрация работают, HD-хаптики не будет</value>
+  </data>
+  <data name="Log_Dev_Unplugged" xml:space="preserve">
+    <value>устройства: «{0}» отключено от Mac</value>
+  </data>
+  <data name="Log_Dev_DetachFailed" xml:space="preserve">
+    <value>usbip: не удалось отцепить {0}: {1}</value>
+  </data>
+
+  <!-- Codec and USB descriptor faults -->
+  <data name="Err_Frame_Size" xml:space="preserve">
+    <value>кадр должен быть {0} сэмплов, а не {1}</value>
+  </data>
+  <data name="Err_Opus_Encode" xml:space="preserve">
+    <value>opus_encode вернул {0}</value>
+  </data>
+  <data name="Err_Usb_DeviceDescriptor" xml:space="preserve">
+    <value>дескриптор устройства повреждён ({0})</value>
+  </data>
+  <data name="Err_Usb_ConfigDescriptor" xml:space="preserve">
+    <value>дескриптор конфигурации повреждён ({0})</value>
+  </data>
+  <data name="Err_Usb_NoHidInterface" xml:space="preserve">
+    <value>в конфигурации нет HID-интерфейса</value>
+  </data>
+  <data name="Err_Dev_NoDeviceDescriptor" xml:space="preserve">
+    <value>в DEV_ATTACH нет дескриптора устройства</value>
+  </data>
+  <data name="Err_Dev_NoConfigDescriptor" xml:space="preserve">
+    <value>в DEV_ATTACH нет дескриптора конфигурации</value>
+  </data>
+  <data name="Err_Dev_NoReportDescriptor" xml:space="preserve">
+    <value>в DEV_ATTACH нет HID report descriptor</value>
+  </data>
+
+  <!-- Console receiver -->
+  <data name="Cli_Usage" xml:space="preserve">
+    <value>hexbridge-receiver — мост микрофона между двумя машинами. Умеет обе стороны:
+принимать чужой микрофон и отдавать свой.
+
+Использование:
+  hexbridge-receiver [флаги]         запустить в роли из конфига (по умолчанию — приём)
+  hexbridge-receiver list-devices    показать устройства вывода и их пары-микрофоны
+  hexbridge-receiver list-inputs     показать микрофоны этой машины
+  hexbridge-receiver keygen          сгенерировать общий ключ (PSK)
+
+Общее:
+  --config PATH     путь к конфигу (по умолчанию config.json рядом с exe)
+  --role ROLE       receiver — принимать чужой микрофон, sender — отдавать свой
+  --psk BASE64      общий ключ, 32 байта в base64; одинаковый на обеих машинах
+  --relay H:P       работать через релей вместо прямой связи
+  --quiet           не печатать строку статистики раз в 5 секунд
+
+Когда этот компьютер принимает микрофон:
+  --listen [A:]P    что слушать (по умолчанию 0.0.0.0:47702)
+  --device SEL      часть имени устройства вывода; по умолчанию автоопределение
+  --jitter MS       целевая задержка буфера, мс (по умолчанию 60)
+  --max-jitter MS   при превышении буфер подрезается (по умолчанию 240)
+  --gain F          усиление на выходе, 1.0 — без изменений
+  --latency MS      запрошенная задержка WASAPI (по умолчанию 50)
+  --output MODE     wasapi (по умолчанию), null или wav:путь — для диагностики
+  --no-gamepad      не пробрасывать USB-устройства, только звук
+  --usbip PATH      путь к usbip.exe, если он не в C:\Program Files\USBip
+
+Когда этот компьютер отдаёт свой микрофон:
+  --target H:P      адрес второй машины; обязателен, если не задан --relay
+  --input MODE      wasapi (по умолчанию), null, tone или wav:путь
+  --input-device S  часть имени микрофона; по умолчанию системный по умолчанию
+  --input-gain F    усиление на входе, 1.0 — без изменений
+  --bitrate BPS     битрейт Opus (по умолчанию 32000)
+  --muted           запуститься с заглушённым микрофоном</value>
+  </data>
+  <data name="Cli_DevicesWindowsOnly" xml:space="preserve">
+    <value>список устройств доступен только на Windows</value>
+  </data>
+  <data name="Cli_UnknownRole" xml:space="preserve">
+    <value>hexbridge: неизвестная роль «{0}» — бывают receiver и sender</value>
+  </data>
+  <data name="Cli_NoKey" xml:space="preserve">
+    <value>hexbridge: psk должен быть 32 байта в base64 — сгенерируйте через `hexbridge-receiver keygen`</value>
+  </data>
+  <data name="Cli_PairedWith" xml:space="preserve">
+    <value>      пара для игр: {0}</value>
+  </data>
+  <data name="Cli_Stats_Peak" xml:space="preserve">
+    <value>пик {0}</value>
+  </data>
+  <data name="Cli_Stats_Sent" xml:space="preserve">
+    <value>отправлено {0}  {1}  кадров {2}  пакет {3}  на той стороне: принято {4}, потеряно {5}  rtt {6}</value>
+  </data>
+  <data name="Cli_Stats_Received" xml:space="preserve">
+    <value>принято {0}  {1}  декодировано {2}  скрыто {3}  буфер {4}  поздних {5}  недоборов {6}</value>
+  </data>
+  <data name="Cli_Stats_Feature" xml:space="preserve">
+    <value>  [{0}: {1}]</value>
+  </data>
+  <data name="Cli_Stats_Muted" xml:space="preserve">
+    <value>  [MUTED]</value>
+  </data>
+  <data name="Cli_Stats_Silent" xml:space="preserve">
+    <value>  вторая машина молчит {0}</value>
+  </data>
+  <data name="Cli_Stats_NoAnswer" xml:space="preserve">
+    <value>  вторая машина ещё не отвечала</value>
+  </data>
+  <data name="Cli_Stats_Discarded" xml:space="preserve">
+    <value>  отброшено {0}</value>
+  </data>
+</root>

@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexBridge.Microphone;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 public sealed record OutputMode(string Value, string Title);
@@ -10,7 +12,15 @@ public sealed record OutputMode(string Value, string Title);
 /// <summary>Where the giving role reads audio from. Same shape as <see cref="OutputMode"/>.</summary>
 public sealed record InputMode(string Value, string Title);
 
-public sealed record DeviceOption(string? Selector, string Title, string? Paired, bool Recommended);
+public sealed record DeviceOption(string? Selector, string Title, string? Paired, bool Recommended)
+{
+    /// <summary>
+    /// «пара для игр: CABLE Output» — the sentence around the name, not just the name. It is
+    /// built here rather than by a StringFormat in the view, because the sentence is a
+    /// translated string and XAML has nowhere to look one up.
+    /// </summary>
+    public string PairedText => Paired is null ? "" : Loc.F(Strings.Settings_Paired_Format, Paired);
+}
 
 /// <summary>One Opus bitrate, with what it costs said in words rather than in bits.</summary>
 public sealed record BitrateOption(int Value, string Title);
@@ -54,38 +64,59 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Capture endpoints, for the giving role. Empty in the other one.</summary>
     public ObservableCollection<DeviceOption> InputDevices { get; } = [];
 
-    public IReadOnlyList<InputMode> InputModes { get; } =
-    [
-        new("wasapi", "Микрофон этого компьютера"),
-        new("tone", "Тон 440 Гц — проверка тракта"),
-        new("null", "Тишина — только диагностика"),
-    ];
+    // The four option lists are rebuilt rather than translated in place: a combo box binds
+    // to the item, not to a string inside it, so a language change has to hand it new items
+    // and put the selection back on the one that means the same thing.
+    public IReadOnlyList<InputMode> InputModes { get; private set; } = BuildInputModes();
 
     /// <summary>
     /// Opus at 32 kbit/s is what the Mac has always sent and what the receiver is tuned
     /// for; the two either side of it are for a link that is worse or better than usual.
     /// </summary>
-    public IReadOnlyList<BitrateOption> Bitrates { get; } =
+    public IReadOnlyList<BitrateOption> Bitrates { get; private set; } = BuildBitrates();
+
+    public IReadOnlyList<OutputMode> OutputModes { get; private set; } = BuildOutputModes();
+
+    public IReadOnlyList<ThemeOption> Themes { get; private set; } = BuildThemes();
+
+    /// <summary>«System / English / Русский». Each language names itself, in itself.</summary>
+    public IReadOnlyList<LanguageOption> Languages { get; private set; } = BuildLanguages();
+
+    private static InputMode[] BuildInputModes() =>
     [
-        new(16000, "16 кбит/с — узкий канал"),
-        new(24000, "24 кбит/с"),
-        new(32000, "32 кбит/с — как на Mac"),
-        new(48000, "48 кбит/с"),
-        new(64000, "64 кбит/с — запас по качеству"),
+        new("wasapi", Strings.Settings_Input_Wasapi),
+        new("tone", Strings.Settings_Input_Tone),
+        new("null", Strings.Settings_Input_Null),
     ];
 
-    public IReadOnlyList<OutputMode> OutputModes { get; } =
+    private static BitrateOption[] BuildBitrates() =>
     [
-        new("wasapi", "Виртуальный кабель (WASAPI)"),
-        new("null", "Никуда — только диагностика"),
-        new("wav:hexbridge.wav", "Запись в файл hexbridge.wav"),
+        new(16000, Strings.Settings_Bitrate_16),
+        new(24000, Strings.Settings_Bitrate_24),
+        new(32000, Strings.Settings_Bitrate_32),
+        new(48000, Strings.Settings_Bitrate_48),
+        new(64000, Strings.Settings_Bitrate_64),
     ];
 
-    public IReadOnlyList<ThemeOption> Themes { get; } =
+    private static OutputMode[] BuildOutputModes() =>
     [
-        new(ThemePreference.System, "Системная"),
-        new(ThemePreference.Light, "Светлая"),
-        new(ThemePreference.Dark, "Тёмная"),
+        new("wasapi", Strings.Settings_Output_Wasapi),
+        new("null", Strings.Settings_Output_Null),
+        new("wav:hexbridge.wav", Strings.Settings_Output_Wav),
+    ];
+
+    private static ThemeOption[] BuildThemes() =>
+    [
+        new(ThemePreference.System, Strings.Settings_Theme_System),
+        new(ThemePreference.Light, Strings.Settings_Theme_Light),
+        new(ThemePreference.Dark, Strings.Settings_Theme_Dark),
+    ];
+
+    private static LanguageOption[] BuildLanguages() =>
+    [
+        new(AppLanguage.System, Strings.Settings_Language_System),
+        new(AppLanguage.English, Strings.Settings_Language_English),
+        new(AppLanguage.Russian, Strings.Settings_Language_Russian),
     ];
 
     /// <summary>Read-only here: it is changed through the modal that explains it.</summary>
@@ -124,6 +155,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _deviceNotice;
 
     [ObservableProperty] private ThemeOption? _theme;
+
+    /// <summary>
+    /// Applied on the spot like the theme, and for the same reason: a language menu that
+    /// needs «Сохранить» before it does anything is a language menu nobody trusts.
+    /// </summary>
+    [ObservableProperty] private LanguageOption? _language;
     [ObservableProperty] private bool _startOnLaunch = true;
     [ObservableProperty] private bool _startMinimised;
     [ObservableProperty] private bool _autostart;
@@ -142,13 +179,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string RoleSummary => RoleWording.Summary(Role);
 
     /// <summary>Gain shown the way the user thinks about it, rather than as a multiplier.</summary>
-    public string GainText => Gain <= 0.001 ? "тишина" : $"{20 * Math.Log10(Gain):+0.0;-0.0;0.0} дБ";
+    public string GainText => Gain <= 0.001 ? Strings.Settings_Gain_Silence : Loc.Db(20 * Math.Log10(Gain));
 
-    public string InputGainText => InputGain <= 0.001 ? "тишина" : $"{20 * Math.Log10(InputGain):+0.0;-0.0;0.0} дБ";
+    public string InputGainText =>
+        InputGain <= 0.001 ? Strings.Settings_Gain_Silence : Loc.Db(20 * Math.Log10(InputGain));
 
-    public string JitterText => $"{JitterMs} мс";
-    public string MaxJitterText => $"{MaxJitterMs} мс";
-    public string LatencyText => $"{LatencyMs} мс";
+    public string JitterText => Loc.Ms(JitterMs);
+    public string MaxJitterText => Loc.Ms(MaxJitterMs);
+    public string LatencyText => Loc.Ms(LatencyMs);
 
     public void Load(ReceiverConfig config, AppSettings ui)
     {
@@ -178,13 +216,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         Input = InputModes.FirstOrDefault(m => m.Value == config.Input) ?? InputModes[0];
         Bitrate = Bitrates.FirstOrDefault(b => b.Value == config.Bitrate)
-            ?? new BitrateOption(config.Bitrate, $"{config.Bitrate / 1000} кбит/с");
+            ?? new BitrateOption(config.Bitrate, Loc.Kbits(config.Bitrate));
 
         RefreshDevices();
         Device = Devices.FirstOrDefault(d => d.Selector == config.Device) ?? Devices[0];
         InputDevice = InputDevices.FirstOrDefault(d => d.Selector == config.InputDevice) ?? InputDevices[0];
 
         Theme = Themes.First(t => t.Value == ui.Theme);
+        Language = Languages.First(l => l.Value == ui.Language);
         StartOnLaunch = ui.StartOnLaunch;
         StartMinimised = ui.StartMinimised;
         AutoUpdate = ui.AutoUpdate;
@@ -232,13 +271,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     public void RefreshDevices()
     {
         Devices.Clear();
-        Devices.Add(new DeviceOption(null, "Определять автоматически", null, true));
+        Devices.Add(new DeviceOption(null, Strings.Settings_Device_Auto, null, true));
         InputDevices.Clear();
-        InputDevices.Add(new DeviceOption(null, "Микрофон по умолчанию", null, true));
+        InputDevices.Add(new DeviceOption(null, Strings.Settings_Device_DefaultMic, null, true));
 
         if (!OperatingSystem.IsWindows())
         {
-            DeviceNotice = "Список устройств доступен только на Windows.";
+            DeviceNotice = Strings.Settings_Notice_WindowsOnly;
             InputNotice = DeviceNotice;
             return;
         }
@@ -246,16 +285,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             AddWindowsDevices();
-            DeviceNotice = Devices.Count > 1
-                ? null
-                : "Виртуальный кабель не найден. Установите Steam или VB-Audio Virtual Cable.";
-            InputNotice = InputDevices.Count > 1
-                ? null
-                : "Микрофонов не найдено. Подключите микрофон или гарнитуру.";
+            DeviceNotice = Devices.Count > 1 ? null : Strings.Settings_Notice_NoCable;
+            InputNotice = InputDevices.Count > 1 ? null : Strings.Settings_Notice_NoMicrophone;
         }
         catch (Exception ex)
         {
-            DeviceNotice = $"Не удалось прочитать список устройств: {ex.Message}";
+            DeviceNotice = Loc.F(Strings.Settings_Notice_ListFailed, ex.Message);
             InputNotice = DeviceNotice;
         }
     }
@@ -307,7 +342,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void Check() => CheckRequested?.Invoke();
 
     /// <summary>The fingerprint of the key currently in the form, for comparing with the Mac.</summary>
-    public string FingerprintText => PairingPayload.FingerprintOfPsk(Psk) ?? "ключ не задан";
+    public string FingerprintText => PairingPayload.FingerprintOfPsk(Psk) ?? Strings.Settings_Fingerprint_None;
 
     [RelayCommand]
     private void Save()
@@ -320,17 +355,79 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void Revert() => Load(_saved, new AppSettings
     {
         Theme = Theme?.Value ?? ThemePreference.System,
+        Language = Language?.Value ?? AppLanguage.System,
         StartOnLaunch = StartOnLaunch,
         StartMinimised = StartMinimised,
         AutoUpdate = AutoUpdate,
     });
+
+    /// <summary>
+    /// The language changed. The computed labels only need a notification; the four option
+    /// lists have to be rebuilt, because a combo box holds the item and not the string inside
+    /// it — and the selection is put back by value, so nothing the user chose moves.
+    /// </summary>
+    public void Retranslate()
+    {
+        var loading = _loading;
+        _loading = true;
+        try
+        {
+            var input = Input?.Value;
+            var bitrate = Bitrate?.Value;
+            var output = Output?.Value;
+            var theme = Theme?.Value;
+            var language = Language?.Value;
+
+            InputModes = BuildInputModes();
+            Bitrates = BuildBitrates();
+            OutputModes = BuildOutputModes();
+            Themes = BuildThemes();
+            Languages = BuildLanguages();
+
+            OnPropertyChanged(nameof(InputModes));
+            OnPropertyChanged(nameof(Bitrates));
+            OnPropertyChanged(nameof(OutputModes));
+            OnPropertyChanged(nameof(Themes));
+            OnPropertyChanged(nameof(Languages));
+
+            Input = InputModes.FirstOrDefault(m => m.Value == input) ?? InputModes[0];
+            Bitrate = Bitrates.FirstOrDefault(b => b.Value == bitrate)
+                ?? new BitrateOption(bitrate ?? 32000, Loc.Kbits(bitrate ?? 32000));
+            Output = OutputModes.FirstOrDefault(m => m.Value == output) ?? OutputModes[0];
+            Theme = Themes.FirstOrDefault(t => t.Value == theme) ?? Themes[0];
+            Language = Languages.FirstOrDefault(l => l.Value == language) ?? Languages[0];
+
+            RefreshDevices();
+            var device = Device?.Selector;
+            var inputDevice = InputDevice?.Selector;
+            Device = Devices.FirstOrDefault(d => d.Selector == device) ?? Devices[0];
+            InputDevice = InputDevices.FirstOrDefault(d => d.Selector == inputDevice) ?? InputDevices[0];
+
+            OnPropertyChanged(nameof(RoleTitle));
+            OnPropertyChanged(nameof(RoleSummary));
+            OnPropertyChanged(nameof(GainText));
+            OnPropertyChanged(nameof(InputGainText));
+            OnPropertyChanged(nameof(JitterText));
+            OnPropertyChanged(nameof(MaxJitterText));
+            OnPropertyChanged(nameof(LatencyText));
+            OnPropertyChanged(nameof(FingerprintText));
+
+            // A message the user is looking at has to change with the rest of the page, and
+            // the only honest way to re-word it is to work it out again.
+            if (ValidationError is not null) Validate();
+        }
+        finally
+        {
+            _loading = loading;
+        }
+    }
 
     private bool Validate()
     {
         var config = Build();
         if (!config.TryGetKey(out _, out var keyError))
         {
-            ValidationError = $"Общий ключ: {keyError}. Нажмите «Сгенерировать» и вставьте тот же ключ на Mac.";
+            ValidationError = Loc.F(Strings.Settings_Error_Key, keyError);
             return false;
         }
 
@@ -340,9 +437,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             // its own, so an empty one is a failure worth naming rather than a default.
             if (string.IsNullOrWhiteSpace(config.Target) && string.IsNullOrWhiteSpace(config.Relay))
             {
-                ValidationError =
-                    "Не задан адрес второго компьютера. Свяжите машины кнопкой «Связать заново» "
-                    + "или впишите адрес вида 192.168.1.10:47702.";
+                ValidationError = Strings.Settings_Error_NoTarget;
                 return false;
             }
 
@@ -364,7 +459,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
             catch (Exception)
             {
-                ValidationError = $"Не удаётся разобрать адрес «{config.Listen}». Пример: 0.0.0.0:47702";
+                ValidationError = Loc.F(Strings.Settings_Error_Listen, config.Listen);
                 return false;
             }
         }
@@ -377,7 +472,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
             catch (Exception)
             {
-                ValidationError = $"Не удаётся разобрать адрес релея «{config.Relay}».";
+                ValidationError = Loc.F(Strings.Settings_Error_Relay, config.Relay);
                 return false;
             }
         }
@@ -390,7 +485,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
             catch (Exception)
             {
-                ValidationError = $"Не удаётся разобрать адрес USB/IP «{config.UsbIpListen}». Пример: 127.0.0.1:3240";
+                ValidationError = Loc.F(Strings.Settings_Error_UsbIp, config.UsbIpListen);
                 return false;
             }
         }
@@ -422,7 +517,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             // Bookkeeping and the preferences that apply immediately are not "unsaved edits".
             case nameof(IsDirty) or nameof(ValidationError) or nameof(PskRevealed)
                 or nameof(DeviceNotice) or nameof(InputNotice)
-                or nameof(Theme) or nameof(StartOnLaunch) or nameof(StartMinimised) or nameof(AutoUpdate):
+                or nameof(Theme) or nameof(Language)
+                or nameof(StartOnLaunch) or nameof(StartMinimised) or nameof(AutoUpdate):
                 return;
         }
 
@@ -431,3 +527,5 @@ public sealed partial class SettingsViewModel : ObservableObject
 }
 
 public sealed record ThemeOption(ThemePreference Value, string Title);
+
+public sealed record LanguageOption(AppLanguage Value, string Title);

@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 /// <summary>USB descriptor type codes we care about.</summary>
@@ -34,7 +36,7 @@ public sealed record UsbDeviceDescriptor
     {
         if (src.Length < 18 || src[1] != UsbDescriptorType.Device)
         {
-            throw new FormatException($"дескриптор устройства повреждён ({src.Length} байт)");
+            throw new FormatException(Loc.F(Strings.Err_Usb_DeviceDescriptor, Loc.Bytes(src.Length)));
         }
 
         return new UsbDeviceDescriptor
@@ -155,7 +157,7 @@ public sealed record UsbConfigurationDescriptor
     {
         if (full.Length < 9 || full[1] != UsbDescriptorType.Configuration)
         {
-            throw new FormatException($"дескриптор конфигурации повреждён ({full.Length} байт)");
+            throw new FormatException(Loc.F(Strings.Err_Usb_ConfigDescriptor, Loc.Bytes(full.Length)));
         }
 
         // wTotalLength is what the device meant to send; trust the shorter of the two so a
@@ -234,7 +236,7 @@ public sealed record UsbConfigurationDescriptor
             kept.Add(descriptor.ToArray());
         }
 
-        if (kept.Count == 0) throw new FormatException("в конфигурации нет HID-интерфейса");
+        if (kept.Count == 0) throw new FormatException(Strings.Err_Usb_NoHidInterface);
 
         var body = kept.Sum(d => d.Length);
         var bytes = new byte[9 + body];
@@ -384,7 +386,7 @@ public sealed record UsbConfigurationDescriptor
             if ((address & 0x80) != 0) inputStream ??= format; else outputStream ??= format;
         }
 
-        if (!haveHid) throw new FormatException("в конфигурации нет HID-интерфейса");
+        if (!haveHid) throw new FormatException(Strings.Err_Usb_NoHidInterface);
 
         return new UsbConfigurationDescriptor
         {

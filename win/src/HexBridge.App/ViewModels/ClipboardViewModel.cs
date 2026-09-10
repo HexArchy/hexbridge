@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using HexBridge.Clipboard;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>
@@ -9,8 +11,8 @@ namespace HexBridge.App.ViewModels;
 /// </summary>
 public sealed partial class ClipboardViewModel : ObservableObject
 {
-    [ObservableProperty] private string _headline = "Общий буфер выключен";
-    [ObservableProperty] private string _subline = "Включите его в настройках";
+    [ObservableProperty] private string _headline = Strings.Clipboard_Headline_Off;
+    [ObservableProperty] private string _subline = Strings.Clipboard_Sub_Off;
 
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
@@ -35,11 +37,11 @@ public sealed partial class ClipboardViewModel : ObservableObject
     {
         if (state is null)
         {
-            Headline = "Общий буфер выключен";
-            Subline = "Включите его в настройках";
+            Headline = Strings.Clipboard_Headline_Off;
+            Subline = Strings.Clipboard_Sub_Off;
             IsGood = IsWaiting = IsBad = IsOn = IsTransferring = false;
-            LastText = LastDirectionText = LastWhenText = "—";
-            SentText = ReceivedText = "0";
+            LastText = LastDirectionText = LastWhenText = Strings.Common_Empty;
+            SentText = ReceivedText = Loc.Count(0);
             return;
         }
 
@@ -50,29 +52,31 @@ public sealed partial class ClipboardViewModel : ObservableObject
         IsBad = state.Status is FeatureStatus.Failed;
         IsOn = state.Status is not (FeatureStatus.Disabled or FeatureStatus.Stopped);
 
-        SentText = state.Sent.ToString("N0");
-        ReceivedText = state.Received.ToString("N0");
+        SentText = Loc.Count(state.Sent);
+        ReceivedText = Loc.Count(state.Received);
 
-        LastText = state.LastDescription ?? "—";
+        LastText = state.LastDescription ?? Strings.Common_Empty;
         LastDirectionText = state.LastDirection switch
         {
-            BulkDirection.Outgoing => "отсюда на вторую машину",
-            BulkDirection.Incoming => "со второй машины сюда",
-            _ => "—",
+            BulkDirection.Outgoing => Strings.Clipboard_Direction_Out,
+            BulkDirection.Incoming => Strings.Clipboard_Direction_In,
+            _ => Strings.Common_Empty,
         };
-        LastWhenText = state.LastAt is { } at ? When(DateTime.UtcNow - at) : "—";
+        LastWhenText = state.LastAt is { } at ? When(DateTime.UtcNow - at) : Strings.Common_Empty;
 
         IsTransferring = state.TransferDescription is not null;
         Progress = state.Progress;
         TransferText = state.TransferDescription is null
             ? ""
-            : state.TransferDirection == BulkDirection.Outgoing
-                ? $"Отправляем: {state.TransferDescription}"
-                : $"Принимаем: {state.TransferDescription}";
+            : Loc.F(
+                state.TransferDirection == BulkDirection.Outgoing
+                    ? Strings.Clipboard_Transfer_Out
+                    : Strings.Clipboard_Transfer_In,
+                state.TransferDescription);
     }
 
-    private static string When(TimeSpan ago) => ago < TimeSpan.FromSeconds(10) ? "только что"
-        : ago < TimeSpan.FromMinutes(1) ? $"{(int)ago.TotalSeconds} с назад"
-        : ago < TimeSpan.FromHours(1) ? $"{(int)ago.TotalMinutes} мин назад"
-        : $"{(int)ago.TotalHours} ч назад";
+    private static string When(TimeSpan ago) => ago < TimeSpan.FromSeconds(10) ? Strings.Clipboard_When_JustNow
+        : ago < TimeSpan.FromMinutes(1) ? Loc.F(Strings.Clipboard_When_Seconds, (int)ago.TotalSeconds)
+        : ago < TimeSpan.FromHours(1) ? Loc.F(Strings.Clipboard_When_Minutes, (int)ago.TotalMinutes)
+        : Loc.F(Strings.Clipboard_When_Hours, (int)ago.TotalHours);
 }

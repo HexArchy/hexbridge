@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using Velopack;
 using Velopack.Sources;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App;
 
 /// <summary>
@@ -68,11 +70,11 @@ public sealed partial class UpdateViewModel : ObservableObject
         catch (Exception ex)
         {
             // A malformed install directory, or none. Not a reason to fail a launch.
-            _log(LogLevel.Warning, $"hexbridge: обновления недоступны — {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_UpdatesUnavailable, ex.Message));
             _manager = null;
         }
 
-        CurrentVersion = _manager?.CurrentVersion?.ToString() ?? "не установлено через инсталлятор";
+        CurrentVersion = _manager?.CurrentVersion?.ToString() ?? Strings.Update_Version_Unknown;
     }
 
     /// <summary>
@@ -96,13 +98,13 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (!_isEnabled())
         {
             Stage = UpdateStage.Idle;
-            Headline = "Проверка обновлений выключена";
-            Detail = "Включите её в настройках, если захотите узнавать о новых версиях.";
+            Headline = Strings.Update_Off_Headline;
+            Detail = Strings.Update_Off_Detail;
             return;
         }
 
         Stage = UpdateStage.Checking;
-        Headline = "Проверяю обновления…";
+        Headline = Strings.Update_Checking;
         Detail = "";
 
         try
@@ -114,25 +116,25 @@ public sealed partial class UpdateViewModel : ObservableObject
             {
                 _pending = null;
                 Stage = UpdateStage.Idle;
-                Headline = "Установлена последняя версия";
-                Detail = $"Сейчас {CurrentVersion}.";
+                Headline = Strings.Update_Current;
+                Detail = Loc.F(Strings.Update_Current_Detail, CurrentVersion);
                 return;
             }
 
             _pending = found;
             AvailableVersion = found.TargetFullRelease.Version.ToString();
             Stage = UpdateStage.Available;
-            Headline = $"Есть версия {AvailableVersion}";
+            Headline = Loc.F(Strings.Update_Available, AvailableVersion);
             // Nothing has been downloaded at this point, and the wording says so: the user
             // is being asked, not informed of a decision already taken.
-            Detail = "Скачать и установить? Приём звука прервётся на несколько секунд при перезапуске.";
+            Detail = Strings.Update_Available_Detail;
         }
         catch (Exception ex)
         {
             Stage = UpdateStage.Failed;
-            Headline = "Не удалось проверить обновления";
+            Headline = Strings.Update_CheckFailed;
             Detail = ex.Message;
-            _log(LogLevel.Warning, $"hexbridge: проверка обновлений не удалась — {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_UpdateCheckFailed, ex.Message));
         }
     }
 
@@ -143,26 +145,26 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (_manager is null || _pending is null) return;
 
         Stage = UpdateStage.Downloading;
-        Headline = $"Скачиваю {AvailableVersion}…";
+        Headline = Loc.F(Strings.Update_Downloading, AvailableVersion);
         Detail = "";
 
         try
         {
             await _manager.DownloadUpdatesAsync(_pending, progress =>
             {
-                Detail = $"{progress} %";
+                Detail = Loc.F(Strings.Unit_Percent, progress);
             });
 
             Stage = UpdateStage.Ready;
-            Headline = $"Версия {AvailableVersion} готова";
-            Detail = "Установится при следующем запуске — или нажмите «Перезапустить».";
+            Headline = Loc.F(Strings.Update_Ready, AvailableVersion);
+            Detail = Strings.Update_Ready_Detail;
         }
         catch (Exception ex)
         {
             Stage = UpdateStage.Failed;
-            Headline = "Не удалось скачать обновление";
+            Headline = Strings.Update_DownloadFailed;
             Detail = ex.Message;
-            _log(LogLevel.Error, $"hexbridge: загрузка обновления не удалась — {ex.Message}");
+            _log(LogLevel.Error, Loc.F(Strings.Log_UpdateDownloadFailed, ex.Message));
         }
     }
 
@@ -172,7 +174,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         if (_manager is null || _pending is null || Stage != UpdateStage.Ready) return;
 
-        _log(LogLevel.Info, $"hexbridge: ставлю {AvailableVersion} и перезапускаюсь");
+        _log(LogLevel.Info, Loc.F(Strings.Log_UpdateApplying, AvailableVersion));
         _manager.ApplyUpdatesAndRestart(_pending);
     }
 
@@ -202,6 +204,14 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     /// <summary>What the settings page says when nothing is happening.</summary>
     public string Summary => IsSupported
-        ? $"Версия {CurrentVersion}. Проверка раз в сутки, установка — только по вашей команде."
-        : "Эта сборка распакована из архива, а не установлена. Обновляется заменой файлов вручную.";
+        ? Loc.F(Strings.Update_Summary, CurrentVersion)
+        : Strings.Update_Summary_Portable;
+
+    /// <summary>
+    /// The language changed. <see cref="Summary"/> is computed, so it only needs telling;
+    /// a headline that is on screen is left alone on purpose — it describes something that
+    /// happened at a moment, and rewriting history is worse than a mixed-language line that
+    /// the next check replaces anyway.
+    /// </summary>
+    public void Retranslate() => OnPropertyChanged(nameof(Summary));
 }

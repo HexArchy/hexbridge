@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Clipboard;
 
 /// <summary>
@@ -57,7 +59,7 @@ public sealed class ClipboardFeature : IFeature
         _surfaceFactory = surfaceFactory;
 
     public string Id => "clipboard";
-    public string Title => "Буфер обмена";
+    public string Title => Strings.Feature_Clipboard_Title;
     public bool IsOptional => true;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
@@ -105,7 +107,7 @@ public sealed class ClipboardFeature : IFeature
 
         worker.Start();
         context.Log(LogLevel.Warning,
-            "буфер обмена: включён — содержимое буфера уходит на другую машину");
+            Strings.Log_Clip_On);
     }
 
     public Task StopAsync()
@@ -177,7 +179,7 @@ public sealed class ClipboardFeature : IFeature
             return new ClipboardState
             {
                 Status = fault is null ? FeatureStatus.Stopped : FeatureStatus.Failed,
-                Headline = fault is null ? "Остановлено" : "Ошибка",
+                Headline = fault is null ? Strings.Feature_Clip_Stopped : Strings.Feature_Clip_Failed,
                 Detail = fault,
                 Fault = fault,
             };
@@ -192,10 +194,10 @@ public sealed class ClipboardFeature : IFeature
                 : flight is not null ? FeatureStatus.Live
                 : moved == 0 ? FeatureStatus.Waiting
                 : FeatureStatus.Live,
-            Headline = fault is not null ? "Ошибка буфера обмена"
-                : flight is not null ? "Передаём"
-                : moved == 0 ? "Ждём копирования"
-                : "Буфер обмена общий",
+            Headline = fault is not null ? Strings.Feature_Clip_ClipboardFailed
+                : flight is not null ? Strings.Feature_Clip_Transferring
+                : moved == 0 ? Strings.Feature_Clip_Waiting
+                : Strings.Feature_Clip_Live,
             Detail = fault ?? Describe(lastDescription, lastDirection, lastAt),
             Fault = fault,
             Ready = fault is null,
@@ -244,7 +246,7 @@ public sealed class ClipboardFeature : IFeature
                 // A clipboard that misbehaves must not take the thread — and with it every
                 // timeout in the transfer layer — down with it.
                 lock (_gate) _fault = ex.Message;
-                context.Log(LogLevel.Error, $"буфер обмена: {ex.Message}");
+                context.Log(LogLevel.Error, Loc.F(Strings.Log_Clip, ex.Message));
             }
 
             token.WaitHandle.WaitOne(TickInterval);
@@ -265,7 +267,7 @@ public sealed class ClipboardFeature : IFeature
             _lastDirection = BulkDirection.Incoming;
             _lastAt = DateTime.UtcNow;
         }
-        context.Log(LogLevel.Info, $"буфер обмена: принято — {item.Describe()}");
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_Clip_Received, item.Describe()));
     }
 
     private void Publish(ClipboardItem? item, BulkChannel channel, FeatureContext context, DateTime now)
@@ -273,7 +275,7 @@ public sealed class ClipboardFeature : IFeature
         if (item is null) return;
 
         channel.Offer(BulkKind.Clipboard, item.Format, item.Bytes, item.Describe(), now, out var error);
-        if (error is not null) context.Log(LogLevel.Warning, $"буфер обмена: {error}");
+        if (error is not null) context.Log(LogLevel.Warning, Loc.F(Strings.Log_Clip, error));
     }
 
     private void OnFinished(BulkResult result)
@@ -295,18 +297,18 @@ public sealed class ClipboardFeature : IFeature
 
     private static string Describe(string? description, BulkDirection? direction, DateTime? at)
     {
-        if (description is null || at is null) return "Скопируйте что-нибудь — оно появится на другой машине";
+        if (description is null || at is null) return Strings.Feature_Clip_Detail_Empty;
 
-        var arrow = direction == BulkDirection.Outgoing ? "отправлено" : "принято";
+        var arrow = direction == BulkDirection.Outgoing ? Strings.Feature_Clip_Sent : Strings.Feature_Clip_Received;
         var ago = DateTime.UtcNow - at.Value;
-        var when = ago < TimeSpan.FromMinutes(1) ? "только что"
-            : ago < TimeSpan.FromHours(1) ? $"{(int)ago.TotalMinutes} мин назад"
-            : $"{(int)ago.TotalHours} ч назад";
-        return $"Последнее: {description}, {arrow} {when}";
+        var when = ago < TimeSpan.FromMinutes(1) ? Strings.Clipboard_When_JustNow
+            : ago < TimeSpan.FromHours(1) ? Loc.F(Strings.Clipboard_When_Minutes, (int)ago.TotalMinutes)
+            : Loc.F(Strings.Clipboard_When_Hours, (int)ago.TotalHours);
+        return Loc.F(Strings.Feature_Clip_Last, description, arrow, when);
     }
 
     private static IClipboardSurface DefaultSurface(Action<LogLevel, string> log) =>
         OperatingSystem.IsWindows()
             ? new WindowsClipboard(log)
-            : throw new PlatformNotSupportedException("общий буфер обмена доступен только на Windows");
+            : throw new PlatformNotSupportedException(Strings.Feature_Clip_WindowsOnly);
 }

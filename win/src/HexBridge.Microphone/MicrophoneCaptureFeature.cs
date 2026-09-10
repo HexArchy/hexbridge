@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Microphone;
 
 /// <summary>
@@ -42,7 +44,7 @@ public sealed class MicrophoneCaptureFeature : IFeature
     private int _bitrate;
 
     public string Id => "microphone";
-    public string Title => "Микрофон";
+    public string Title => Strings.Feature_Microphone_Title;
     public bool IsOptional => false;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
@@ -99,7 +101,7 @@ public sealed class MicrophoneCaptureFeature : IFeature
             throw;
         }
 
-        context.Log(LogLevel.Info, $"hexbridge: захват звука — {source.Describe()}");
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_Capture, source.Describe()));
     }
 
     private static IAudioSource Open(ReceiverConfig config) => config.Input switch
@@ -112,7 +114,7 @@ public sealed class MicrophoneCaptureFeature : IFeature
         // native load failure surface somewhere less obvious.
         _ => OperatingSystem.IsWindows()
             ? OpenWasapi(config)
-            : throw new PlatformNotSupportedException("захват через WASAPI доступен только на Windows"),
+            : throw new PlatformNotSupportedException(Strings.Audio_WasapiCaptureWindowsOnly),
     };
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
@@ -121,8 +123,8 @@ public sealed class MicrophoneCaptureFeature : IFeature
         var device = DeviceCatalog.PickCapture(config.InputDevice)
             ?? throw new InvalidOperationException(
                 config.InputDevice is null
-                    ? "в системе нет ни одного микрофона. Подключите его и нажмите «Запустить»"
-                    : $"устройство ввода не найдено: {config.InputDevice}");
+                    ? Strings.Audio_NoMicrophone
+                    : Loc.F(Strings.Audio_InputNotFound, config.InputDevice));
 
         return new WasapiSource(device, config.InputGain);
     }
@@ -178,7 +180,7 @@ public sealed class MicrophoneCaptureFeature : IFeature
         }
         catch (Exception ex)
         {
-            Volatile.Write(ref _fault, $"кодировщик Opus: {ex.Message}");
+            Volatile.Write(ref _fault, Loc.F(Strings.Audio_Encoder, ex.Message));
             return;
         }
 
@@ -236,7 +238,7 @@ public sealed class MicrophoneCaptureFeature : IFeature
             {
                 IsCapture = true,
                 Status = fault is null ? FeatureStatus.Stopped : FeatureStatus.Failed,
-                Headline = fault is null ? "Остановлено" : "Ошибка",
+                Headline = fault is null ? Strings.Feature_Cap_Stopped : Strings.Feature_Cap_Failed,
                 Detail = fault,
                 Fault = fault,
             };
@@ -249,9 +251,9 @@ public sealed class MicrophoneCaptureFeature : IFeature
                 : muted ? FeatureStatus.Warning
                 : sent == 0 ? FeatureStatus.Waiting
                 : FeatureStatus.Live,
-            Headline = fault is not null ? "Ошибка захвата"
-                : muted ? "Микрофон заглушен"
-                : "Звук уходит",
+            Headline = fault is not null ? Strings.Feature_Cap_CaptureFailed
+                : muted ? Strings.Feature_Cap_Muted
+                : Strings.Feature_Cap_Live,
             Detail = fault ?? source.Describe(),
             Fault = fault,
             OutputDescription = source.Describe(),

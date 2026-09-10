@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -351,8 +353,8 @@ public static class PairingExchangeClient
     public static async Task<Result> FetchAsync(
         string host, int dataPort, string code, HttpMessageHandler? handler = null, CancellationToken token = default)
     {
-        if (string.IsNullOrWhiteSpace(host)) return new Result(null, "не указан адрес второго компьютера");
-        if (!ShortCode.IsComplete(code)) return new Result(null, "код должен быть из двенадцати символов");
+        if (string.IsNullOrWhiteSpace(host)) return new Result(null, Strings.Err_Exchange_NoHost);
+        if (!ShortCode.IsComplete(code)) return new Result(null, Strings.Err_Exchange_BadCode);
 
         var port = PairingPayload.ExchangePort(dataPort);
         var url = $"http://{Bracketed(host)}:{port}{PairingExchangeProtocol.Path}?code={ShortCode.Normalise(code)}";
@@ -370,11 +372,11 @@ public static class PairingExchangeClient
         }
         catch (TaskCanceledException) when (!token.IsCancellationRequested)
         {
-            return new Result(null, $"второй компьютер не ответил за {Timeout.TotalSeconds:0} с — проверьте адрес и брандмауэр");
+            return new Result(null, Loc.F(Strings.Err_Exchange_Timeout, Loc.Seconds(Timeout.TotalSeconds)));
         }
         catch (HttpRequestException ex)
         {
-            return new Result(null, $"не получилось связаться с {host}: {ex.Message}");
+            return new Result(null, Loc.F(Strings.Err_Exchange_Failed, host, ex.Message));
         }
 
         // These two and only these two mean the code was wrong. Anything else is a machine
@@ -382,12 +384,12 @@ public static class PairingExchangeClient
         // that sends the user off retyping a code that was fine.
         if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.NotFound)
         {
-            return new Result(null, "второй компьютер не принял код — проверьте, что мастер там ещё открыт");
+            return new Result(null, Strings.Err_Exchange_Rejected);
         }
 
         if (!PairingPayload.TryParse(body, out var payload, out var error))
         {
-            return new Result(null, $"ответ не похож на код связывания: {error}");
+            return new Result(null, Loc.F(Strings.Err_Exchange_BadReply, error));
         }
 
         return new Result(payload, null);

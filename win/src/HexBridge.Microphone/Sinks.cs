@@ -3,6 +3,8 @@ using System.Runtime.Versioning;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Microphone;
 
 public interface IAudioSink : IDisposable
@@ -145,9 +147,8 @@ public sealed class WasapiSink : IAudioSink
         var device = DeviceCatalog.Pick(selector)
             ?? throw new InvalidOperationException(
                 selector is null
-                    ? "не найдено виртуальное устройство. Установите Steam (Steam Streaming Microphone) " +
-                      "или VB-Audio Virtual Cable, либо укажите --device"
-                    : $"устройство вывода не найдено: {selector}");
+                    ? Strings.Audio_NoVirtualCable
+                    : Loc.F(Strings.Audio_OutputNotFound, selector));
 
         _player = new WasapiPlayerBuilder()
             .WithDevice(device)
@@ -162,8 +163,8 @@ public sealed class WasapiSink : IAudioSink
         var paired = DeviceCatalog.PairedCaptureName(device);
         DeviceName = device.FriendlyName;
         PairedCaptureName = paired;
-        _description = $"{device.FriendlyName} [{mix.SampleRate} Гц, {mix.Channels} ch]" +
-                       (paired is null ? "" : $" → в играх выбирайте «{paired}»");
+        _description = Loc.F(Strings.Audio_Device_Format, device.FriendlyName, mix.SampleRate, mix.Channels) +
+                       (paired is null ? "" : Loc.F(Strings.Audio_Device_PairedHint, paired));
 
         try
         {
@@ -172,10 +173,7 @@ public sealed class WasapiSink : IAudioSink
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"«{device.FriendlyName}» не принимает 48000 Гц / 2 канала / 32-bit float " +
-                $"(текущий формат устройства: {mix.SampleRate} Гц, {mix.Channels} ch). " +
-                "Откройте Параметры звука → свойства этого устройства и выберите формат " +
-                $"«2 канала, 32 бит, 48000 Гц». Исходная ошибка: {ex.Message}", ex);
+                Loc.F(Strings.Audio_FormatRefused, device.FriendlyName, mix.SampleRate, mix.Channels, ex.Message), ex);
         }
 
         // If Steam restarts, or the cable is uninstalled mid-session, playback just
@@ -183,8 +181,8 @@ public sealed class WasapiSink : IAudioSink
         _player.PlaybackStopped += (_, e) =>
         {
             Faulted?.Invoke(e.Exception is null
-                ? "hexbridge: вывод остановлен — устройство пропало"
-                : $"hexbridge: вывод остановлен: {e.Exception.Message}");
+                ? Strings.Log_OutputStoppedGone
+                : Loc.F(Strings.Log_OutputStopped, e.Exception.Message));
         };
     }
 
@@ -222,11 +220,11 @@ public sealed class PumpSink : IAudioSink
         if (wavPath is not null)
         {
             _writer = new WaveFileWriter(wavPath, provider.WaveFormat);
-            _description = $"файл {wavPath}";
+            _description = Loc.F(Strings.Audio_Sink_Wav, wavPath);
         }
         else
         {
-            _description = "null (звук никуда не выводится)";
+            _description = Strings.Audio_Sink_Null;
         }
     }
 

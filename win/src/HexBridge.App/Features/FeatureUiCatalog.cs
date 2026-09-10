@@ -51,7 +51,7 @@ public sealed class MicrophoneUiModule : IFeatureUiModule
     public QualityViewModel Quality { get; } = new();
 
     public IEnumerable<FeaturePage> CreatePages() =>
-        [new FeaturePage("Статус", Status), new FeaturePage("Качество", Quality)];
+        [new FeaturePage("Tab_Status", Status), new FeaturePage("Tab_Quality", Quality)];
 
     public void Apply(ReceiverSnapshot snapshot)
     {
@@ -73,7 +73,7 @@ public sealed class DevicesUiModule : IFeatureUiModule
 
     public DevicesViewModel Devices { get; } = new();
 
-    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Устройства", Devices)];
+    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Tab_Devices", Devices)];
 
     public void Apply(ReceiverSnapshot snapshot) =>
         Devices.Apply(
@@ -88,7 +88,7 @@ public sealed class ClipboardUiModule : IFeatureUiModule
 
     public ClipboardViewModel Clipboard { get; } = new();
 
-    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Буфер обмена", Clipboard)];
+    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Tab_Clipboard", Clipboard)];
 
     public void Apply(ReceiverSnapshot snapshot) =>
         Clipboard.Apply(snapshot.Feature<ClipboardState>(FeatureId));

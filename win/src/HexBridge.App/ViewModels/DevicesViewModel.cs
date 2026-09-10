@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using HexBridge.App.Controls;
 using HexBridge.Devices;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>
@@ -19,16 +21,16 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
     /// <summary>Device number 0…3. The identity of this row, and the sort key.</summary>
     public byte Number { get; }
 
-    [ObservableProperty] private string _title = "—";
-    [ObservableProperty] private string _kindText = "—";
-    [ObservableProperty] private string _stateText = "—";
+    [ObservableProperty] private string _title = Strings.Common_Empty;
+    [ObservableProperty] private string _kindText = Strings.Common_Empty;
+    [ObservableProperty] private string _stateText = Strings.Common_Empty;
 
-    [ObservableProperty] private string _rateText = "—";
-    [ObservableProperty] private string _batteryText = "—";
-    [ObservableProperty] private string _reportsText = "0";
-    [ObservableProperty] private string _lostText = "0";
-    [ObservableProperty] private string _outputsText = "0";
-    [ObservableProperty] private string _droppedText = "0";
+    [ObservableProperty] private string _rateText = Strings.Common_Empty;
+    [ObservableProperty] private string _batteryText = Strings.Common_Empty;
+    [ObservableProperty] private string _reportsText = Loc.Count(0);
+    [ObservableProperty] private string _lostText = Loc.Count(0);
+    [ObservableProperty] private string _outputsText = Loc.Count(0);
+    [ObservableProperty] private string _droppedText = Loc.Count(0);
 
     /// <summary>
     /// True only for a model whose reports the visualisation can decode. Everything else
@@ -56,22 +58,22 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
 
     /// <summary>The line under the outline, which is what a decorative canvas owes somebody
     /// using a screen reader (§8.4).</summary>
-    [ObservableProperty] private string _visualCaption = "—";
+    [ObservableProperty] private string _visualCaption = Strings.Common_Empty;
 
     [ObservableProperty] private string _attachCommand = "";
 
     public void Apply(ForwardedDeviceState device, string serverListen)
     {
         Title = device.Product;
-        KindText = device.ProfileName ?? "HID-устройство";
-        StateText = device.Imported ? "Windows видит устройство" : "готово, Windows его ещё не забрала";
+        KindText = device.ProfileName ?? Strings.Devices_Kind_Hid;
+        StateText = device.Imported ? Strings.Devices_State_Imported : Strings.Devices_State_Waiting;
 
-        RateText = $"{device.ReportsPerSecond:F0} отч/с";
-        BatteryText = device.Battery ?? "—";
-        ReportsText = device.ReportsReceived.ToString("N0");
-        LostText = device.ReportsLost.ToString("N0");
-        OutputsText = device.OutputsSent.ToString("N0");
-        DroppedText = device.ReportsDropped.ToString("N0");
+        RateText = Loc.Updates(device.ReportsPerSecond);
+        BatteryText = device.Battery ?? Strings.Common_Empty;
+        ReportsText = Loc.Count(device.ReportsReceived);
+        LostText = Loc.Count(device.ReportsLost);
+        OutputsText = Loc.Count(device.OutputsSent);
+        DroppedText = Loc.Count(device.ReportsDropped);
 
         CanVisualise = device.CanVisualise;
         ShowsSummary = !device.CanVisualise;
@@ -81,8 +83,8 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
             : device.Imported ? PadMood.Forwarding
             : PadMood.Reading;
         VisualCaption = device.Imported
-            ? $"{device.Product} — Windows видит его, {device.ReportsPerSecond:F0} отч/с"
-            : $"{device.Product} — Windows его пока не видит";
+            ? Loc.F(Strings.Devices_Caption_Imported, device.Product, Loc.Updates(device.ReportsPerSecond))
+            : Loc.F(Strings.Devices_Caption_Waiting, device.Product);
 
         AttachCommand =
             $"usbip.exe attach --receive-mode=low-latency -r {DevicesViewModel.Host(serverListen)} -b {device.BusId}";
@@ -95,8 +97,8 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
 /// </summary>
 public sealed partial class DevicesViewModel : ObservableObject
 {
-    [ObservableProperty] private string _headline = "Проброс выключен";
-    [ObservableProperty] private string _subline = "Включите приём устройств в настройках";
+    [ObservableProperty] private string _headline = Strings.Devices_Headline_Off;
+    [ObservableProperty] private string _subline = Strings.Devices_Sub_Off;
 
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
@@ -107,9 +109,12 @@ public sealed partial class DevicesViewModel : ObservableObject
     [ObservableProperty] private bool _driverMissing;
     [ObservableProperty] private string _driverHint = UsbIpAttacher.InstallHint;
 
+    /// <summary>«Занято номеров: 2 из 4» — one line, so the count and its frame stay together.</summary>
+    [ObservableProperty] private string _slotsLine = "";
+
     // Forwarding. The USB/IP server address and the client state left the page:
     // they describe the plumbing, and every device card says what it is doing.
-    [ObservableProperty] private string _slotsText = "—";
+    [ObservableProperty] private string _slotsText = Strings.Common_Empty;
     [ObservableProperty] private bool _hasDevices;
 
     /// <summary>Up to four, in device-number order.</summary>
@@ -125,13 +130,13 @@ public sealed partial class DevicesViewModel : ObservableObject
     {
         if (s is null)
         {
-            Headline = raw?.Headline is { Length: > 0 } headline ? headline : "Проброс выключен";
-            Subline = raw?.Detail is { Length: > 0 } detail ? detail : "Включите приём устройств в настройках";
+            Headline = raw?.Headline is { Length: > 0 } headline ? headline : Strings.Devices_Headline_Off;
+            Subline = raw?.Detail is { Length: > 0 } detail ? detail : Strings.Devices_Sub_Off;
             IsGood = IsWaiting = IsBad = false;
             DriverMissing = false;
             Devices.Clear();
             HasDevices = false;
-            SlotsText = "0 из 4";
+            SetSlots(0, 4);
             return;
         }
 
@@ -144,7 +149,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         DriverMissing = !s.DriverInstalled;
         DriverHint = s.DriverHint;
 
-        SlotsText = $"{s.Devices.Count} из {s.MaxDevices}";
+        SetSlots(s.Devices.Count, s.MaxDevices);
 
         Reconcile(s);
         HasDevices = Devices.Count > 0;
@@ -174,6 +179,12 @@ public sealed partial class DevicesViewModel : ObservableObject
             }
             row.Apply(device, s.ServerListen);
         }
+    }
+
+    private void SetSlots(int used, int of)
+    {
+        SlotsText = Loc.F(Strings.Devices_Slots_Value, used, of);
+        SlotsLine = Loc.F(Strings.Devices_Slots, SlotsText);
     }
 
     internal static string Host(string endpoint)

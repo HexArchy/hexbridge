@@ -5,6 +5,8 @@ using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -393,7 +395,7 @@ public static class DiscoveryMatch
             return new DiscoveryChoice(
                 DiscoveryVerdict.Unpaired,
                 null,
-                "этот Mac ещё не связан ни с одним ПК — нужен короткий код с экрана ПК");
+                Strings.Discovery_NotPairedYet);
         }
 
         foreach (var host in hosts)
@@ -402,15 +404,15 @@ public static class DiscoveryMatch
             // An address is what makes a match usable; a resolved-later result is not a
             // match yet, and taking it would blank out a working target.
             if (string.IsNullOrEmpty(host.Address)) continue;
-            return new DiscoveryChoice(DiscoveryVerdict.Connect, host, $"метка совпала: {host.Target}");
+            return new DiscoveryChoice(DiscoveryVerdict.Connect, host, Loc.F(Strings.Discovery_TagMatched, host.Target));
         }
 
         return new DiscoveryChoice(
             DiscoveryVerdict.NoMatch,
             null,
             hosts.Count == 0
-                ? "в сети не видно ни одного HexBridge"
-                : $"в сети {hosts.Count} HexBridge, но ни один из них не наш");
+                ? Strings.Discovery_NothingSeen
+                : Loc.F(Strings.Discovery_NoneOfOurs, Loc.Plural("Unit_Hosts", hosts.Count)));
     }
 
     /// <summary>
@@ -528,15 +530,15 @@ public sealed class DiscoveryPublisher : IDisposable
 
         if (Error is not null)
         {
-            _log?.Invoke(LogLevel.Warning, $"hexbridge: автопоиск не поднялся — {Error}");
+            _log?.Invoke(LogLevel.Warning, Loc.F(Strings.Log_DiscoveryFailed, Error));
             return;
         }
 
         _log?.Invoke(
             LogLevel.Info,
             tag is null
-                ? $"hexbridge: объявляю себя в сети как «{_machineName}» на порту {port}, без метки — ключа ещё нет"
-                : $"hexbridge: объявляю себя в сети как «{_machineName}» на порту {port}, метка {tag}");
+                ? Loc.F(Strings.Log_AdvertisingUntagged, _machineName, port)
+                : Loc.F(Strings.Log_Advertising, _machineName, port, tag));
     }
 
     private void OnAddressChanged(object? sender, EventArgs e)

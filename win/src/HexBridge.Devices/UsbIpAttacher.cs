@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 /// <summary>
@@ -21,10 +23,12 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
         @"C:\Program Files (x86)\USBip\usbip.exe",
     ];
 
-    public const string InstallHint =
-        "Установите драйвер usbip-win2 0.9.8.0: скачайте USBip-0.9.8.0-x64.exe со страницы " +
-        "github.com/vadimgrn/usbip-win2/releases и запустите. Ни Secure Boot, ни тестовый " +
-        "режим подписи отключать не нужно — бинарники подписаны Microsoft.";
+    /// <summary>
+    /// What to do about a missing driver. A property rather than a constant now that it is
+    /// a translated string: the language can change while the app is running, and a constant
+    /// would have been baked into every call site at compile time.
+    /// </summary>
+    public static string InstallHint => Strings.Devices_Driver_InstallHint;
 
     /// <summary>vhci port per busid. Each forwarded device is its own attachment.</summary>
     private readonly ConcurrentDictionary<string, int> _ports = new();
@@ -92,7 +96,7 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
 
         if (result.ExitCode != 0)
         {
-            log(LogLevel.Warning, $"usbip: attach {busId} не удался ({result.ExitCode}): {Summarise(result)}");
+            log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_AttachFailed, busId, result.ExitCode, Summarise(result)));
             return false;
         }
 
@@ -102,8 +106,8 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
         // closing takes the device down instead.
         _ports[busId] = port;
         log(LogLevel.Info, port >= 0
-            ? $"usbip: {busId} подключён к порту {port}"
-            : $"usbip: {busId} подключён");
+            ? Loc.F(Strings.Log_UsbIp_AttachedPort, busId, port)
+            : Loc.F(Strings.Log_UsbIp_Attached, busId));
         return true;
     }
 
@@ -121,7 +125,7 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
         var result = await RunAsync(client, ["detach", "-p", port.ToString()], token).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
-            log(LogLevel.Warning, $"usbip: detach порта {port} ({busId}) не удался: {Summarise(result)}");
+            log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_DetachFailed, port, busId, Summarise(result)));
         }
     }
 
@@ -167,7 +171,7 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
 
         using var process = Process.Start(info)
-            ?? throw new InvalidOperationException($"не удалось запустить {path}");
+            ?? throw new InvalidOperationException(Loc.F(Strings.Log_UsbIp_LaunchFailed, path));
 
         var stdout = process.StandardOutput.ReadToEndAsync(token);
         var stderr = process.StandardError.ReadToEndAsync(token);
@@ -191,7 +195,7 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
             {
                 // Already gone.
             }
-            return new ProcessResult(-1, "", "usbip.exe не ответил за 15 секунд");
+            return new ProcessResult(-1, "", Strings.Log_UsbIp_NoAnswer);
         }
 
         return new ProcessResult(process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false));

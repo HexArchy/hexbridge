@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              x:Class="HexBridge.App.Views.RoleView"
              x:DataType="vm:RoleViewModel">
@@ -24,7 +25,7 @@
           <TextBlock Grid.Column="0" Classes="title" Text="{Binding Title}" VerticalAlignment="Center" />
           <!-- No way out of the first run: an unanswered role is not a state the app can
                work in, and a «Закрыть» that leaves it unanswered is a dead end. -->
-          <Button Grid.Column="1" Classes="ghost" Content="Отмена"
+          <Button Grid.Column="1" Classes="ghost" Content="{l:Tr Role_Button_Cancel}"
                   IsVisible="{Binding !IsFirstRun}" Command="{Binding CancelCommand}" />
         </Grid>
 
@@ -32,7 +33,7 @@
           <StackPanel Spacing="14">
 
             <TextBlock Classes="body" TextWrapping="Wrap"
-                       Text="HexBridge соединяет две машины: на одной микрофон, на другой игры. Выберите, чем этот компьютер будет в этой паре." />
+                       Text="{l:Tr Role_Intro}" />
 
             <!-- Card 1: this machine plays somebody else's microphone. -->
             <Button Classes="choice" HorizontalAlignment="Stretch"
@@ -45,7 +46,7 @@
                   <TextBlock Classes="heading" Text="{Binding ReceiverTitle}" />
                   <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding ReceiverSummary}" />
                   <TextBlock Classes="caption" TextWrapping="Wrap"
-                             Text="Сюда же можно пробросить геймпад с Mac." />
+                             Text="{l:Tr Role_Receiver_Extra}" />
                 </StackPanel>
               </Grid>
             </Button>
@@ -63,7 +64,7 @@
                   <!-- Said here, before the choice, rather than discovered later on an
                        empty devices page. -->
                   <TextBlock Classes="caption" TextWrapping="Wrap"
-                             Text="{x:Static vm:RoleViewModel.SenderCaveat}" />
+                             Text="{l:Tr Role_Sender_Caveat}" />
                 </StackPanel>
               </Grid>
             </Button>
@@ -78,7 +79,7 @@
                 CornerRadius="0,0,16,16" Padding="24,14">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
-                       Text="Роль можно сменить в любой момент — «Настройки» → «Роль этого компьютера»." />
+                       Text="{l:Tr Role_Footer}" />
             <Button Grid.Column="1" Classes="primary" Content="{Binding ConfirmLabel}"
                     Command="{Binding ConfirmCommand}" />
           </Grid>

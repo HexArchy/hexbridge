@@ -6,8 +6,10 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using HexBridge.Localization;
 using HexBridge.App.ViewModels;
 using HexBridge.App.Views;
+using Semi.Avalonia;
 
 namespace HexBridge.App;
 
@@ -37,7 +39,9 @@ public partial class App : Application
         _model.RequestShowWindow = ShowWindow;
         _model.RequestExit = () => Shutdown(desktop);
         _model.ApplyTheme = ApplyTheme;
+        _model.ApplySemiLocale = ApplySemiLocale;
         ApplyTheme(_model.Theme);
+        ApplySemiLocale();
 
         _window = new MainWindow { DataContext = _model };
         _window.Closing += (_, e) =>
@@ -60,7 +64,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            _model.Log.Add(LogLevel.Warning, $"hexbridge: значок в трее недоступен: {ex.Message}");
+            _model.Log.Add(LogLevel.Warning, Loc.F(Strings.Log_TrayUnavailable, ex.Message));
         }
 
         _model.PropertyChanged += (_, e) =>
@@ -73,6 +77,17 @@ public partial class App : Application
 
         desktop.ShutdownRequested += (_, _) => _exiting = true;
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Semi keeps its own table for the strings inside the controls it themes — the text box
+    /// context menu, mostly — and picks it by culture. It is set here rather than in App.axaml
+    /// because the language is a preference now, and pushed again on every change so the two
+    /// tables cannot disagree.
+    /// </summary>
+    private void ApplySemiLocale()
+    {
+        foreach (var theme in Styles.OfType<SemiTheme>()) theme.Locale = Localizer.Instance.Culture;
     }
 
     private void ApplyTheme(ThemePreference preference) => RequestedThemeVariant = preference switch
@@ -105,11 +120,11 @@ public partial class App : Application
             {
                 Items =
                 {
-                    new NativeMenuItem("Показать окно") { Command = _model!.ShowWindowCommand },
+                    new NativeMenuItem(Strings.Tray_Show) { Command = _model!.ShowWindowCommand },
                     new NativeMenuItemSeparator(),
-                    new NativeMenuItem("Пауза") { Command = _model.TogglePauseCommand },
+                    new NativeMenuItem(Strings.App_Button_Pause) { Command = _model.TogglePauseCommand },
                     new NativeMenuItemSeparator(),
-                    new NativeMenuItem("Выход") { Command = _model.ExitCommand },
+                    new NativeMenuItem(Strings.Tray_Quit) { Command = _model.ExitCommand },
                 },
             },
         };
@@ -125,8 +140,12 @@ public partial class App : Application
         _tray.Icon = _trayIcons[_model.Tray];
         _tray.ToolTipText = _model.TrayTooltip;
 
-        // Index 2 is the pause entry; its wording flips with the receiver state.
+        // Index 0 and 4 are fixed labels and index 2 flips with the receiver state; all
+        // three are rewritten on every tick, which is also what carries a language change
+        // into a menu the platform built once.
+        if (_tray.Menu?.Items.ElementAtOrDefault(0) is NativeMenuItem show) show.Header = Strings.Tray_Show;
         if (_tray.Menu?.Items.ElementAtOrDefault(2) is NativeMenuItem pause) pause.Header = _model.PauseLabel;
+        if (_tray.Menu?.Items.ElementAtOrDefault(4) is NativeMenuItem quit) quit.Header = Strings.Tray_Quit;
     }
 
     private void ShowWindow()

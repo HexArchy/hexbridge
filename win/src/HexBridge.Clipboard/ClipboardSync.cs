@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Clipboard;
 
 /// <summary>
@@ -26,16 +28,12 @@ public sealed class ClipboardItem
     /// </summary>
     public string Describe() => Format switch
     {
-        BulkFormat.Utf8Text => $"текст, {Size(Bytes.Length)}",
-        BulkFormat.Png => $"изображение, {Size(Bytes.Length)}",
-        _ => $"данные, {Size(Bytes.Length)}",
+        BulkFormat.Utf8Text => Loc.F(Strings.Clipboard_Item_Text, Size(Bytes.Length)),
+        BulkFormat.Png => Loc.F(Strings.Clipboard_Item_Image, Size(Bytes.Length)),
+        _ => Loc.F(Strings.Clipboard_Item_Data, Size(Bytes.Length)),
     };
 
-    public static string Size(long bytes) => bytes >= 1024 * 1024
-        ? $"{bytes / (1024.0 * 1024.0):F1} МБ"
-        : bytes >= 1024
-            ? $"{bytes / 1024.0:F1} КБ"
-            : $"{bytes} Б";
+    public static string Size(long bytes) => Loc.Size(bytes);
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              x:Class="HexBridge.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
@@ -28,13 +29,13 @@
         <Border Classes="card">
           <Grid ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Classes="section" Text="РОЛЬ ЭТОГО КОМПЬЮТЕРА" />
+              <TextBlock Classes="section" Text="{l:Tr Settings_Section_Role}" />
               <TextBlock Classes="heading" Text="{Binding RoleTitle}" />
               <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RoleSummary}" />
               <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsGiving}"
-                         Text="{x:Static vm:RoleViewModel.SenderCaveat}" />
+                         Text="{l:Tr Role_Sender_Caveat}" />
             </StackPanel>
-            <Button Grid.Column="1" Content="Сменить" VerticalAlignment="Center"
+            <Button Grid.Column="1" Content="{l:Tr Settings_Button_ChangeRole}" VerticalAlignment="Center"
                     Command="{Binding ChangeRoleCommand}" />
           </Grid>
         </Border>
@@ -42,63 +43,63 @@
         <Border Classes="card">
           <Grid ColumnDefinitions="*,Auto,Auto">
             <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Classes="heading" Text="Связь со второй машиной" />
-              <TextBlock Classes="caption" Text="Отпечаток должен совпасть на обеих машинах." />
+              <TextBlock Classes="heading" Text="{l:Tr Settings_Pair_Heading}" />
+              <TextBlock Classes="caption" Text="{l:Tr Settings_Pair_Caption}" />
               <SelectableTextBlock Classes="mono dim" Text="{Binding FingerprintText}" />
             </StackPanel>
-            <Button Grid.Column="1" Margin="0,0,8,0" Content="Проверить связь"
+            <Button Grid.Column="1" Margin="0,0,8,0" Content="{l:Tr Settings_Button_Check}"
                     Command="{Binding CheckCommand}" VerticalAlignment="Center" />
-            <Button Grid.Column="2" Classes="primary" Content="Связать заново"
+            <Button Grid.Column="2" Classes="primary" Content="{l:Tr Settings_Button_Pair}"
                     Command="{Binding PairCommand}" VerticalAlignment="Center" />
           </Grid>
         </Border>
 
         <Border Classes="card">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="СЕТЬ" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Network}" />
 
             <StackPanel Spacing="6" IsVisible="{Binding IsTaking}">
-              <TextBlock Classes="label" Text="Слушать (адрес и порт)" />
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Listen}" />
               <TextBox Text="{Binding Listen}" PlaceholderText="0.0.0.0:47702" />
               <TextBlock Classes="caption"
-                         Text="Порт должен быть открыт в брандмауэре и совпадать с тем, что указан на второй машине." />
+                         Text="{l:Tr Settings_Caption_Listen}" />
             </StackPanel>
 
             <StackPanel Spacing="6" IsVisible="{Binding IsGiving}">
-              <TextBlock Classes="label" Text="Адрес второй машины" />
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Target}" />
               <TextBox Text="{Binding Target}" PlaceholderText="192.168.1.10:47702" />
               <TextBlock Classes="caption"
-                         Text="Обычно его подставляет мастер связывания. Свой порт этот компьютер выбирает сам." />
+                         Text="{l:Tr Settings_Caption_Target}" />
             </StackPanel>
 
             <!-- §7.4: on the first level only what the user touches. The relay
                  and the raw key are for the case where pairing did not do the
                  job, and that is not most days. -->
-            <Expander Header="Ключ и релей вручную">
+            <Expander Header="{l:Tr Settings_Expander_KeyRelay}">
               <StackPanel Spacing="14" Margin="0,10,0,0">
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="label" Text="Общий ключ" />
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_Psk}" />
                   <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                     <TextBox Grid.Column="0" Text="{Binding Psk}"
                              PasswordChar="•"
                              RevealPassword="{Binding PskRevealed}"
                              FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
-                    <Button Grid.Column="1" Margin="8,0,0,0" Content="Показать"
+                    <Button Grid.Column="1" Margin="8,0,0,0" Content="{l:Tr Settings_Button_Reveal}"
                             Command="{Binding TogglePskRevealCommand}" />
-                    <Button Grid.Column="2" Margin="8,0,0,0" Content="Копировать"
+                    <Button Grid.Column="2" Margin="8,0,0,0" Content="{l:Tr Settings_Button_Copy}"
                             Command="{Binding CopyPskCommand}" />
-                    <Button Grid.Column="3" Margin="8,0,0,0" Content="Сгенерировать"
+                    <Button Grid.Column="3" Margin="8,0,0,0" Content="{l:Tr Settings_Button_Generate}"
                             Command="{Binding GeneratePskCommand}" />
                   </Grid>
                   <TextBlock Classes="caption"
-                             Text="Ровно тот же ключ должен стоять на второй машине." />
+                             Text="{l:Tr Settings_Caption_Psk}" />
                 </StackPanel>
 
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="label" Text="Релей" />
-                  <TextBox Text="{Binding Relay}" PlaceholderText="например, relay.example.com:47702" />
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_Relay}" />
+                  <TextBox Text="{Binding Relay}" PlaceholderText="{l:Tr Settings_Placeholder_Relay}" />
                   <TextBlock Classes="caption"
-                             Text="Нужен, только если машины не достучатся друг до друга напрямую." />
+                             Text="{l:Tr Settings_Caption_Relay}" />
                 </StackPanel>
               </StackPanel>
             </Expander>
@@ -107,31 +108,31 @@
 
         <Border Classes="card" IsVisible="{Binding IsTaking}">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="УСТРОЙСТВА" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Devices}" />
 
-            <CheckBox IsChecked="{Binding Gamepad}" Content="Принимать устройства со второй машины" />
+            <CheckBox IsChecked="{Binding Gamepad}" Content="{l:Tr Settings_Check_Gamepad}" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="До четырёх устройств, выбранных на Mac: контроллеры, рули, педали, HOTAS. Нужен драйвер usbip-win2." />
+                       Text="{l:Tr Settings_Caption_Gamepad}" />
 
             <CheckBox IsChecked="{Binding UsbIpAutoAttach}"
                       IsEnabled="{Binding Gamepad}"
-                      Content="Подключать автоматически" />
+                      Content="{l:Tr Settings_Check_AutoAttach}" />
 
-            <Expander Header="Драйвер usbip-win2" IsEnabled="{Binding Gamepad}">
+            <Expander Header="{l:Tr Settings_Expander_Driver}" IsEnabled="{Binding Gamepad}">
               <StackPanel Spacing="14" Margin="0,10,0,0">
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="label" Text="Адрес сервера USB/IP" />
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_UsbIpListen}" />
                   <TextBox Text="{Binding UsbIpListen}" PlaceholderText="127.0.0.1:3240" />
                   <TextBlock Classes="caption"
-                             Text="Драйвер работает на этом же ПК — наружу порт открывать незачем." />
+                             Text="{l:Tr Settings_Caption_UsbIpListen}" />
                 </StackPanel>
 
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="label" Text="Путь к usbip.exe" />
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_UsbIpPath}" />
                   <TextBox Text="{Binding UsbIpPath}"
                            PlaceholderText="C:\Program Files\USBip\usbip.exe" />
                   <TextBlock Classes="caption"
-                             Text="Только если драйвер установлен не в стандартную папку." />
+                             Text="{l:Tr Settings_Caption_UsbIpPath}" />
                 </StackPanel>
               </StackPanel>
             </Expander>
@@ -140,15 +141,15 @@
 
         <Border Classes="card">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="БУФЕР ОБМЕНА" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Clipboard}" />
 
-            <CheckBox IsChecked="{Binding Clipboard}" Content="Общий буфер обмена со второй машиной" />
+            <CheckBox IsChecked="{Binding Clipboard}" Content="{l:Tr Settings_Check_Clipboard}" />
 
             <!-- The honest sentence, in the same words as on the «Буфер обмена»
                  page and on the Mac. A boxed three-sentence version of it next
                  to the checkbox was a warning nobody finishes reading. -->
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG." />
+                       Text="{l:Tr Clipboard_Privacy}" />
           </StackPanel>
         </Border>
 
@@ -159,10 +160,10 @@
         -->
         <Border Classes="card" IsVisible="{Binding IsGiving}">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="ЗАХВАТ ЗВУКА" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Capture}" />
 
             <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Источник" />
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Source}" />
               <ComboBox ItemsSource="{Binding InputModes}" SelectedItem="{Binding Input}"
                         HorizontalAlignment="Stretch">
                 <ComboBox.ItemTemplate>
@@ -175,8 +176,8 @@
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Микрофон" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Обновить список" Command="{Binding RefreshDevicesCommand}" />
+                <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_Microphone}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="{l:Tr Settings_Button_RefreshDevices}" Command="{Binding RefreshDevicesCommand}" />
               </Grid>
               <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding InputDevice}"
                         HorizontalAlignment="Stretch">
@@ -192,20 +193,20 @@
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Усиление" />
+                <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_Gain}" />
                 <TextBlock Grid.Column="1" Classes="label" Text="{Binding InputGainText}" />
               </Grid>
               <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
                       Value="{Binding InputGain}" />
-              <TextBlock Classes="caption" Text="1,0 (0 дБ) — как есть. Поднимайте, если вас слышно тихо." />
+              <TextBlock Classes="caption" Text="{l:Tr Settings_Caption_InputGain}" />
             </StackPanel>
 
-            <CheckBox IsChecked="{Binding StartMuted}" Content="Запускаться с заглушённым микрофоном" />
+            <CheckBox IsChecked="{Binding StartMuted}" Content="{l:Tr Settings_Check_StartMuted}" />
 
-            <Expander Header="Кодек">
+            <Expander Header="{l:Tr Settings_Expander_Codec}">
               <StackPanel Spacing="14" Margin="0,10,0,0">
                 <StackPanel Spacing="6">
-                  <TextBlock Classes="label" Text="Битрейт" />
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_Bitrate}" />
                   <ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding Bitrate}"
                             HorizontalAlignment="Stretch">
                     <ComboBox.ItemTemplate>
@@ -215,7 +216,7 @@
                     </ComboBox.ItemTemplate>
                   </ComboBox>
                   <TextBlock Classes="caption" TextWrapping="Wrap"
-                             Text="Голос всегда 48 кГц, моно, кадр 20 мс — это часть протокола. Меняется только сколько битрейта на кадр." />
+                             Text="{l:Tr Settings_Caption_Bitrate}" />
                 </StackPanel>
               </StackPanel>
             </Expander>
@@ -224,10 +225,10 @@
 
         <Border Classes="card" IsVisible="{Binding IsTaking}">
           <StackPanel Spacing="14">
-            <TextBlock Classes="section" Text="ВЫВОД ЗВУКА" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Output}" />
 
             <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Режим" />
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Mode}" />
               <ComboBox ItemsSource="{Binding OutputModes}" SelectedItem="{Binding Output}"
                         HorizontalAlignment="Stretch">
                 <ComboBox.ItemTemplate>
@@ -240,8 +241,8 @@
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Устройство вывода" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Обновить список" Command="{Binding RefreshDevicesCommand}" />
+                <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_OutputDevice}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="{l:Tr Settings_Button_RefreshDevices}" Command="{Binding RefreshDevicesCommand}" />
               </Grid>
               <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding Device}"
                         HorizontalAlignment="Stretch">
@@ -249,7 +250,7 @@
                   <DataTemplate x:DataType="vm:DeviceOption">
                     <StackPanel Spacing="1" Margin="0,2">
                       <TextBlock Text="{Binding Title}" />
-                      <TextBlock Classes="caption" Text="{Binding Paired, StringFormat='пара для игр: {0}'}"
+                      <TextBlock Classes="caption" Text="{Binding PairedText}"
                                  IsVisible="{Binding Paired, Converter={x:Static ObjectConverters.IsNotNull}}" />
                     </StackPanel>
                   </DataTemplate>
@@ -261,31 +262,31 @@
 
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Classes="label" Text="Усиление" />
+                <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_Gain}" />
                 <TextBlock Grid.Column="1" Classes="label" Text="{Binding GainText}" />
               </Grid>
               <Slider Minimum="0" Maximum="4" TickFrequency="0.05" IsSnapToTickEnabled="True"
                       Value="{Binding Gain}" />
-              <TextBlock Classes="caption" Text="1,0 (0 дБ) — звук как есть. Поднимайте, только если вторая машина отдаёт тихо." />
+              <TextBlock Classes="caption" Text="{l:Tr Settings_Caption_Gain}" />
             </StackPanel>
 
             <!-- §7.4 «Дополнительно», collapsed: three latency knobs are the
                  definition of what a user does not touch on most days. -->
-            <Expander Header="Задержка и буфер">
+            <Expander Header="{l:Tr Settings_Expander_Latency}">
               <StackPanel Spacing="14" Margin="0,10,0,0">
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Classes="label" Text="Целевая глубина буфера" />
+                    <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_Jitter}" />
                     <TextBlock Grid.Column="1" Classes="label" Text="{Binding JitterText}" />
                   </Grid>
                   <Slider Minimum="20" Maximum="200" TickFrequency="20" IsSnapToTickEnabled="True"
                           Value="{Binding JitterMs}" />
-                  <TextBlock Classes="caption" Text="Меньше — отзывчивее, больше — устойчивее к рывкам сети." />
+                  <TextBlock Classes="caption" Text="{l:Tr Settings_Caption_Jitter}" />
                 </StackPanel>
 
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Classes="label" Text="Предел, после которого буфер подрезается" />
+                    <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_MaxJitter}" />
                     <TextBlock Grid.Column="1" Classes="label" Text="{Binding MaxJitterText}" />
                   </Grid>
                   <Slider Minimum="60" Maximum="600" TickFrequency="20" IsSnapToTickEnabled="True"
@@ -294,7 +295,7 @@
 
                 <StackPanel Spacing="6">
                   <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Classes="label" Text="Задержка вывода" />
+                    <TextBlock Grid.Column="0" Classes="label" Text="{l:Tr Settings_Label_Latency}" />
                     <TextBlock Grid.Column="1" Classes="label" Text="{Binding LatencyText}" />
                   </Grid>
                   <Slider Minimum="10" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True"
@@ -307,10 +308,22 @@
 
         <Border Classes="card">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="ПРИЛОЖЕНИЕ" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_App}" />
 
             <StackPanel Spacing="6">
-              <TextBlock Classes="label" Text="Тема" />
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Language}" />
+              <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" Width="220"
+                        HorizontalAlignment="Left">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LanguageOption">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Theme}" />
               <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" Width="220"
                         HorizontalAlignment="Left">
                 <ComboBox.ItemTemplate>
@@ -321,15 +334,15 @@
               </ComboBox>
             </StackPanel>
 
-            <CheckBox Content="Запускать передачу сразу при старте" IsChecked="{Binding StartOnLaunch}" />
-            <CheckBox Content="Запускаться сразу в трей" IsChecked="{Binding StartMinimised}" />
-            <CheckBox Content="Запускать при входе в Windows" IsChecked="{Binding Autostart}" />
+            <CheckBox Content="{l:Tr Settings_Check_StartOnLaunch}" IsChecked="{Binding StartOnLaunch}" />
+            <CheckBox Content="{l:Tr Settings_Check_StartMinimised}" IsChecked="{Binding StartMinimised}" />
+            <CheckBox Content="{l:Tr Settings_Check_Autostart}" IsChecked="{Binding Autostart}" />
             <TextBlock Text="{Binding AutostartError}"
                        IsVisible="{Binding AutostartError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                        Foreground="{DynamicResource BadFg}"
                        TextWrapping="Wrap" />
             <TextBlock Classes="caption" TextWrapping="Wrap"
-                       Text="Закрытие окна прячет приложение в трей, передача продолжается." />
+                       Text="{l:Tr Settings_Caption_Tray}" />
           </StackPanel>
         </Border>
 
@@ -339,9 +352,9 @@
         -->
         <Border Classes="card">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="ОБНОВЛЕНИЯ" />
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Updates}" />
 
-            <CheckBox Content="Проверять обновления раз в сутки" IsChecked="{Binding AutoUpdate}" />
+            <CheckBox Content="{l:Tr Settings_Check_AutoUpdate}" IsChecked="{Binding AutoUpdate}" />
             <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Updates.Summary}" />
 
             <TextBlock TextWrapping="Wrap"
@@ -352,14 +365,14 @@
                        IsVisible="{Binding Updates.Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button Content="Проверить сейчас"
+              <Button Content="{l:Tr Settings_Button_CheckNow}"
                       Command="{Binding Updates.CheckCommand}"
                       IsEnabled="{Binding !Updates.IsBusy}"
                       IsVisible="{Binding Updates.IsSupported}" />
-              <Button Content="Скачать"
+              <Button Content="{l:Tr Settings_Button_Download}"
                       Command="{Binding Updates.DownloadCommand}"
                       IsVisible="{Binding Updates.CanDownload}" />
-              <Button Content="Перезапустить и установить"
+              <Button Content="{l:Tr Settings_Button_Restart}"
                       Command="{Binding Updates.ApplyCommand}"
                       IsVisible="{Binding Updates.CanApply}" />
             </StackPanel>
@@ -379,15 +392,15 @@
              notice that saving restarts the stream is a line the user reads
              once and then reads past for ever. -->
         <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
-          <TextBlock Classes="caption" Text="Есть несохранённые изменения. Сохранение прервёт звук на секунду."
+          <TextBlock Classes="caption" Text="{l:Tr Settings_Dirty}"
                      IsVisible="{Binding IsDirty}" />
           <TextBlock Classes="body" Foreground="{DynamicResource BadFg}"
                      Text="{Binding ValidationError}"
                      IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
-        <Button Grid.Column="1" Content="Отменить" Margin="0,0,8,0"
+        <Button Grid.Column="1" Content="{l:Tr Settings_Button_Revert}" Margin="0,0,8,0"
                 Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
-        <Button Grid.Column="2" Content="Сохранить" Classes="primary"
+        <Button Grid.Column="2" Content="{l:Tr Settings_Button_Save}" Classes="primary"
                 Command="{Binding SaveCommand}" />
       </Grid>
     </Border>

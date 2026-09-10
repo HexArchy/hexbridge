@@ -7,6 +7,8 @@ using HexBridge.Clipboard;
 using HexBridge.Devices;
 using HexBridge.Microphone;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 public enum TrayState { Idle, Live, Warn, Error }
@@ -87,22 +89,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private TrayState _tray = TrayState.Idle;
-    [ObservableProperty] private string _trayTooltip = "HexBridge — приём остановлен";
+    [ObservableProperty] private string _trayTooltip = Strings.Tray_Tip_StoppedReceiving;
     /// <summary>The header's only button: it says what pressing it will do.</summary>
-    [ObservableProperty] private string _pauseLabel = "Запустить";
+    [ObservableProperty] private string _pauseLabel = Strings.App_Button_Start;
     [ObservableProperty] private string _configPathText = "";
 
     /// <summary>True while this machine is the one holding the microphone.</summary>
     [ObservableProperty] private bool _isGiving;
 
     /// <summary>The line under the title, which says which half of the pair this is.</summary>
-    [ObservableProperty] private string _tagline = "микрофон, геймпады и буфер обмена с Mac";
+    [ObservableProperty] private string _tagline = Strings.App_Tagline_Receiving;
 
     /// <summary>Says what pressing it will do, like every other button in the header.</summary>
-    [ObservableProperty] private string _muteLabel = "Заглушить";
+    [ObservableProperty] private string _muteLabel = Strings.App_Button_Mute;
 
     // The window header shows the transport, not any one feature.
-    [ObservableProperty] private string _headline = "Приём остановлен";
+    [ObservableProperty] private string _headline = Strings.App_Headline_StoppedReceiving;
     [ObservableProperty] private bool _isGood;
     [ObservableProperty] private bool _isWaiting;
     [ObservableProperty] private bool _isBad;
@@ -128,8 +130,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _modules = FeatureUiCatalog.For(_receiver.Features);
         foreach (var page in _modules.SelectMany(module => module.CreatePages())) Pages.Add(page);
-        Pages.Add(new FeaturePage("Настройки", Settings));
-        Pages.Add(new FeaturePage("Журнал", Log));
+        Pages.Add(new FeaturePage("Tab_Settings", Settings));
+        Pages.Add(new FeaturePage("Tab_Log", Log));
 
         SelectedTab = Math.Clamp(_ui.LastTab, 0, Pages.Count - 1);
         Settings.Updates = Updates;
@@ -145,7 +147,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _timer = new DispatcherTimer(Tick, DispatcherPriority.Background, (_, _) => Refresh());
         _timer.Start();
 
-        Log.Add(LogLevel.Info, $"hexbridge: конфиг {_configPath}");
+        Localizer.Instance.LanguageChanged += OnLanguageChanged;
+
+        Log.Add(LogLevel.Info, Loc.F(Strings.Log_Config, _configPath));
         ApplyRole();
 
         // A fresh install is asked what it is before it is asked to pair, because the answer
@@ -165,7 +169,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         // it stays one button away in the settings as «Связать заново».
         if (!_config.TryGetKey(out _, out var keyError))
         {
-            Log.Add(LogLevel.Warning, $"hexbridge: {keyError} — запускаем мастер связывания");
+            Log.Add(LogLevel.Warning, Loc.F(Strings.Log_NoKeyOpeningWizard, keyError));
             Pairing.Open();
         }
     }
@@ -190,13 +194,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             }
             catch (Exception ex)
             {
-                Log.Add(LogLevel.Error, $"hexbridge: не удалось сохранить конфиг: {ex.Message}");
+                Log.Add(LogLevel.Error, Loc.F(Strings.Log_ConfigSaveFailed, ex.Message));
                 return;
             }
 
             _config = next;
             Settings.Load(_config, _ui);
-            Log.Add(LogLevel.Info, $"hexbridge: роль — {RoleWording.Title(role).ToLowerInvariant()}");
+            Log.Add(LogLevel.Info, Loc.F(Strings.Log_RoleSet, RoleWording.Title(role).ToLowerInvariant()));
 
             // The old advertisement described a machine that listened. Leaving it up would
             // point the other side at a port nothing is on any more.
@@ -220,9 +224,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IsGiving = _config.Role == BridgeRole.Sender;
         Role.Current = _config.Role;
         Pairing.Role = _config.Role;
-        Tagline = IsGiving
-            ? "микрофон этого компьютера и общий буфер обмена"
-            : "микрофон, геймпады и буфер обмена со второй машины";
+        Tagline = IsGiving ? Strings.App_Tagline_Sharing : Strings.App_Tagline_Receiving;
     }
 
     /// <summary>
@@ -254,13 +256,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Log.Add(LogLevel.Error, $"hexbridge: не удалось сохранить конфиг: {ex.Message}");
+            Log.Add(LogLevel.Error, Loc.F(Strings.Log_ConfigSaveFailed, ex.Message));
             return;
         }
 
         _config = next;
         Settings.Load(_config, _ui);
-        Log.Add(LogLevel.Info, $"hexbridge: связано, отпечаток ключа {payload.Fingerprint}");
+        Log.Add(LogLevel.Info, Loc.F(Strings.Log_Paired, payload.Fingerprint));
 
         // The receiver has to come up on the new key before the checks can say anything
         // truthful about packets arriving.
@@ -372,7 +374,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Log.Add(LogLevel.Error, $"hexbridge: {ex.Message}");
+            Log.Add(LogLevel.Error, Loc.F(Strings.Log_Prefix, ex.Message));
         }
         finally
         {
@@ -392,7 +394,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Log.Add(LogLevel.Error, $"hexbridge: не удалось сохранить конфиг: {ex.Message}");
+            Log.Add(LogLevel.Error, Loc.F(Strings.Log_ConfigSaveFailed, ex.Message));
             return;
         }
 
@@ -410,15 +412,32 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _config = next;
         Settings.MarkSaved(next);
-        Log.Add(LogLevel.Info, "hexbridge: настройки сохранены");
+        Log.Add(LogLevel.Info, Strings.Log_SettingsSaved);
 
         // Applying settings means rebinding the socket and the device, so only restart
         // something that was actually running.
         if (_receiver.IsRunning) await RestartAsync();
     }
 
+    /// <summary>
+    /// True while a language change is being pushed through the app.
+    ///
+    /// <para>
+    /// Retranslating the settings page hands its combo boxes new item lists, and a combo box
+    /// handed a new list writes its selection straight back through the binding before the
+    /// new selection has been put in — so the page reports «the language changed» in the
+    /// middle of changing the language. Without this flag that is an infinite loop, and it
+    /// is not a hypothetical one: it hung the window the first time this was tried.
+    /// </para>
+    /// </summary>
+    private bool _switchingLanguage;
+
     private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // Whatever the page says about itself while it is being retranslated is an artefact
+        // of the retranslation, not a decision the user made.
+        if (_switchingLanguage) return;
+
         if (e.PropertyName == nameof(SettingsViewModel.AutoUpdate))
         {
             // Applied on the spot rather than on «Сохранить»: a switch that says «не
@@ -429,11 +448,62 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        if (e.PropertyName == nameof(SettingsViewModel.Language))
+        {
+            // Applied at once, like the theme. Language.Apply moves the whole process — the
+            // string table, the number formats and every thread started after it — and the
+            // localizer's event brings the window along; nothing is restarted.
+            if (Settings.Language is null || _ui.Language == Settings.Language.Value) return;
+
+            _ui.Language = Settings.Language.Value;
+            _ui.Save();
+
+            _switchingLanguage = true;
+            try
+            {
+                HexBridge.Localization.Language.Apply(_ui.Language);
+            }
+            finally
+            {
+                _switchingLanguage = false;
+            }
+            return;
+        }
+
         if (e.PropertyName != nameof(SettingsViewModel.Theme) || Settings.Theme is null) return;
 
         _ui.Theme = Settings.Theme.Value;
         _ui.Save();
         ApplyTheme?.Invoke(_ui.Theme);
+    }
+
+    // MARK: - Language
+
+    /// <summary>
+    /// Set by the App shell: the control theme keeps its own table of strings for things like
+    /// the text box context menu, and reaching into a theme is not a view model's business.
+    /// </summary>
+    public Action? ApplySemiLocale { get; set; }
+
+    /// <summary>
+    /// The language moved. Almost nothing has to happen here: every number and every state
+    /// line on screen is rebuilt from a snapshot on the next tick, a tenth of a second away.
+    /// What is left is the text that is <em>not</em> derived from a snapshot — the tab strip,
+    /// the option lists in the settings, the wizard's own wording — and this is that list.
+    /// </summary>
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        foreach (var page in Pages) page.Retranslate();
+
+        // The tagline is worked out from the role rather than from a snapshot, so the tick
+        // below would not touch it.
+        ApplyRole();
+        Settings.Retranslate();
+        Role.Retranslate();
+        Pairing.Retranslate();
+        Updates.Retranslate();
+        ApplySemiLocale?.Invoke();
+        Refresh();
     }
 
     // MARK: - Polling
@@ -457,25 +527,27 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _ = Updates.TickAsync(_ui.LastUpdateCheckUtc, DateTime.UtcNow, DateTime.UtcNow - _startedAt);
         }
 
-        MuteLabel = _receiver.Muted ? "Включить микрофон" : "Заглушить";
+        MuteLabel = _receiver.Muted ? Strings.App_Button_Unmute : Strings.App_Button_Mute;
 
         // The header names no machine on purpose. Either end may be nameless until its first
         // HELLO, and «Ждём » with nothing after it is worse than a sentence that is always
         // true. The name has a home on the status page, where there is room for it.
         Headline = snapshot.Status switch
         {
-            ReceiverStatus.Live => "Связь есть",
-            ReceiverStatus.Muted => "Микрофон заглушен",
-            ReceiverStatus.SenderLost => "Связь пропала",
-            ReceiverStatus.WaitingForSender => "Ждём вторую машину",
-            ReceiverStatus.Failed => "Ошибка",
-            _ => _stoppedByUser ? "На паузе" : IsGiving ? "Передача остановлена" : "Приём остановлен",
+            ReceiverStatus.Live => Strings.App_Headline_Live,
+            ReceiverStatus.Muted => Strings.App_Headline_Muted,
+            ReceiverStatus.SenderLost => Strings.App_Headline_Lost,
+            ReceiverStatus.WaitingForSender => Strings.App_Headline_Waiting,
+            ReceiverStatus.Failed => Strings.App_Headline_Failed,
+            _ => _stoppedByUser ? Strings.App_Headline_Paused
+                : IsGiving ? Strings.App_Headline_StoppedSharing
+                : Strings.App_Headline_StoppedReceiving,
         };
         IsGood = snapshot.Status is ReceiverStatus.Live;
         IsWaiting = snapshot.Status is ReceiverStatus.WaitingForSender or ReceiverStatus.Muted or ReceiverStatus.SenderLost;
         IsBad = snapshot.Status is ReceiverStatus.Failed;
 
-        PauseLabel = snapshot.IsRunning ? "Пауза" : "Запустить";
+        PauseLabel = snapshot.IsRunning ? Strings.App_Button_Pause : Strings.App_Button_Start;
         Tray = snapshot.Status switch
         {
             ReceiverStatus.Live => TrayState.Live,
@@ -485,21 +557,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         };
         TrayTooltip = snapshot.Status switch
         {
-            ReceiverStatus.Live => $"HexBridge — звук идёт, {snapshot.PacketsPerSecond:F0} пак/с",
-            ReceiverStatus.Muted => IsGiving
-                ? "HexBridge — микрофон заглушен"
-                : "HexBridge — микрофон заглушен на второй машине",
-            ReceiverStatus.SenderLost => "HexBridge — связь пропала",
-            ReceiverStatus.WaitingForSender => "HexBridge — ждём вторую машину",
-            ReceiverStatus.Failed => "HexBridge — ошибка, откройте окно",
+            ReceiverStatus.Live => Loc.F(Strings.Tray_Tip_Live,
+                snapshot.PacketsPerSecond.ToString("F0", System.Globalization.CultureInfo.CurrentCulture)),
+            ReceiverStatus.Muted => IsGiving ? Strings.Tray_Tip_MutedSharing : Strings.Tray_Tip_MutedReceiving,
+            ReceiverStatus.SenderLost => Strings.Tray_Tip_Lost,
+            ReceiverStatus.WaitingForSender => Strings.Tray_Tip_Waiting,
+            ReceiverStatus.Failed => Strings.Tray_Tip_Failed,
             _ => _stoppedByUser
-                ? "HexBridge — на паузе"
-                : IsGiving ? "HexBridge — передача остановлена" : "HexBridge — приём остановлен",
+                ? Strings.Tray_Tip_Paused
+                : IsGiving ? Strings.Tray_Tip_StoppedSharing : Strings.Tray_Tip_StoppedReceiving,
         };
     }
 
     public async ValueTask DisposeAsync()
     {
+        Localizer.Instance.LanguageChanged -= OnLanguageChanged;
         _timer.Stop();
         _discovery.Dispose();
         await Pairing.DisposeAsync();

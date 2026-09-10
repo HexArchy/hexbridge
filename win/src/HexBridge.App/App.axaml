@@ -7,7 +7,9 @@
              RequestedThemeVariant="Default">
 
   <Application.Styles>
-    <semi:SemiTheme Locale="ru-RU" />
+    <!-- Locale comes from code now: the language is a preference and can change while
+         the window is open. See App.ApplySemiLocale. -->
+    <semi:SemiTheme />
     <StyleInclude Source="/Styles/Theme.axaml" />
   </Application.Styles>
 

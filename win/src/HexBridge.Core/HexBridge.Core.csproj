@@ -5,6 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>HexBridge</RootNamespace>
+    <!--
+      English is the neutral table: it lives in the assembly itself rather than in an `en`
+      satellite, so an English machine needs no satellite to load and a language with no
+      table of its own falls back to English rather than to nothing.
+    -->
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +21,23 @@
       transliteration, which is the only check that the two halves still agree.
     -->
     <InternalsVisibleTo Include="HexBridge.Tests" />
+  </ItemGroup>
+
+  <!--
+    The string table. One .resx per language, English neutral, and the strongly typed
+    accessor generated from the English one at build time — so a key that exists in the
+    table exists as a property, and a key that does not is a compile error rather than an
+    empty label somebody notices in a screenshot.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Update="Localization/Strings.resx">
+      <Generator>MSBuild:Compile</Generator>
+      <StronglyTypedFileName>$(IntermediateOutputPath)Strings.g.cs</StronglyTypedFileName>
+      <StronglyTypedLanguage>CSharp</StronglyTypedLanguage>
+      <StronglyTypedNamespace>HexBridge.Localization</StronglyTypedNamespace>
+      <StronglyTypedClassName>Strings</StronglyTypedClassName>
+      <PublicClass>true</PublicClass>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

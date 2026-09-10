@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>What one line of the connection check turned out to be.</summary>
@@ -57,7 +59,7 @@ public static class PairingChecks
     /// <summary>1. The address resolves to something the Mac can dial.</summary>
     public static CheckOutcome Address(string? listen)
     {
-        if (string.IsNullOrWhiteSpace(listen)) return CheckOutcome.Fail("адрес не задан");
+        if (string.IsNullOrWhiteSpace(listen)) return CheckOutcome.Fail(Strings.Check_Detail_NoAddress);
 
         try
         {
@@ -69,16 +71,16 @@ public static class PairingChecks
 
             var address = MulticastDns.LocalAddresses().FirstOrDefault();
             return address is null
-                ? CheckOutcome.Fail("сеть недоступна — этот ПК сейчас не виден по сети")
+                ? CheckOutcome.Fail(Strings.Check_Detail_NoNetwork)
                 : CheckOutcome.Pass($"{address}:{endpoint.Port}");
         }
         catch (SocketException)
         {
-            return CheckOutcome.Fail("имя не разрешается в адрес");
+            return CheckOutcome.Fail(Strings.Check_Detail_Unresolved);
         }
         catch (Exception)
         {
-            return CheckOutcome.Fail($"не удаётся разобрать «{listen}»");
+            return CheckOutcome.Fail(Loc.F(Strings.Check_Detail_Unparsable, listen));
         }
     }
 
@@ -87,11 +89,11 @@ public static class PairingChecks
     {
         if (lastPacketAt is not { } seen || now - seen > PacketTimeout)
         {
-            return CheckOutcome.Fail($"ответа нет за {PacketTimeout.TotalSeconds:0} с");
+            return CheckOutcome.Fail(Loc.F(Strings.Check_Detail_NoAnswer, Loc.Seconds(PacketTimeout.TotalSeconds)));
         }
 
         // §10.1 rule 8: units follow the number across a non-breaking space.
-        return CheckOutcome.Pass(rttMs is { } rtt ? $"{rtt:0} мс" : "пакеты идут");
+        return CheckOutcome.Pass(rttMs is { } rtt ? Loc.Ms(rtt) : Strings.Check_Detail_Flowing);
     }
 
     /// <summary>
@@ -105,17 +107,17 @@ public static class PairingChecks
     public static CheckOutcome Keys(string? psk, bool packetsAccepted)
     {
         var fingerprint = PairingPayload.FingerprintOfPsk(psk);
-        if (fingerprint is null) return CheckOutcome.Fail("общий ключ не задан или это не 32 байта в base64");
+        if (fingerprint is null) return CheckOutcome.Fail(Strings.Check_Detail_NoKey);
 
         return packetsAccepted
-            ? CheckOutcome.Pass($"отпечаток {fingerprint}")
-            : CheckOutcome.Fail($"ключи не совпадают — на этом ПК {fingerprint}");
+            ? CheckOutcome.Pass(Loc.F(Strings.Check_Detail_Fingerprint, fingerprint))
+            : CheckOutcome.Fail(Loc.F(Strings.Check_Detail_KeyMismatch, fingerprint));
     }
 
     /// <summary>4. The receiver found somewhere to play the audio.</summary>
     public static CheckOutcome Device(string? deviceName) =>
         string.IsNullOrWhiteSpace(deviceName)
-            ? CheckOutcome.Fail("устройство не найдено — установите Steam или VB-Audio Virtual Cable")
+            ? CheckOutcome.Fail(Strings.Check_Detail_NoOutput)
             : CheckOutcome.Pass(deviceName);
 
     /// <summary>
@@ -127,7 +129,7 @@ public static class PairingChecks
     /// </summary>
     public static CheckOutcome Input(string? deviceName) =>
         string.IsNullOrWhiteSpace(deviceName)
-            ? CheckOutcome.Fail("микрофон не найден — подключите его и запустите передачу заново")
+            ? CheckOutcome.Fail(Strings.Check_Detail_NoInput)
             : CheckOutcome.Pass(deviceName);
 
     /// <summary>
@@ -143,23 +145,21 @@ public static class PairingChecks
     public static CheckOutcome Sound(float peakLinear, bool windowElapsed, bool capturing = false)
     {
         var dbfs = MicrophoneLevel.ToDbfs(peakLinear);
-        if (dbfs > SilenceDbfs) return CheckOutcome.Pass($"пик {dbfs:0} dBFS");
+        if (dbfs > SilenceDbfs) return CheckOutcome.Pass(Loc.F(Strings.Check_Detail_Peak, Loc.Dbfs(dbfs)));
 
         return windowElapsed
-            ? CheckOutcome.Fail(capturing
-                ? "микрофон молчит — проверьте, что выбран нужный и что доступ к нему разрешён"
-                : "тишина на этой машине")
-            : new CheckOutcome(CheckState.Running, "скажите что-нибудь вслух");
+            ? CheckOutcome.Fail(capturing ? Strings.Check_Detail_MicSilent : Strings.Check_Detail_Silence)
+            : new CheckOutcome(CheckState.Running, Strings.Check_Detail_SaySomething);
     }
 
     /// <summary>6. The forwarded devices, if the user asked for any.</summary>
     public static CheckOutcome Controller(bool enabled, bool driverInstalled, bool attached, string? product)
     {
-        if (!enabled) return CheckOutcome.Skip("проброс выключен");
-        if (!driverInstalled) return CheckOutcome.Fail("драйвер не установлен");
+        if (!enabled) return CheckOutcome.Skip(Strings.Check_Detail_ForwardingOff);
+        if (!driverInstalled) return CheckOutcome.Fail(Strings.Check_Detail_NoDriver);
         return attached
-            ? CheckOutcome.Pass(product ?? "устройство проброшено")
-            : CheckOutcome.Fail("устройство не подключено к Mac");
+            ? CheckOutcome.Pass(product ?? Strings.Check_Detail_Forwarded)
+            : CheckOutcome.Fail(Strings.Check_Detail_NotOnMac);
     }
 }
 

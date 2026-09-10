@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -83,14 +85,14 @@ public sealed record PairingPayload
         var trimmed = text?.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
-            error = "код пустой";
+            error = Strings.Err_Code_Empty;
             return false;
         }
 
         var prefix = $"{Scheme}://{Action}?";
         if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
-            error = $"это не код связывания HexBridge — он начинается с «{Scheme}://{Action}?»";
+            error = Loc.F(Strings.Err_Code_NotOurs, Scheme, Action);
             return false;
         }
 
@@ -98,38 +100,38 @@ public sealed record PairingPayload
 
         if (!query.TryGetValue("v", out var version) || !int.TryParse(version, out var parsedVersion))
         {
-            error = "в коде нет номера версии";
+            error = Strings.Err_Code_NoVersion;
             return false;
         }
 
         if (parsedVersion != Version)
         {
-            error = $"код версии {parsedVersion}, а эта сборка понимает только версию {Version}";
+            error = Loc.F(Strings.Err_Code_Version, parsedVersion, Version);
             return false;
         }
 
         if (!query.TryGetValue("h", out var host) || host.Length == 0)
         {
-            error = "в коде нет адреса";
+            error = Strings.Err_Code_NoHost;
             return false;
         }
 
         if (!query.TryGetValue("p", out var port) || !int.TryParse(port, out var parsedPort)
             || parsedPort is < 1 or > 65535)
         {
-            error = "в коде нет порта или он вне диапазона 1…65535";
+            error = Strings.Err_Code_NoPort;
             return false;
         }
 
         if (!query.TryGetValue("k", out var key) || !TryFromBase64Url(key, out var parsedKey))
         {
-            error = "ключ в коде повреждён";
+            error = Strings.Err_Code_BadKey;
             return false;
         }
 
         if (parsedKey.Length != 32)
         {
-            error = $"ключ в коде — {parsedKey.Length} байт вместо 32";
+            error = Loc.F(Strings.Err_Code_KeyLength, Loc.Bytes(parsedKey.Length));
             return false;
         }
 

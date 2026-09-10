@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 /// <summary>
@@ -164,7 +166,7 @@ public sealed class UsbIpServer : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log(LogLevel.Warning, $"usbip: сессия оборвалась: {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_SessionLost, ex.Message));
         }
         finally
         {
@@ -185,7 +187,7 @@ public sealed class UsbIpServer : IAsyncDisposable
             if (header.Version != UsbIpProtocol.Version)
             {
                 _log(LogLevel.Warning,
-                    $"usbip: клиент говорит на версии 0x{header.Version:x4}, а мы на 0x{UsbIpProtocol.Version:x4}");
+                    Loc.F(Strings.Log_UsbIp_Version, header.Version.ToString("x4", System.Globalization.CultureInfo.InvariantCulture), UsbIpProtocol.Version.ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
                 return;
             }
 
@@ -205,8 +207,8 @@ public sealed class UsbIpServer : IAsyncDisposable
                     if (device is null || !_importedBusIds.TryAdd(busId, 0))
                     {
                         _log(LogLevel.Warning, device is null
-                            ? $"usbip: запрошен busid {busId}, отдать нечего"
-                            : $"usbip: busid {busId} уже импортирован");
+                            ? Loc.F(Strings.Log_UsbIp_NoSuchBusId, busId)
+                            : Loc.F(Strings.Log_UsbIp_AlreadyImported, busId));
                         await Send(stream,
                             OpHeader.Reply(UsbIpProtocol.OpRepImport, UsbIpProtocol.StatusNoDevice).ToArray(),
                             token).ConfigureAwait(false);
@@ -218,7 +220,7 @@ public sealed class UsbIpServer : IAsyncDisposable
                     device.Info.Write(reply.AsSpan(UsbIpProtocol.OpHeaderSize));
                     await Send(stream, reply, token).ConfigureAwait(false);
 
-                    _log(LogLevel.Info, $"usbip: {busId} импортирован, пошли URB");
+                    _log(LogLevel.Info, Loc.F(Strings.Log_UsbIp_Imported, busId));
                     try
                     {
                         await UrbLoop(stream, device, token).ConfigureAwait(false);
@@ -226,13 +228,13 @@ public sealed class UsbIpServer : IAsyncDisposable
                     finally
                     {
                         _importedBusIds.TryRemove(busId, out _);
-                        _log(LogLevel.Info, $"usbip: {busId} отключён");
+                        _log(LogLevel.Info, Loc.F(Strings.Log_UsbIp_Detached, busId));
                     }
                     return;
                 }
 
                 default:
-                    _log(LogLevel.Warning, $"usbip: неизвестная команда 0x{header.Code:x4}");
+                    _log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_UnknownCommand, header.Code.ToString("x4", System.Globalization.CultureInfo.InvariantCulture)));
                     return;
             }
         }
@@ -311,7 +313,7 @@ public sealed class UsbIpServer : IAsyncDisposable
 
                 if (basic.Command != UsbIpProtocol.CmdSubmit)
                 {
-                    _log(LogLevel.Warning, $"usbip: URB с командой {basic.Command}, закрываю сессию");
+                    _log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_BadCommand, basic.Command));
                     return;
                 }
 
@@ -324,7 +326,7 @@ public sealed class UsbIpServer : IAsyncDisposable
                 if (submit.NumberOfPackets > UsbIpProtocol.MaxIsoPackets)
                 {
                     _log(LogLevel.Warning,
-                        $"usbip: URB заявляет {submit.NumberOfPackets} изохронных пакетов, закрываю сессию");
+                        Loc.F(Strings.Log_UsbIp_BadIso, submit.NumberOfPackets));
                     return;
                 }
 
@@ -501,7 +503,7 @@ public sealed class UsbIpServer : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log(LogLevel.Warning, $"usbip: прерывание IN: {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_UsbIp_InterruptIn, ex.Message));
         }
         finally
         {

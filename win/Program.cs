@@ -2,44 +2,15 @@ using System.Runtime.InteropServices;
 using HexBridge;
 using HexBridge.Clipboard;
 using HexBridge.Devices;
+using HexBridge.Localization;
 using HexBridge.Microphone;
 
-const string Usage = """
-hexbridge-receiver — мост микрофона между двумя машинами. Умеет обе стороны:
-принимать чужой микрофон и отдавать свой.
+// The language, before the first line of output: «System» leaves the machine's own
+// culture alone, which is what keeps a Russian console exactly as it was. The console has
+// no preferences file of its own — the desktop app's ui.json belongs to the window — so
+// there is no choice to offer here, only the system's.
+Language.Apply(AppLanguage.System);
 
-Использование:
-  hexbridge-receiver [флаги]         запустить в роли из конфига (по умолчанию — приём)
-  hexbridge-receiver list-devices    показать устройства вывода и их пары-микрофоны
-  hexbridge-receiver list-inputs     показать микрофоны этой машины
-  hexbridge-receiver keygen          сгенерировать общий ключ (PSK)
-
-Общее:
-  --config PATH     путь к конфигу (по умолчанию config.json рядом с exe)
-  --role ROLE       receiver — принимать чужой микрофон, sender — отдавать свой
-  --psk BASE64      общий ключ, 32 байта в base64; одинаковый на обеих машинах
-  --relay H:P       работать через релей вместо прямой связи
-  --quiet           не печатать строку статистики раз в 5 секунд
-
-Когда этот компьютер принимает микрофон:
-  --listen [A:]P    что слушать (по умолчанию 0.0.0.0:47702)
-  --device SEL      часть имени устройства вывода; по умолчанию автоопределение
-  --jitter MS       целевая задержка буфера, мс (по умолчанию 60)
-  --max-jitter MS   при превышении буфер подрезается (по умолчанию 240)
-  --gain F          усиление на выходе, 1.0 — без изменений
-  --latency MS      запрошенная задержка WASAPI (по умолчанию 50)
-  --output MODE     wasapi (по умолчанию), null или wav:путь — для диагностики
-  --no-gamepad      не пробрасывать USB-устройства, только звук
-  --usbip PATH      путь к usbip.exe, если он не в C:\Program Files\USBip
-
-Когда этот компьютер отдаёт свой микрофон:
-  --target H:P      адрес второй машины; обязателен, если не задан --relay
-  --input MODE      wasapi (по умолчанию), null, tone или wav:путь
-  --input-device S  часть имени микрофона; по умолчанию системный по умолчанию
-  --input-gain F    усиление на входе, 1.0 — без изменений
-  --bitrate BPS     битрейт Opus (по умолчанию 32000)
-  --muted           запуститься с заглушённым микрофоном
-""";
 
 var argv = args.ToList();
 string? subcommand = argv.Count > 0 && !argv[0].StartsWith('-') ? argv[0] : null;
@@ -56,7 +27,7 @@ bool BoolFlag(string name) => argv.Contains($"--{name}");
 switch (subcommand)
 {
     case "help" or "-h" or "--help":
-        Console.WriteLine(Usage);
+        Console.WriteLine(Strings.Cli_Usage);
         return 0;
 
     case "keygen":
@@ -66,7 +37,7 @@ switch (subcommand)
     case "list-devices":
         if (!OperatingSystem.IsWindows())
         {
-            Console.Error.WriteLine("список устройств доступен только на Windows");
+            Console.Error.WriteLine(Strings.Cli_DevicesWindowsOnly);
             return 1;
         }
         ListDevices();
@@ -75,7 +46,7 @@ switch (subcommand)
     case "list-inputs":
         if (!OperatingSystem.IsWindows())
         {
-            Console.Error.WriteLine("список устройств доступен только на Windows");
+            Console.Error.WriteLine(Strings.Cli_DevicesWindowsOnly);
             return 1;
         }
         ListInputs();
@@ -91,7 +62,7 @@ if (Flag("role") is { } roleFlag)
 {
     if (!Enum.TryParse<BridgeRole>(roleFlag, ignoreCase: true, out var role))
     {
-        Console.Error.WriteLine($"hexbridge: неизвестная роль «{roleFlag}» — бывают receiver и sender");
+        Console.Error.WriteLine(Loc.F(Strings.Cli_UnknownRole, roleFlag));
         return 1;
     }
     config.Role = role;
@@ -117,8 +88,9 @@ if (BoolFlag("no-gamepad")) config.Gamepad = false;
 
 if (!config.TryGetKey(out _, out _))
 {
-    Console.Error.WriteLine("hexbridge: psk должен быть 32 байта в base64 — сгенерируйте через `hexbridge-receiver keygen`\n");
-    Console.Error.WriteLine(Usage);
+    Console.Error.WriteLine(Strings.Cli_NoKey);
+    Console.Error.WriteLine();
+    Console.Error.WriteLine(Strings.Cli_Usage);
     return 1;
 }
 
@@ -148,7 +120,7 @@ try
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"hexbridge: {ex.Message}");
+    Console.Error.WriteLine(Loc.F(Strings.Log_Prefix, ex.Message));
     return 1;
 }
 
@@ -209,7 +181,7 @@ static void ListDevices()
         var preferred = DeviceCatalog.PreferredPatterns.Any(p =>
             name.Contains(p, StringComparison.OrdinalIgnoreCase));
         Console.WriteLine($"{(preferred ? " *" : "  ")} {name}");
-        if (pairedName is not null) Console.WriteLine($"      пара для игр: {pairedName}");
+        if (pairedName is not null) Console.WriteLine(Loc.F(Strings.Cli_PairedWith, pairedName));
     }
 }
 
@@ -242,30 +214,35 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
 
         var s = receiver.Snapshot;
         var mic = s.Feature<MicrophoneState>("microphone");
-        var peak = $"пик {(mic is { Peak: > 0 } ? 20 * Math.Log10(mic.Peak) : -99),5:F1} dBFS";
+        var peak = Loc.F(Strings.Cli_Stats_Peak,
+            Loc.Dbfs1(mic is { Peak: > 0 } ? 20 * Math.Log10(mic.Peak) : -99).PadLeft(11));
 
         // The two roles count different things, and printing «декодировано» on a machine
         // that only encodes would be four zeroes pretending to be telemetry.
         string line;
         if (mic is { IsCapture: true })
         {
-            line =
-                $"отправлено {(mic.Sent - lastCount) / 5,3} пак/с  {peak}  " +
-                $"кадров {mic.Sent}  пакет {mic.LastPacketBytes,3} Б  " +
-                $"на той стороне: принято {s.RemoteReceived}, потеряно {s.RemoteLost}  " +
-                $"rtt {(s.RttMs is { } rtt ? $"{rtt:F0} мс" : "—")}";
+            line = Loc.F(Strings.Cli_Stats_Sent,
+                Loc.Rate((mic.Sent - lastCount) / 5.0).PadLeft(8),
+                peak,
+                Loc.Count(mic.Sent),
+                Loc.F(Strings.Unit_Bytes, mic.LastPacketBytes).PadLeft(6),
+                Loc.Count(s.RemoteReceived),
+                Loc.Count(s.RemoteLost),
+                s.RttMs is { } rtt ? Loc.Ms(rtt) : Strings.Common_Empty);
             lastCount = mic.Sent;
         }
         else
         {
             var received = mic?.Received ?? 0;
-            line =
-                $"принято {(received - lastCount) / 5,3} пак/с  {peak}  " +
-                $"декодировано {mic?.Decoded ?? 0}  " +
-                $"скрыто {mic?.Concealed ?? 0}  " +
-                $"буфер {mic?.Depth ?? 0}  " +
-                $"поздних {mic?.DroppedLate ?? 0}  " +
-                $"недоборов {mic?.Underruns ?? 0}";
+            line = Loc.F(Strings.Cli_Stats_Received,
+                Loc.Rate((received - lastCount) / 5.0).PadLeft(8),
+                peak,
+                Loc.Count(mic?.Decoded ?? 0),
+                Loc.Count(mic?.Concealed ?? 0),
+                Loc.Count(mic?.Depth ?? 0),
+                Loc.Count(mic?.DroppedLate ?? 0),
+                Loc.Count(mic?.Underruns ?? 0));
             lastCount = received;
         }
 
@@ -275,19 +252,19 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
         {
             if (feature.Id is "microphone" or "" ) continue;
             if (feature.Status is FeatureStatus.Disabled or FeatureStatus.Stopped) continue;
-            line += $"  [{feature.Title}: {feature.Headline}]";
+            line += Loc.F(Strings.Cli_Stats_Feature, feature.Title, feature.Headline);
         }
 
-        if (s.Muted) line += "  [MUTED]";
+        if (s.Muted) line += Strings.Cli_Stats_Muted;
         if (s.LastPacketAt is { } at && DateTime.UtcNow - at > TimeSpan.FromSeconds(3))
         {
-            line += $"  вторая машина молчит {(DateTime.UtcNow - at).TotalSeconds:F0} с";
+            line += Loc.F(Strings.Cli_Stats_Silent, Loc.Duration(DateTime.UtcNow - at));
         }
         else if (s.LastPacketAt is null)
         {
-            line += "  вторая машина ещё не отвечала";
+            line += Strings.Cli_Stats_NoAnswer;
         }
-        if (s.Rejected > 0) line += $"  отброшено {s.Rejected}";
+        if (s.Rejected > 0) line += Loc.F(Strings.Cli_Stats_Discarded, Loc.Count(s.Rejected));
 
         Console.WriteLine(line);
     }

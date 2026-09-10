@@ -1,10 +1,31 @@
+using System.ComponentModel;
+using HexBridge.Localization;
+
 namespace HexBridge.App.Features;
 
 /// <summary>
 /// One tab. <see cref="Content"/> is a view model; the view comes from the data templates in
 /// App.axaml, so the shell never names a view either.
+///
+/// <para>
+/// The tab carries the <em>key</em> of its title rather than the title, and raises a change
+/// when the language moves. A tab strip is built once, at launch, and a record holding a
+/// finished string would still be showing «Настройки» half an hour after somebody switched
+/// the app to English.
+/// </para>
 /// </summary>
-public sealed record FeaturePage(string Title, object Content);
+public sealed class FeaturePage(string titleKey, object content) : INotifyPropertyChanged
+{
+    public string TitleKey { get; } = titleKey;
+
+    public object Content { get; } = content;
+
+    public string Title => Loc.Of(TitleKey);
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void Retranslate() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
+}
 
 /// <summary>
 /// The UI half of a feature. The shell drives every module the same way — build pages, apply

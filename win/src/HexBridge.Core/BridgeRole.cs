@@ -1,3 +1,5 @@
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -41,22 +43,20 @@ public static class RoleWording
 {
     public static string Title(BridgeRole role) => role switch
     {
-        BridgeRole.Sender => "Отдаёт свой микрофон",
-        _ => "Принимает чужой микрофон",
+        BridgeRole.Sender => Strings.Role_Title_Sender,
+        _ => Strings.Role_Title_Receiver,
     };
 
     public static string Summary(BridgeRole role) => role switch
     {
-        BridgeRole.Sender =>
-            "Микрофон подключён к этому компьютеру, а звук нужен на другом — там он подставится играм.",
-        _ =>
-            "Микрофон подключён к другому компьютеру, а игры запускаются здесь — звук придёт сюда.",
+        BridgeRole.Sender => Strings.Role_Summary_Sender,
+        _ => Strings.Role_Summary_Receiver,
     };
 
     /// <summary>What the machine on the far end is, for a status line.</summary>
     public static string Peer(BridgeRole role) => role switch
     {
-        BridgeRole.Sender => "компьютер, который принимает звук",
-        _ => "компьютер с микрофоном",
+        BridgeRole.Sender => Strings.Role_Peer_Sender,
+        _ => Strings.Role_Peer_Receiver,
     };
 }

@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App;
 
 /// <summary>
@@ -32,7 +34,7 @@ public static class Autostart
         error = null;
         if (!OperatingSystem.IsWindows())
         {
-            error = "автозапуск доступен только в Windows";
+            error = Strings.Autostart_WindowsOnly;
             return false;
         }
 
@@ -52,7 +54,7 @@ public static class Autostart
     private static void Apply(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true)
-            ?? throw new InvalidOperationException("не удалось открыть ветку автозапуска");
+            ?? throw new InvalidOperationException(Strings.Autostart_KeyFailed);
 
         if (!enabled)
         {
@@ -83,6 +85,6 @@ public static class Autostart
 
         using var process = Process.GetCurrentProcess();
         return process.MainModule?.FileName
-            ?? throw new InvalidOperationException("не удалось определить путь к исполняемому файлу");
+            ?? throw new InvalidOperationException(Strings.Autostart_NoExecutable);
     }
 }

@@ -1,0 +1,1939 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English, and the neutral fallback: a language with no table of its own reads this one.
+
+  Keys are shared with Strings.ru.resx one for one: a key present in one table and
+  missing from the other is a build-green way to ship an empty label, so LocalizationTests
+  compares the two sets on every run.
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Units and shared formats -->
+  <data name="Unit_Ms" xml:space="preserve">
+    <value>{0} ms</value>
+  </data>
+  <data name="Unit_Seconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="Unit_Dbfs" xml:space="preserve">
+    <value>{0} dBFS</value>
+  </data>
+  <data name="Unit_Db" xml:space="preserve">
+    <value>{0} dB</value>
+  </data>
+  <data name="Unit_Hz" xml:space="preserve">
+    <value>{0} Hz</value>
+  </data>
+  <data name="Unit_Kbits" xml:space="preserve">
+    <value>{0} kbit/s</value>
+  </data>
+  <data name="Unit_Percent" xml:space="preserve">
+    <value>{0} %</value>
+  </data>
+  <data name="Unit_Bytes" xml:space="preserve">
+    <value>{0} B</value>
+  </data>
+  <data name="Unit_Kilobytes" xml:space="preserve">
+    <value>{0} KB</value>
+  </data>
+  <data name="Unit_Megabytes" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="Unit_Mebibytes" xml:space="preserve">
+    <value>{0} MiB</value>
+  </data>
+  <data name="Unit_FramesPerSecond" xml:space="preserve">
+    <value>{0}/s</value>
+  </data>
+  <data name="Unit_UpdatesPerSecond" xml:space="preserve">
+    <value>{0}/s</value>
+  </data>
+  <data name="Unit_Duration_Hours" xml:space="preserve">
+    <value>{0} h {1} m</value>
+  </data>
+  <data name="Unit_Duration_Minutes" xml:space="preserve">
+    <value>{0} m {1} s</value>
+  </data>
+  <data name="Unit_Duration_Seconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="Unit_Frames_one" xml:space="preserve">
+    <value>{0} frame</value>
+  </data>
+  <data name="Unit_Frames_few" xml:space="preserve">
+    <value>{0} frames</value>
+  </data>
+  <data name="Unit_Frames_many" xml:space="preserve">
+    <value>{0} frames</value>
+  </data>
+  <data name="Unit_Frames_other" xml:space="preserve">
+    <value>{0} frames</value>
+  </data>
+  <data name="Unit_Bytes_one" xml:space="preserve">
+    <value>{0} byte</value>
+  </data>
+  <data name="Unit_Bytes_few" xml:space="preserve">
+    <value>{0} bytes</value>
+  </data>
+  <data name="Unit_Bytes_many" xml:space="preserve">
+    <value>{0} bytes</value>
+  </data>
+  <data name="Unit_Bytes_other" xml:space="preserve">
+    <value>{0} bytes</value>
+  </data>
+  <data name="Unit_Devices_one" xml:space="preserve">
+    <value>{0} device</value>
+  </data>
+  <data name="Unit_Devices_few" xml:space="preserve">
+    <value>{0} devices</value>
+  </data>
+  <data name="Unit_Devices_many" xml:space="preserve">
+    <value>{0} devices</value>
+  </data>
+  <data name="Unit_Devices_other" xml:space="preserve">
+    <value>{0} devices</value>
+  </data>
+  <data name="Unit_Hosts_one" xml:space="preserve">
+    <value>{0} HexBridge</value>
+  </data>
+  <data name="Unit_Hosts_few" xml:space="preserve">
+    <value>{0} HexBridge installs</value>
+  </data>
+  <data name="Unit_Hosts_many" xml:space="preserve">
+    <value>{0} HexBridge installs</value>
+  </data>
+  <data name="Unit_Hosts_other" xml:space="preserve">
+    <value>{0} HexBridge installs</value>
+  </data>
+  <data name="Common_Empty" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Common_Arrow" xml:space="preserve">
+    <value>{0} → {1}</value>
+  </data>
+
+  <!-- Shell: header, tray, tabs -->
+  <data name="App_Tagline_Sharing" xml:space="preserve">
+    <value>this computer's microphone and a shared clipboard</value>
+  </data>
+  <data name="App_Tagline_Receiving" xml:space="preserve">
+    <value>a microphone, gamepads and a clipboard from the other machine</value>
+  </data>
+  <data name="App_Button_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="App_Button_Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="App_Button_Mute" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="App_Button_Unmute" xml:space="preserve">
+    <value>Unmute</value>
+  </data>
+  <data name="App_Headline_Live" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="App_Headline_Muted" xml:space="preserve">
+    <value>Microphone muted</value>
+  </data>
+  <data name="App_Headline_Lost" xml:space="preserve">
+    <value>Connection lost</value>
+  </data>
+  <data name="App_Headline_Waiting" xml:space="preserve">
+    <value>Waiting for the other machine</value>
+  </data>
+  <data name="App_Headline_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="App_Headline_Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="App_Headline_StoppedSharing" xml:space="preserve">
+    <value>Not sharing</value>
+  </data>
+  <data name="App_Headline_StoppedReceiving" xml:space="preserve">
+    <value>Not receiving</value>
+  </data>
+  <data name="Tray_Show" xml:space="preserve">
+    <value>Show window</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="Tray_Tip_Live" xml:space="preserve">
+    <value>HexBridge — sound is coming through, {0} frames/s</value>
+  </data>
+  <data name="Tray_Tip_MutedSharing" xml:space="preserve">
+    <value>HexBridge — microphone muted</value>
+  </data>
+  <data name="Tray_Tip_MutedReceiving" xml:space="preserve">
+    <value>HexBridge — microphone muted on the other machine</value>
+  </data>
+  <data name="Tray_Tip_Lost" xml:space="preserve">
+    <value>HexBridge — connection lost</value>
+  </data>
+  <data name="Tray_Tip_Waiting" xml:space="preserve">
+    <value>HexBridge — waiting for the other machine</value>
+  </data>
+  <data name="Tray_Tip_Failed" xml:space="preserve">
+    <value>HexBridge — not working, open the window</value>
+  </data>
+  <data name="Tray_Tip_Paused" xml:space="preserve">
+    <value>HexBridge — paused</value>
+  </data>
+  <data name="Tray_Tip_StoppedSharing" xml:space="preserve">
+    <value>HexBridge — not sharing</value>
+  </data>
+  <data name="Tray_Tip_StoppedReceiving" xml:space="preserve">
+    <value>HexBridge — not receiving</value>
+  </data>
+  <data name="Tab_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Tab_Quality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
+  <data name="Tab_Devices" xml:space="preserve">
+    <value>Devices</value>
+  </data>
+  <data name="Tab_Clipboard" xml:space="preserve">
+    <value>Clipboard</value>
+  </data>
+  <data name="Tab_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Tab_Log" xml:space="preserve">
+    <value>Log</value>
+  </data>
+
+  <!-- Status page -->
+  <data name="Status_Section_Level" xml:space="preserve">
+    <value>LEVEL</value>
+  </data>
+  <data name="Status_Section_Connection" xml:space="preserve">
+    <value>CONNECTION</value>
+  </data>
+  <data name="Status_Label_Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Status_Label_Peer_Sharing" xml:space="preserve">
+    <value>Goes to</value>
+  </data>
+  <data name="Status_Label_Peer_Receiving" xml:space="preserve">
+    <value>Microphone from</value>
+  </data>
+  <data name="Status_Label_Endpoint_Sharing" xml:space="preserve">
+    <value>Sound taken from</value>
+  </data>
+  <data name="Status_Label_Endpoint_Receiving" xml:space="preserve">
+    <value>Sound goes to</value>
+  </data>
+  <data name="Status_Peer_NotConnected" xml:space="preserve">
+    <value>not connected</value>
+  </data>
+  <data name="Status_Peer_Silent" xml:space="preserve">
+    <value>has not answered yet</value>
+  </data>
+  <data name="Status_Peer_Unnamed" xml:space="preserve">
+    <value>name unknown</value>
+  </data>
+  <data name="Status_Peer_Fallback" xml:space="preserve">
+    <value>the other machine</value>
+  </data>
+  <data name="Status_Endpoint_Microphone" xml:space="preserve">
+    <value>microphone</value>
+  </data>
+  <data name="Status_Endpoint_Output" xml:space="preserve">
+    <value>output</value>
+  </data>
+  <data name="Status_GameHint" xml:space="preserve">
+    <value>In games and voice chat, choose the microphone “{0}”</value>
+  </data>
+  <data name="Status_Headline_Live" xml:space="preserve">
+    <value>Sound is coming through</value>
+  </data>
+  <data name="Status_Headline_Muted" xml:space="preserve">
+    <value>Microphone muted</value>
+  </data>
+  <data name="Status_Sub_Muted_Sharing" xml:space="preserve">
+    <value>nothing is going out, the link is holding</value>
+  </data>
+  <data name="Status_Sub_Muted_Receiving" xml:space="preserve">
+    <value>{0} has muted the microphone</value>
+  </data>
+  <data name="Status_Headline_Lost" xml:space="preserve">
+    <value>Connection lost</value>
+  </data>
+  <data name="Status_Sub_Lost_For" xml:space="preserve">
+    <value>nothing has arrived for {0}</value>
+  </data>
+  <data name="Status_Sub_Lost" xml:space="preserve">
+    <value>nothing is arriving</value>
+  </data>
+  <data name="Status_Headline_Waiting" xml:space="preserve">
+    <value>Waiting for the other machine</value>
+  </data>
+  <data name="Status_Sub_Waiting_Sharing" xml:space="preserve">
+    <value>sound is going to {0}, no answer yet</value>
+  </data>
+  <data name="Status_Sub_Waiting_Receiving" xml:space="preserve">
+    <value>port {0} is open</value>
+  </data>
+  <data name="Status_Headline_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Status_Sub_Failed" xml:space="preserve">
+    <value>could not start</value>
+  </data>
+  <data name="Status_Headline_StoppedSharing" xml:space="preserve">
+    <value>Not sharing</value>
+  </data>
+  <data name="Status_Sub_StoppedSharing" xml:space="preserve">
+    <value>Press Start to share this microphone</value>
+  </data>
+  <data name="Status_Headline_StoppedReceiving" xml:space="preserve">
+    <value>Not receiving</value>
+  </data>
+  <data name="Status_Sub_StoppedReceiving" xml:space="preserve">
+    <value>Press Start to receive sound from the other machine</value>
+  </data>
+
+  <!-- Quality page -->
+  <data name="Quality_Metric_Rate" xml:space="preserve">
+    <value>Frames per second</value>
+  </data>
+  <data name="Quality_Metric_Rtt" xml:space="preserve">
+    <value>Round trip</value>
+  </data>
+  <data name="Quality_Tip_Rtt" xml:space="preserve">
+    <value>Time to the other machine and back.</value>
+  </data>
+  <data name="Quality_Metric_Uptime" xml:space="preserve">
+    <value>Uptime</value>
+  </data>
+  <data name="Quality_Section_Buffer" xml:space="preserve">
+    <value>BUFFER</value>
+  </data>
+  <data name="Quality_Buffer_Note" xml:space="preserve">
+    <value>A deeper buffer means fewer glitches and more delay.</value>
+  </data>
+  <data name="Quality_Metric_Sent" xml:space="preserve">
+    <value>Frames sent</value>
+  </data>
+  <data name="Quality_Metric_FrameSize" xml:space="preserve">
+    <value>Frame size</value>
+  </data>
+  <data name="Quality_Tip_FrameSize" xml:space="preserve">
+    <value>Size of the last Opus frame. That is what twenty milliseconds of sound costs.</value>
+  </data>
+  <data name="Quality_Metric_Bitrate" xml:space="preserve">
+    <value>Bitrate</value>
+  </data>
+  <data name="Quality_Metric_RemoteReceived" xml:space="preserve">
+    <value>Arrived there</value>
+  </data>
+  <data name="Quality_Tip_RemoteReceived" xml:space="preserve">
+    <value>How much the other machine counted. Its number, not ours.</value>
+  </data>
+  <data name="Quality_Metric_RemoteLost" xml:space="preserve">
+    <value>Lost there</value>
+  </data>
+  <data name="Quality_Tip_RemoteLost" xml:space="preserve">
+    <value>Frames the other machine never got, or had to reconstruct.</value>
+  </data>
+  <data name="Quality_Metric_Loss" xml:space="preserve">
+    <value>Loss</value>
+  </data>
+  <data name="Quality_Metric_Concealed" xml:space="preserve">
+    <value>Reconstructed</value>
+  </data>
+  <data name="Quality_Tip_Concealed" xml:space="preserve">
+    <value>Frames that were not there in time; Opus filled them in approximately.</value>
+  </data>
+  <data name="Quality_Metric_Late" xml:space="preserve">
+    <value>Late</value>
+  </data>
+  <data name="Quality_Tip_Late" xml:space="preserve">
+    <value>Sound that arrived after its moment had already been played.</value>
+  </data>
+  <data name="Quality_Metric_Underruns" xml:space="preserve">
+    <value>Underruns</value>
+  </data>
+  <data name="Quality_Tip_Underruns" xml:space="preserve">
+    <value>The buffer ran dry and the gap had to be filled with silence.</value>
+  </data>
+  <data name="Quality_Metric_Decoded" xml:space="preserve">
+    <value>Decoded</value>
+  </data>
+  <data name="Quality_Metric_Discarded" xml:space="preserve">
+    <value>Discarded</value>
+  </data>
+  <data name="Quality_Tip_Discarded" xml:space="preserve">
+    <value>Traffic sealed with a different key, repeats, and noise off the network.</value>
+  </data>
+  <data name="Quality_Section_History" xml:space="preserve">
+    <value>LAST 60 SECONDS</value>
+  </data>
+  <data name="Quality_Chart_Level" xml:space="preserve">
+    <value>Signal level</value>
+  </data>
+  <data name="Quality_Chart_Depth" xml:space="preserve">
+    <value>Buffer depth, frames</value>
+  </data>
+  <data name="Quality_Depth" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="Quality_Target" xml:space="preserve">
+    <value>target {0} · trimmed above {1}</value>
+  </data>
+
+  <!-- Devices page -->
+  <data name="Devices_Headline_Off" xml:space="preserve">
+    <value>Forwarding is off</value>
+  </data>
+  <data name="Devices_Sub_Off" xml:space="preserve">
+    <value>Turn on receiving devices in the settings</value>
+  </data>
+  <data name="Devices_Section_DriverNeeded" xml:space="preserve">
+    <value>THE USBIP-WIN2 DRIVER IS MISSING</value>
+  </data>
+  <data name="Devices_Slots" xml:space="preserve">
+    <value>Numbers in use: {0}</value>
+  </data>
+  <data name="Devices_Slots_Value" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="Devices_Empty" xml:space="preserve">
+    <value>What gets forwarded is chosen on the other machine. Everything chosen there turns up here.</value>
+  </data>
+  <data name="Devices_Metric_Rate" xml:space="preserve">
+    <value>Updates per second</value>
+  </data>
+  <data name="Devices_Metric_Battery" xml:space="preserve">
+    <value>Battery</value>
+  </data>
+  <data name="Devices_Expander_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Devices_Label_Received" xml:space="preserve">
+    <value>Updates received</value>
+  </data>
+  <data name="Devices_Label_Outputs" xml:space="preserve">
+    <value>Commands sent</value>
+  </data>
+  <data name="Devices_Label_Lost" xml:space="preserve">
+    <value>Updates lost</value>
+  </data>
+  <data name="Devices_Label_Dropped" xml:space="preserve">
+    <value>Not collected by Windows</value>
+  </data>
+  <data name="Devices_Attach_Hint" xml:space="preserve">
+    <value>If it did not attach by itself, this command does the same thing by hand:</value>
+  </data>
+  <data name="Devices_Kind_Hid" xml:space="preserve">
+    <value>HID device</value>
+  </data>
+  <data name="Devices_State_Imported" xml:space="preserve">
+    <value>Windows can see it</value>
+  </data>
+  <data name="Devices_State_Waiting" xml:space="preserve">
+    <value>ready, Windows has not picked it up yet</value>
+  </data>
+  <data name="Devices_Caption_Imported" xml:space="preserve">
+    <value>{0} — Windows can see it, {1}</value>
+  </data>
+  <data name="Devices_Caption_Waiting" xml:space="preserve">
+    <value>{0} — Windows cannot see it yet</value>
+  </data>
+  <data name="Devices_Battery_Charging" xml:space="preserve">
+    <value>{0}%, charging</value>
+  </data>
+  <data name="Devices_Battery_Full" xml:space="preserve">
+    <value>charged</value>
+  </data>
+  <data name="Devices_Battery_Status" xml:space="preserve">
+    <value>status 0x{0}</value>
+  </data>
+  <data name="Devices_Driver_InstallHint" xml:space="preserve">
+    <value>Install the usbip-win2 0.9.8.0 driver: download USBip-0.9.8.0-x64.exe from github.com/vadimgrn/usbip-win2/releases and run it. Neither Secure Boot nor test signing has to be turned off — the binaries are signed by Microsoft.</value>
+  </data>
+
+  <!-- Clipboard page -->
+  <data name="Clipboard_Headline_Off" xml:space="preserve">
+    <value>The shared clipboard is off</value>
+  </data>
+  <data name="Clipboard_Sub_Off" xml:space="preserve">
+    <value>Turn it on in the settings</value>
+  </data>
+  <data name="Clipboard_Privacy" xml:space="preserve">
+    <value>Anything copied on either machine goes to the other one, passwords included. Text and PNG images are carried.</value>
+  </data>
+  <data name="Clipboard_Metric_Sent" xml:space="preserve">
+    <value>Items sent</value>
+  </data>
+  <data name="Clipboard_Metric_Received" xml:space="preserve">
+    <value>Items received</value>
+  </data>
+  <data name="Clipboard_Section_Last" xml:space="preserve">
+    <value>LAST TRANSFER</value>
+  </data>
+  <data name="Clipboard_Label_What" xml:space="preserve">
+    <value>What</value>
+  </data>
+  <data name="Clipboard_Label_Where" xml:space="preserve">
+    <value>Where</value>
+  </data>
+  <data name="Clipboard_Label_When" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="Clipboard_Note_Recorded" xml:space="preserve">
+    <value>The kind and the size are written down, never the contents.</value>
+  </data>
+  <data name="Clipboard_Direction_Out" xml:space="preserve">
+    <value>from here to the other machine</value>
+  </data>
+  <data name="Clipboard_Direction_In" xml:space="preserve">
+    <value>from the other machine to here</value>
+  </data>
+  <data name="Clipboard_Transfer_Out" xml:space="preserve">
+    <value>Sending: {0}</value>
+  </data>
+  <data name="Clipboard_Transfer_In" xml:space="preserve">
+    <value>Receiving: {0}</value>
+  </data>
+  <data name="Clipboard_When_JustNow" xml:space="preserve">
+    <value>just now</value>
+  </data>
+  <data name="Clipboard_When_Seconds" xml:space="preserve">
+    <value>{0} s ago</value>
+  </data>
+  <data name="Clipboard_When_Minutes" xml:space="preserve">
+    <value>{0} min ago</value>
+  </data>
+  <data name="Clipboard_When_Hours" xml:space="preserve">
+    <value>{0} h ago</value>
+  </data>
+  <data name="Clipboard_Item_Text" xml:space="preserve">
+    <value>text, {0}</value>
+  </data>
+  <data name="Clipboard_Item_Image" xml:space="preserve">
+    <value>image, {0}</value>
+  </data>
+  <data name="Clipboard_Item_Data" xml:space="preserve">
+    <value>data, {0}</value>
+  </data>
+
+  <!-- Log page -->
+  <data name="Log_Section" xml:space="preserve">
+    <value>LOG</value>
+  </data>
+  <data name="Log_Follow" xml:space="preserve">
+    <value>Follow</value>
+  </data>
+  <data name="Log_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Log_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+
+  <!-- Settings page -->
+  <data name="Settings_Section_Role" xml:space="preserve">
+    <value>WHAT THIS COMPUTER DOES</value>
+  </data>
+  <data name="Settings_Button_ChangeRole" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="Settings_Pair_Heading" xml:space="preserve">
+    <value>The link with the other machine</value>
+  </data>
+  <data name="Settings_Pair_Caption" xml:space="preserve">
+    <value>The fingerprint has to be the same on both machines.</value>
+  </data>
+  <data name="Settings_Button_Check" xml:space="preserve">
+    <value>Check the link</value>
+  </data>
+  <data name="Settings_Button_Pair" xml:space="preserve">
+    <value>Pair again</value>
+  </data>
+  <data name="Settings_Section_Network" xml:space="preserve">
+    <value>NETWORK</value>
+  </data>
+  <data name="Settings_Label_Listen" xml:space="preserve">
+    <value>Listen on (address and port)</value>
+  </data>
+  <data name="Settings_Caption_Listen" xml:space="preserve">
+    <value>The port has to be open in the firewall and match the one set on the other machine.</value>
+  </data>
+  <data name="Settings_Label_Target" xml:space="preserve">
+    <value>Address of the other machine</value>
+  </data>
+  <data name="Settings_Caption_Target" xml:space="preserve">
+    <value>Pairing usually fills this in. This computer picks its own port.</value>
+  </data>
+  <data name="Settings_Expander_KeyRelay" xml:space="preserve">
+    <value>Key and relay by hand</value>
+  </data>
+  <data name="Settings_Label_Psk" xml:space="preserve">
+    <value>Pairing key</value>
+  </data>
+  <data name="Settings_Button_Reveal" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="Settings_Button_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Settings_Button_Generate" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="Settings_Caption_Psk" xml:space="preserve">
+    <value>Exactly the same key has to be set on the other machine.</value>
+  </data>
+  <data name="Settings_Label_Relay" xml:space="preserve">
+    <value>Relay</value>
+  </data>
+  <data name="Settings_Placeholder_Relay" xml:space="preserve">
+    <value>for example, relay.example.com:47702</value>
+  </data>
+  <data name="Settings_Caption_Relay" xml:space="preserve">
+    <value>Needed only when the two machines cannot reach each other directly.</value>
+  </data>
+  <data name="Settings_Section_Devices" xml:space="preserve">
+    <value>DEVICES</value>
+  </data>
+  <data name="Settings_Check_Gamepad" xml:space="preserve">
+    <value>Receive devices from the other machine</value>
+  </data>
+  <data name="Settings_Caption_Gamepad" xml:space="preserve">
+    <value>Up to four devices chosen on the Mac: controllers, wheels, pedals, HOTAS. Needs the usbip-win2 driver.</value>
+  </data>
+  <data name="Settings_Check_AutoAttach" xml:space="preserve">
+    <value>Attach automatically</value>
+  </data>
+  <data name="Settings_Expander_Driver" xml:space="preserve">
+    <value>usbip-win2 driver</value>
+  </data>
+  <data name="Settings_Label_UsbIpListen" xml:space="preserve">
+    <value>USB/IP server address</value>
+  </data>
+  <data name="Settings_Caption_UsbIpListen" xml:space="preserve">
+    <value>The driver runs on this PC — there is no reason to open the port outward.</value>
+  </data>
+  <data name="Settings_Label_UsbIpPath" xml:space="preserve">
+    <value>Path to usbip.exe</value>
+  </data>
+  <data name="Settings_Caption_UsbIpPath" xml:space="preserve">
+    <value>Only if the driver went somewhere other than the default folder.</value>
+  </data>
+  <data name="Settings_Section_Clipboard" xml:space="preserve">
+    <value>CLIPBOARD</value>
+  </data>
+  <data name="Settings_Check_Clipboard" xml:space="preserve">
+    <value>Share the clipboard with the other machine</value>
+  </data>
+  <data name="Settings_Section_Capture" xml:space="preserve">
+    <value>SOUND IN</value>
+  </data>
+  <data name="Settings_Label_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Settings_Label_Microphone" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Settings_Button_RefreshDevices" xml:space="preserve">
+    <value>Refresh the list</value>
+  </data>
+  <data name="Settings_Label_Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
+  <data name="Settings_Caption_InputGain" xml:space="preserve">
+    <value>1.0 (0 dB) is as it comes. Raise it if you sound quiet.</value>
+  </data>
+  <data name="Settings_Check_StartMuted" xml:space="preserve">
+    <value>Start with the microphone muted</value>
+  </data>
+  <data name="Settings_Expander_Codec" xml:space="preserve">
+    <value>Codec</value>
+  </data>
+  <data name="Settings_Label_Bitrate" xml:space="preserve">
+    <value>Bitrate</value>
+  </data>
+  <data name="Settings_Caption_Bitrate" xml:space="preserve">
+    <value>Voice is always 48 kHz, mono, 20 ms to a frame — that part is the protocol. Only the bitrate per frame changes.</value>
+  </data>
+  <data name="Settings_Section_Output" xml:space="preserve">
+    <value>SOUND OUT</value>
+  </data>
+  <data name="Settings_Label_Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="Settings_Label_OutputDevice" xml:space="preserve">
+    <value>Output device</value>
+  </data>
+  <data name="Settings_Caption_Gain" xml:space="preserve">
+    <value>1.0 (0 dB) is the sound as it comes. Raise it only if the other machine is quiet.</value>
+  </data>
+  <data name="Settings_Expander_Latency" xml:space="preserve">
+    <value>Delay and buffer</value>
+  </data>
+  <data name="Settings_Label_Jitter" xml:space="preserve">
+    <value>Target buffer depth</value>
+  </data>
+  <data name="Settings_Caption_Jitter" xml:space="preserve">
+    <value>Less is quicker off the mark; more survives a rough network.</value>
+  </data>
+  <data name="Settings_Label_MaxJitter" xml:space="preserve">
+    <value>Depth above which the buffer is trimmed</value>
+  </data>
+  <data name="Settings_Label_Latency" xml:space="preserve">
+    <value>Output delay</value>
+  </data>
+  <data name="Settings_Section_App" xml:space="preserve">
+    <value>APPLICATION</value>
+  </data>
+  <data name="Settings_Label_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_Label_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Settings_Check_StartOnLaunch" xml:space="preserve">
+    <value>Start as soon as the app opens</value>
+  </data>
+  <data name="Settings_Check_StartMinimised" xml:space="preserve">
+    <value>Open straight to the tray</value>
+  </data>
+  <data name="Settings_Check_Autostart" xml:space="preserve">
+    <value>Start when Windows starts</value>
+  </data>
+  <data name="Settings_Caption_Tray" xml:space="preserve">
+    <value>Closing the window hides the app in the tray; the sound keeps going.</value>
+  </data>
+  <data name="Settings_Section_Updates" xml:space="preserve">
+    <value>UPDATES</value>
+  </data>
+  <data name="Settings_Check_AutoUpdate" xml:space="preserve">
+    <value>Look for updates once a day</value>
+  </data>
+  <data name="Settings_Button_CheckNow" xml:space="preserve">
+    <value>Check now</value>
+  </data>
+  <data name="Settings_Button_Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Settings_Button_Restart" xml:space="preserve">
+    <value>Restart and install</value>
+  </data>
+  <data name="Settings_Dirty" xml:space="preserve">
+    <value>There are unsaved changes. Saving stops the sound for a second.</value>
+  </data>
+  <data name="Settings_Button_Revert" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="Settings_Button_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Settings_Paired_Format" xml:space="preserve">
+    <value>pairs with: {0}</value>
+  </data>
+  <data name="Settings_Input_Wasapi" xml:space="preserve">
+    <value>This computer's microphone</value>
+  </data>
+  <data name="Settings_Input_Tone" xml:space="preserve">
+    <value>440 Hz tone — for testing the path</value>
+  </data>
+  <data name="Settings_Input_Null" xml:space="preserve">
+    <value>Silence — diagnostics only</value>
+  </data>
+  <data name="Settings_Bitrate_16" xml:space="preserve">
+    <value>16 kbit/s — narrow link</value>
+  </data>
+  <data name="Settings_Bitrate_24" xml:space="preserve">
+    <value>24 kbit/s</value>
+  </data>
+  <data name="Settings_Bitrate_32" xml:space="preserve">
+    <value>32 kbit/s — same as the Mac</value>
+  </data>
+  <data name="Settings_Bitrate_48" xml:space="preserve">
+    <value>48 kbit/s</value>
+  </data>
+  <data name="Settings_Bitrate_64" xml:space="preserve">
+    <value>64 kbit/s — room to spare</value>
+  </data>
+  <data name="Settings_Output_Wasapi" xml:space="preserve">
+    <value>Virtual audio cable (WASAPI)</value>
+  </data>
+  <data name="Settings_Output_Null" xml:space="preserve">
+    <value>Nowhere — diagnostics only</value>
+  </data>
+  <data name="Settings_Output_Wav" xml:space="preserve">
+    <value>Record to hexbridge.wav</value>
+  </data>
+  <data name="Settings_Theme_System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Settings_Theme_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Settings_Theme_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_Language_Russian" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="Settings_Device_Auto" xml:space="preserve">
+    <value>Detect automatically</value>
+  </data>
+  <data name="Settings_Device_DefaultMic" xml:space="preserve">
+    <value>Default microphone</value>
+  </data>
+  <data name="Settings_Notice_WindowsOnly" xml:space="preserve">
+    <value>The device list is available on Windows only.</value>
+  </data>
+  <data name="Settings_Notice_NoCable" xml:space="preserve">
+    <value>No virtual audio cable found. Install Steam or VB-Audio Virtual Cable.</value>
+  </data>
+  <data name="Settings_Notice_NoMicrophone" xml:space="preserve">
+    <value>No microphones found. Plug in a microphone or a headset.</value>
+  </data>
+  <data name="Settings_Notice_ListFailed" xml:space="preserve">
+    <value>Could not read the device list: {0}</value>
+  </data>
+  <data name="Settings_Error_Key" xml:space="preserve">
+    <value>Pairing key: {0}. Press Generate and put the same key on the Mac.</value>
+  </data>
+  <data name="Settings_Error_NoTarget" xml:space="preserve">
+    <value>The address of the other machine is not set. Pair the machines with Pair again, or type an address such as 192.168.1.10:47702.</value>
+  </data>
+  <data name="Settings_Error_Listen" xml:space="preserve">
+    <value>Cannot make sense of the address “{0}”. Example: 0.0.0.0:47702</value>
+  </data>
+  <data name="Settings_Error_Relay" xml:space="preserve">
+    <value>Cannot make sense of the relay address “{0}”.</value>
+  </data>
+  <data name="Settings_Error_UsbIp" xml:space="preserve">
+    <value>Cannot make sense of the USB/IP address “{0}”. Example: 127.0.0.1:3240</value>
+  </data>
+  <data name="Settings_Gain_Silence" xml:space="preserve">
+    <value>silence</value>
+  </data>
+  <data name="Settings_Fingerprint_None" xml:space="preserve">
+    <value>no key set</value>
+  </data>
+  <data name="Autostart_WindowsOnly" xml:space="preserve">
+    <value>starting at logon is a Windows-only feature</value>
+  </data>
+  <data name="Autostart_KeyFailed" xml:space="preserve">
+    <value>could not open the autostart key</value>
+  </data>
+  <data name="Autostart_NoExecutable" xml:space="preserve">
+    <value>could not work out the path to the executable</value>
+  </data>
+
+  <!-- Role picker -->
+  <data name="Role_Title_FirstRun" xml:space="preserve">
+    <value>What does this computer do?</value>
+  </data>
+  <data name="Role_Title_Change" xml:space="preserve">
+    <value>Change what this computer does</value>
+  </data>
+  <data name="Role_Button_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Role_Intro" xml:space="preserve">
+    <value>HexBridge joins two machines: the microphone is on one, the games on the other. Choose which one this computer is.</value>
+  </data>
+  <data name="Role_Receiver_Extra" xml:space="preserve">
+    <value>A gamepad from the Mac can be forwarded here as well.</value>
+  </data>
+  <data name="Role_Sender_Caveat" xml:space="preserve">
+    <value>Gamepads and other USB devices cannot be forwarded this way — Windows does not hand out their descriptors. The microphone and the shared clipboard do work.</value>
+  </data>
+  <data name="Role_Footnote_Sender" xml:space="preserve">
+    <value>The key is made by the computer that receives the microphone: it is the only one that knows its own address. You will type the code from its screen here.</value>
+  </data>
+  <data name="Role_Footnote_Receiver" xml:space="preserve">
+    <value>This computer will make the pairing key and show a code — that code goes in on the other machine.</value>
+  </data>
+  <data name="Role_Confirm_Continue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="Role_Confirm_Switch" xml:space="preserve">
+    <value>Switch</value>
+  </data>
+  <data name="Role_Confirm_Keep" xml:space="preserve">
+    <value>Leave it as it is</value>
+  </data>
+  <data name="Role_Footer" xml:space="preserve">
+    <value>This can be changed at any time in Settings → What this computer does.</value>
+  </data>
+  <data name="Role_Title_Sender" xml:space="preserve">
+    <value>Shares its microphone</value>
+  </data>
+  <data name="Role_Title_Receiver" xml:space="preserve">
+    <value>Receives a microphone</value>
+  </data>
+  <data name="Role_Summary_Sender" xml:space="preserve">
+    <value>The microphone is plugged into this computer and the sound is wanted on the other one, where it stands in for a microphone in games.</value>
+  </data>
+  <data name="Role_Summary_Receiver" xml:space="preserve">
+    <value>The microphone is plugged into the other computer and the games run here — the sound arrives here.</value>
+  </data>
+  <data name="Role_Peer_Sender" xml:space="preserve">
+    <value>the computer that plays the sound</value>
+  </data>
+  <data name="Role_Peer_Receiver" xml:space="preserve">
+    <value>the computer with the microphone</value>
+  </data>
+
+  <!-- Pairing wizard -->
+  <data name="Pairing_Title_Step1" xml:space="preserve">
+    <value>Pair this computer with the other machine</value>
+  </data>
+  <data name="Pairing_Title_Step2_Sharing" xml:space="preserve">
+    <value>The code from the other machine</value>
+  </data>
+  <data name="Pairing_Title_Step2_Receiving" xml:space="preserve">
+    <value>The code for the other machine</value>
+  </data>
+  <data name="Pairing_Title_Step3" xml:space="preserve">
+    <value>Waiting for the other machine</value>
+  </data>
+  <data name="Pairing_Title_Step4" xml:space="preserve">
+    <value>Checking the link</value>
+  </data>
+  <data name="Pairing_Button_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Pairing_Intro_Receiving" xml:space="preserve">
+    <value>HexBridge will make a pairing key and show it as a code. On the other machine that code is typed in once.</value>
+  </data>
+  <data name="Pairing_Intro_Sharing" xml:space="preserve">
+    <value>The key is made by the other machine — the one that receives the sound: only it knows its own address. Here you type the code from its screen.</value>
+  </data>
+  <data name="Pairing_Label_MachineName" xml:space="preserve">
+    <value>The name of this computer — the other machine shows it in a list</value>
+  </data>
+  <data name="Pairing_Readiness_Note" xml:space="preserve">
+    <value>An unfinished line does not stop the pairing — it can be sorted out later.</value>
+  </data>
+  <data name="Pairing_Step2_Heading" xml:space="preserve">
+    <value>On the other machine</value>
+  </data>
+  <data name="Pairing_Step2_Line1" xml:space="preserve">
+    <value>1. Open HexBridge and start pairing.</value>
+  </data>
+  <data name="Pairing_Step2_Line2" xml:space="preserve">
+    <value>2. On a Mac — Scan the code, and point the camera at this screen.</value>
+  </data>
+  <data name="Pairing_Step2_Line3" xml:space="preserve">
+    <value>3. On Windows, or with no camera — type the twelve characters.</value>
+  </data>
+  <data name="Pairing_Section_ShortCode" xml:space="preserve">
+    <value>SHORT CODE</value>
+  </data>
+  <data name="Pairing_Button_CopyCode" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Pairing_Section_Fingerprint" xml:space="preserve">
+    <value>KEY FINGERPRINT</value>
+  </data>
+  <data name="Pairing_Fingerprint_Note_Receiving" xml:space="preserve">
+    <value>The same fingerprint has to turn up on the other machine. The key itself is never shown anywhere.</value>
+  </data>
+  <data name="Pairing_Fingerprint_Note_Sharing" xml:space="preserve">
+    <value>It has to match the one shown on the other machine. The key itself is never shown anywhere.</value>
+  </data>
+  <data name="Pairing_Intro_Enter" xml:space="preserve">
+    <value>Open HexBridge on the other machine, get to the screen with the code, and type it here.</value>
+  </data>
+  <data name="Pairing_Section_Found" xml:space="preserve">
+    <value>FOUND ON THE NETWORK</value>
+  </data>
+  <data name="Pairing_Section_Code" xml:space="preserve">
+    <value>CODE FROM THE OTHER MACHINE</value>
+  </data>
+  <data name="Pairing_Caption_Uri" xml:space="preserve">
+    <value>A whole hexbridge://pair link can be pasted here instead — then the address is not needed.</value>
+  </data>
+  <data name="Pairing_Section_Address" xml:space="preserve">
+    <value>ADDRESS</value>
+  </data>
+  <data name="Pairing_Step3_Note" xml:space="preserve">
+    <value>As soon as the other machine takes the key, the link check starts by itself.</value>
+  </data>
+  <data name="Pairing_Footer_Receiving" xml:space="preserve">
+    <value>The key is made on this computer: it is the only one that knows its own address.</value>
+  </data>
+  <data name="Pairing_Footer_Sharing" xml:space="preserve">
+    <value>The key is made by the other machine — the one that receives the sound.</value>
+  </data>
+  <data name="Pairing_Button_Regenerate" xml:space="preserve">
+    <value>New code</value>
+  </data>
+  <data name="Pairing_Button_Retry" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="Pairing_Button_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Pairing_Button_OtherReady" xml:space="preserve">
+    <value>The other machine is ready</value>
+  </data>
+  <data name="Pairing_Button_Connect" xml:space="preserve">
+    <value>Pair</value>
+  </data>
+  <data name="Pairing_Button_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Pairing_Ready_Driver" xml:space="preserve">
+    <value>usbip-win2 driver</value>
+  </data>
+  <data name="Pairing_Ready_Cable" xml:space="preserve">
+    <value>Virtual audio cable</value>
+  </data>
+  <data name="Pairing_Ready_Cable_Hint" xml:space="preserve">
+    <value>Without one there is nowhere to play the sound. Install Steam or VB-Audio Virtual Cable.</value>
+  </data>
+  <data name="Pairing_Ready_Port" xml:space="preserve">
+    <value>UDP port</value>
+  </data>
+  <data name="Pairing_Ready_Port_Hint" xml:space="preserve">
+    <value>Allow HexBridge through the Windows firewall for private networks.</value>
+  </data>
+  <data name="Pairing_Ready_Network" xml:space="preserve">
+    <value>Address on the network</value>
+  </data>
+  <data name="Pairing_Ready_Network_Hint" xml:space="preserve">
+    <value>Put this computer on the same network as the other one, over cable or Wi-Fi.</value>
+  </data>
+  <data name="Pairing_Ready_Microphone" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Pairing_Ready_Microphone_Hint" xml:space="preserve">
+    <value>Plug in a microphone or a headset — that is what goes to the other machine.</value>
+  </data>
+  <data name="Pairing_Ready_MicAccess" xml:space="preserve">
+    <value>Microphone access</value>
+  </data>
+  <data name="Pairing_Ready_MicAccess_Hint" xml:space="preserve">
+    <value>Let apps use the microphone: Settings → Privacy → Microphone.</value>
+  </data>
+  <data name="Pairing_Ready_Peer" xml:space="preserve">
+    <value>The other machine</value>
+  </data>
+  <data name="Pairing_Ready_Peer_Hint" xml:space="preserve">
+    <value>Open HexBridge on the other machine and get as far as the screen with the code there.</value>
+  </data>
+  <data name="Pairing_Ready_Checking" xml:space="preserve">
+    <value>checking</value>
+  </data>
+  <data name="Pairing_Ready_NotInstalled" xml:space="preserve">
+    <value>not installed</value>
+  </data>
+  <data name="Pairing_Ready_NotFound" xml:space="preserve">
+    <value>not found</value>
+  </data>
+  <data name="Pairing_Ready_NoNetwork" xml:space="preserve">
+    <value>no network</value>
+  </data>
+  <data name="Pairing_Ready_PortAtStep4" xml:space="preserve">
+    <value>{0} — checked at step 4</value>
+  </data>
+  <data name="Pairing_Ready_AtStep4" xml:space="preserve">
+    <value>checked at step 4</value>
+  </data>
+  <data name="Pairing_Ready_NeedsCode" xml:space="preserve">
+    <value>its code is needed</value>
+  </data>
+  <data name="Pairing_Code_Expired" xml:space="preserve">
+    <value>The code has expired</value>
+  </data>
+  <data name="Pairing_Code_Valid" xml:space="preserve">
+    <value>The code is good for another {0}</value>
+  </data>
+  <data name="Pairing_Discovery_Unavailable" xml:space="preserve">
+    <value>Discovery is not available: {0}. The code and the QR work as usual.</value>
+  </data>
+  <data name="Pairing_Discovery_Ok" xml:space="preserve">
+    <value>The Mac finds this PC by itself — pick it in the list and type the code from this screen.</value>
+  </data>
+  <data name="Pairing_Browse_Unavailable" xml:space="preserve">
+    <value>Discovery is not available: {0}. Type the address of the other machine by hand.</value>
+  </data>
+  <data name="Pairing_Browse_Searching" xml:space="preserve">
+    <value>Looking for HexBridge on the network…</value>
+  </data>
+  <data name="Pairing_Browse_Empty" xml:space="preserve">
+    <value>Nothing in sight yet. Open HexBridge on the other machine — or type its address by hand.</value>
+  </data>
+  <data name="Pairing_Browse_Found" xml:space="preserve">
+    <value>Pick a machine and type the code from its screen.</value>
+  </data>
+  <data name="Pairing_Host_Unnamed" xml:space="preserve">
+    <value>no name</value>
+  </data>
+  <data name="Pairing_Host_NoAddress" xml:space="preserve">
+    <value>working out the address</value>
+  </data>
+  <data name="Pairing_Host_Ours" xml:space="preserve">
+    <value>this is your other machine</value>
+  </data>
+  <data name="Pairing_Host_Unpaired" xml:space="preserve">
+    <value>not paired with anyone yet</value>
+  </data>
+  <data name="Pairing_Host_Other" xml:space="preserve">
+    <value>paired with a different machine</value>
+  </data>
+  <data name="Pairing_Error_ShortCode" xml:space="preserve">
+    <value>The code is twelve characters, such as ABCD-EFGH-JKLM. A whole hexbridge://pair link works here too.</value>
+  </data>
+  <data name="Pairing_Error_NoHost" xml:space="preserve">
+    <value>The address of the other machine is missing. Pick it in the list or type something like 192.168.1.10.</value>
+  </data>
+  <data name="Pairing_Sound_Prompt_Sharing" xml:space="preserve">
+    <value>Say something out loud next to this computer</value>
+  </data>
+  <data name="Pairing_Sound_Prompt_Receiving" xml:space="preserve">
+    <value>Say something out loud next to the other machine</value>
+  </data>
+  <data name="Pairing_Sound_Note_Sharing" xml:space="preserve">
+    <value>The level is measured here, before anything goes out.</value>
+  </data>
+  <data name="Pairing_Sound_Note_Receiving" xml:space="preserve">
+    <value>The level is measured on this computer, not on the other machine.</value>
+  </data>
+  <data name="Pairing_Result_Ok" xml:space="preserve">
+    <value>Everything works</value>
+  </data>
+  <data name="Pairing_Result_Ok_Sharing" xml:space="preserve">
+    <value>This computer's microphone is going to {0}.</value>
+  </data>
+  <data name="Pairing_Result_Ok_Receiving_WithCapture" xml:space="preserve">
+    <value>Sound is arriving at {0}. In games, choose the microphone {1}.</value>
+  </data>
+  <data name="Pairing_Result_Ok_Receiving" xml:space="preserve">
+    <value>Sound is arriving at {0}.</value>
+  </data>
+  <data name="Pairing_Peer_Fallback" xml:space="preserve">
+    <value>the other machine</value>
+  </data>
+  <data name="Pairing_Fail_Address_Sharing" xml:space="preserve">
+    <value>The other machine's address does not make sense</value>
+  </data>
+  <data name="Pairing_Fail_Address_Receiving" xml:space="preserve">
+    <value>This computer's address cannot be worked out</value>
+  </data>
+  <data name="Pairing_Fail_Traffic_Sharing" xml:space="preserve">
+    <value>The other machine is not answering</value>
+  </data>
+  <data name="Pairing_Fail_Traffic_Receiving" xml:space="preserve">
+    <value>Nothing is arriving from the other machine</value>
+  </data>
+  <data name="Pairing_Fail_Keys" xml:space="preserve">
+    <value>The keys do not match</value>
+  </data>
+  <data name="Pairing_Fail_Device_Sharing" xml:space="preserve">
+    <value>No microphone found</value>
+  </data>
+  <data name="Pairing_Fail_Device_Receiving" xml:space="preserve">
+    <value>Nowhere to play the sound</value>
+  </data>
+  <data name="Pairing_Fail_Sound_Sharing" xml:space="preserve">
+    <value>The microphone is silent</value>
+  </data>
+  <data name="Pairing_Fail_Sound_Receiving" xml:space="preserve">
+    <value>No sound is getting through</value>
+  </data>
+  <data name="Pairing_Fail_Controller" xml:space="preserve">
+    <value>The controller is not forwarded</value>
+  </data>
+  <data name="Check_Address_Sharing" xml:space="preserve">
+    <value>The other machine's address makes sense</value>
+  </data>
+  <data name="Check_Address_Receiving" xml:space="preserve">
+    <value>The address resolves</value>
+  </data>
+  <data name="Check_Traffic_Sharing" xml:space="preserve">
+    <value>The answer comes back</value>
+  </data>
+  <data name="Check_Traffic_Receiving" xml:space="preserve">
+    <value>Sound is arriving</value>
+  </data>
+  <data name="Check_Keys" xml:space="preserve">
+    <value>The keys match</value>
+  </data>
+  <data name="Check_Device_Sharing" xml:space="preserve">
+    <value>The microphone is there</value>
+  </data>
+  <data name="Check_Device_Receiving" xml:space="preserve">
+    <value>Somewhere to play it</value>
+  </data>
+  <data name="Check_Sound_Sharing" xml:space="preserve">
+    <value>The microphone hears a voice</value>
+  </data>
+  <data name="Check_Sound_Receiving" xml:space="preserve">
+    <value>Sound goes all the way through</value>
+  </data>
+  <data name="Check_Devices" xml:space="preserve">
+    <value>Forwarded devices</value>
+  </data>
+
+  <!-- Link check details -->
+  <data name="Check_Detail_NoAddress" xml:space="preserve">
+    <value>no address set</value>
+  </data>
+  <data name="Check_Detail_NoNetwork" xml:space="preserve">
+    <value>no network — this PC is not visible on the network right now</value>
+  </data>
+  <data name="Check_Detail_Unresolved" xml:space="preserve">
+    <value>the name does not resolve to an address</value>
+  </data>
+  <data name="Check_Detail_Unparsable" xml:space="preserve">
+    <value>cannot make sense of “{0}”</value>
+  </data>
+  <data name="Check_Detail_NoAnswer" xml:space="preserve">
+    <value>nothing for {0}</value>
+  </data>
+  <data name="Check_Detail_Flowing" xml:space="preserve">
+    <value>sound is flowing</value>
+  </data>
+  <data name="Check_Detail_NoKey" xml:space="preserve">
+    <value>the pairing key is missing, or it is not 32 bytes of base64</value>
+  </data>
+  <data name="Check_Detail_Fingerprint" xml:space="preserve">
+    <value>fingerprint {0}</value>
+  </data>
+  <data name="Check_Detail_KeyMismatch" xml:space="preserve">
+    <value>the keys do not match — this PC has {0}</value>
+  </data>
+  <data name="Check_Detail_NoOutput" xml:space="preserve">
+    <value>no device found — install Steam or VB-Audio Virtual Cable</value>
+  </data>
+  <data name="Check_Detail_NoInput" xml:space="preserve">
+    <value>no microphone found — plug one in and start again</value>
+  </data>
+  <data name="Check_Detail_Peak" xml:space="preserve">
+    <value>peak {0}</value>
+  </data>
+  <data name="Check_Detail_MicSilent" xml:space="preserve">
+    <value>the microphone is silent — check that the right one is chosen and that access is allowed</value>
+  </data>
+  <data name="Check_Detail_Silence" xml:space="preserve">
+    <value>silence on this machine</value>
+  </data>
+  <data name="Check_Detail_SaySomething" xml:space="preserve">
+    <value>say something out loud</value>
+  </data>
+  <data name="Check_Detail_ForwardingOff" xml:space="preserve">
+    <value>forwarding is off</value>
+  </data>
+  <data name="Check_Detail_NoDriver" xml:space="preserve">
+    <value>the driver is not installed</value>
+  </data>
+  <data name="Check_Detail_Forwarded" xml:space="preserve">
+    <value>device forwarded</value>
+  </data>
+  <data name="Check_Detail_NotOnMac" xml:space="preserve">
+    <value>the device is not plugged into the Mac</value>
+  </data>
+  <data name="Check_Detail_NoForwardingHere" xml:space="preserve">
+    <value>devices are not forwarded from here</value>
+  </data>
+
+  <!-- Feature states -->
+  <data name="Feature_Disabled" xml:space="preserve">
+    <value>Turned off in the settings</value>
+  </data>
+  <data name="Feature_Unavailable" xml:space="preserve">
+    <value>Not available here</value>
+  </data>
+  <data name="Feature_NotStarted" xml:space="preserve">
+    <value>Not running</value>
+  </data>
+  <data name="Feature_Microphone_Title" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Feature_Devices_Title" xml:space="preserve">
+    <value>Devices</value>
+  </data>
+  <data name="Feature_Clipboard_Title" xml:space="preserve">
+    <value>Clipboard</value>
+  </data>
+  <data name="Feature_Mic_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Feature_Mic_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Feature_Mic_OutputFailed" xml:space="preserve">
+    <value>Output not working</value>
+  </data>
+  <data name="Feature_Mic_Live" xml:space="preserve">
+    <value>Sound is coming through</value>
+  </data>
+  <data name="Feature_Cap_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Feature_Cap_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Feature_Cap_CaptureFailed" xml:space="preserve">
+    <value>Capture not working</value>
+  </data>
+  <data name="Feature_Cap_Muted" xml:space="preserve">
+    <value>Microphone muted</value>
+  </data>
+  <data name="Feature_Cap_Live" xml:space="preserve">
+    <value>Sound is going out</value>
+  </data>
+  <data name="Feature_Dev_Unavailable" xml:space="preserve">
+    <value>Only a Mac can share gamepads: Windows does not give applications the real USB descriptors of its own HID devices, and without them there is nothing to rebuild the device from on the other side. This computer can still receive devices — switch what it does to do that.</value>
+  </data>
+  <data name="Feature_Dev_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Feature_Dev_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Feature_Dev_Waiting" xml:space="preserve">
+    <value>Waiting for devices</value>
+  </data>
+  <data name="Feature_Dev_One" xml:space="preserve">
+    <value>One device forwarded</value>
+  </data>
+  <data name="Feature_Dev_Many_one" xml:space="preserve">
+    <value>{0} device forwarded</value>
+  </data>
+  <data name="Feature_Dev_Many_few" xml:space="preserve">
+    <value>{0} devices forwarded</value>
+  </data>
+  <data name="Feature_Dev_Many_many" xml:space="preserve">
+    <value>{0} devices forwarded</value>
+  </data>
+  <data name="Feature_Dev_Many_other" xml:space="preserve">
+    <value>{0} devices forwarded</value>
+  </data>
+  <data name="Feature_Dev_Partial" xml:space="preserve">
+    <value>{0} built, {1} picked up by Windows</value>
+  </data>
+  <data name="Feature_Dev_Detail_Empty" xml:space="preserve">
+    <value>Choose the devices on the Mac and plug them in over USB</value>
+  </data>
+  <data name="Feature_Dev_Detail_AttachFailed" xml:space="preserve">
+    <value>usbip.exe could not attach some of the devices</value>
+  </data>
+  <data name="Feature_Dev_Detail_NoDriver" xml:space="preserve">
+    <value>The usbip-win2 driver is not installed</value>
+  </data>
+  <data name="Feature_Dev_PortBusy" xml:space="preserve">
+    <value>could not take {0} for USB/IP: {1}. That usually means the port is already held by another copy of HexBridge, or by usbipd itself.</value>
+  </data>
+  <data name="Feature_Dev_AttachUnparsed" xml:space="preserve">
+    <value>the device description did not parse</value>
+  </data>
+  <data name="Feature_Dev_NotBuilt" xml:space="preserve">
+    <value>device {0} was not built: {1}</value>
+  </data>
+  <data name="Feature_Clip_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Feature_Clip_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Feature_Clip_ClipboardFailed" xml:space="preserve">
+    <value>Clipboard not working</value>
+  </data>
+  <data name="Feature_Clip_Transferring" xml:space="preserve">
+    <value>Carrying it across</value>
+  </data>
+  <data name="Feature_Clip_Waiting" xml:space="preserve">
+    <value>Waiting for a copy</value>
+  </data>
+  <data name="Feature_Clip_Live" xml:space="preserve">
+    <value>The clipboard is shared</value>
+  </data>
+  <data name="Feature_Clip_Detail_Empty" xml:space="preserve">
+    <value>Copy something — it will turn up on the other machine</value>
+  </data>
+  <data name="Feature_Clip_Sent" xml:space="preserve">
+    <value>sent</value>
+  </data>
+  <data name="Feature_Clip_Received" xml:space="preserve">
+    <value>received</value>
+  </data>
+  <data name="Feature_Clip_Last" xml:space="preserve">
+    <value>Last: {0}, {1} {2}</value>
+  </data>
+  <data name="Feature_Clip_WindowsOnly" xml:space="preserve">
+    <value>the shared clipboard is a Windows-only feature</value>
+  </data>
+
+  <!-- Audio devices -->
+  <data name="Audio_WasapiOutputWindowsOnly" xml:space="preserve">
+    <value>playing through WASAPI is a Windows-only feature</value>
+  </data>
+  <data name="Audio_WasapiCaptureWindowsOnly" xml:space="preserve">
+    <value>capturing through WASAPI is a Windows-only feature</value>
+  </data>
+  <data name="Audio_NoVirtualCable" xml:space="preserve">
+    <value>no virtual device found. Install Steam (Steam Streaming Microphone) or VB-Audio Virtual Cable, or name one with --device</value>
+  </data>
+  <data name="Audio_OutputNotFound" xml:space="preserve">
+    <value>output device not found: {0}</value>
+  </data>
+  <data name="Audio_InputNotFound" xml:space="preserve">
+    <value>input device not found: {0}</value>
+  </data>
+  <data name="Audio_NoMicrophone" xml:space="preserve">
+    <value>there is no microphone on this machine. Plug one in and press Start</value>
+  </data>
+  <data name="Audio_Encoder" xml:space="preserve">
+    <value>Opus encoder: {0}</value>
+  </data>
+  <data name="Audio_Device_Format" xml:space="preserve">
+    <value>{0} [{1} Hz, {2} ch]</value>
+  </data>
+  <data name="Audio_Device_PairedHint" xml:space="preserve">
+    <value> → in games choose “{0}”</value>
+  </data>
+  <data name="Audio_Device_Resampled" xml:space="preserve">
+    <value> → resampled to 48000 Hz</value>
+  </data>
+  <data name="Audio_FormatRefused" xml:space="preserve">
+    <value>“{0}” will not take 48000 Hz / 2 channels / 32-bit float (the device is currently on {1} Hz, {2} ch). Open Sound settings, go to this device's properties and choose “2 channel, 32 bit, 48000 Hz”. The original error: {3}</value>
+  </data>
+  <data name="Audio_Sink_Wav" xml:space="preserve">
+    <value>file {0}</value>
+  </data>
+  <data name="Audio_Sink_Null" xml:space="preserve">
+    <value>null (sound goes nowhere)</value>
+  </data>
+  <data name="Audio_Source_Null" xml:space="preserve">
+    <value>null (nothing is captured)</value>
+  </data>
+  <data name="Audio_Source_Tone" xml:space="preserve">
+    <value>{0} Hz tone (path test)</value>
+  </data>
+  <data name="Audio_Source_File" xml:space="preserve">
+    <value>file {0} ({1} s, on a loop)</value>
+  </data>
+  <data name="Audio_Source_NoSound" xml:space="preserve">
+    <value>there is no sound in “{0}”</value>
+  </data>
+
+  <!-- Updates -->
+  <data name="Update_Off_Headline" xml:space="preserve">
+    <value>Update checks are off</value>
+  </data>
+  <data name="Update_Off_Detail" xml:space="preserve">
+    <value>Turn them back on in the settings to hear about new versions.</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>Looking for updates…</value>
+  </data>
+  <data name="Update_Current" xml:space="preserve">
+    <value>This is the latest version</value>
+  </data>
+  <data name="Update_Current_Detail" xml:space="preserve">
+    <value>Running {0}.</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>Version {0} is available</value>
+  </data>
+  <data name="Update_Available_Detail" xml:space="preserve">
+    <value>Download and install it? Sound stops for a few seconds during the restart.</value>
+  </data>
+  <data name="Update_CheckFailed" xml:space="preserve">
+    <value>Could not check for updates</value>
+  </data>
+  <data name="Update_Downloading" xml:space="preserve">
+    <value>Downloading {0}…</value>
+  </data>
+  <data name="Update_Ready" xml:space="preserve">
+    <value>Version {0} is ready</value>
+  </data>
+  <data name="Update_Ready_Detail" xml:space="preserve">
+    <value>It goes in at the next launch — or press Restart and install.</value>
+  </data>
+  <data name="Update_DownloadFailed" xml:space="preserve">
+    <value>Could not download the update</value>
+  </data>
+  <data name="Update_Summary" xml:space="preserve">
+    <value>Version {0}. Checked once a day; installed only when you say so.</value>
+  </data>
+  <data name="Update_Summary_Portable" xml:space="preserve">
+    <value>This build was unpacked from an archive rather than installed. It is updated by replacing the files by hand.</value>
+  </data>
+  <data name="Update_Version_Unknown" xml:space="preserve">
+    <value>not put here by the installer</value>
+  </data>
+
+  <!-- Config, pairing code and transfer errors -->
+  <data name="Err_Psk" xml:space="preserve">
+    <value>the pairing key has to be 32 bytes of base64</value>
+  </data>
+  <data name="Err_NoTarget" xml:space="preserve">
+    <value>the address of the other computer is not set — pair the machines in the wizard, or type an address in the settings</value>
+  </data>
+  <data name="Err_BadAddress" xml:space="preserve">
+    <value>cannot make sense of the address “{0}”: {1}</value>
+  </data>
+  <data name="Err_Code_Empty" xml:space="preserve">
+    <value>the code is empty</value>
+  </data>
+  <data name="Err_Code_NotOurs" xml:space="preserve">
+    <value>this is not a HexBridge pairing code — one starts with “{0}://{1}?”</value>
+  </data>
+  <data name="Err_Code_NoVersion" xml:space="preserve">
+    <value>the code carries no version number</value>
+  </data>
+  <data name="Err_Code_Version" xml:space="preserve">
+    <value>the code is version {0}, and this build only understands version {1}</value>
+  </data>
+  <data name="Err_Code_NoHost" xml:space="preserve">
+    <value>the code carries no address</value>
+  </data>
+  <data name="Err_Code_NoPort" xml:space="preserve">
+    <value>the code carries no port, or it is outside 1…65535</value>
+  </data>
+  <data name="Err_Code_BadKey" xml:space="preserve">
+    <value>the key in the code is damaged</value>
+  </data>
+  <data name="Err_Code_KeyLength" xml:space="preserve">
+    <value>the key in the code is {0} instead of 32</value>
+  </data>
+  <data name="Err_Exchange_NoHost" xml:space="preserve">
+    <value>the address of the other computer is missing</value>
+  </data>
+  <data name="Err_Exchange_BadCode" xml:space="preserve">
+    <value>the code has to be twelve characters</value>
+  </data>
+  <data name="Err_Exchange_Timeout" xml:space="preserve">
+    <value>the other computer did not answer in {0} — check the address and the firewall</value>
+  </data>
+  <data name="Err_Exchange_Failed" xml:space="preserve">
+    <value>could not reach {0}: {1}</value>
+  </data>
+  <data name="Err_Exchange_Rejected" xml:space="preserve">
+    <value>the other computer did not take the code — check that the wizard is still open there</value>
+  </data>
+  <data name="Err_Exchange_BadReply" xml:space="preserve">
+    <value>the answer does not look like a pairing code: {0}</value>
+  </data>
+  <data name="Err_Bulk_Empty" xml:space="preserve">
+    <value>nothing to carry: the item is empty</value>
+  </data>
+  <data name="Err_Bulk_TooBig" xml:space="preserve">
+    <value>the item is over 16 MiB ({0}) — that is file transfer</value>
+  </data>
+  <data name="Err_Port_Busy" xml:space="preserve">
+    <value>port {0} is held by another service — {1}</value>
+  </data>
+
+  <!-- Discovery verdicts -->
+  <data name="Discovery_NotPairedYet" xml:space="preserve">
+    <value>this Mac is not paired with any PC yet — it needs a short code from the PC's screen</value>
+  </data>
+  <data name="Discovery_TagMatched" xml:space="preserve">
+    <value>the tag matched: {0}</value>
+  </data>
+  <data name="Discovery_NothingSeen" xml:space="preserve">
+    <value>no HexBridge is visible on the network</value>
+  </data>
+  <data name="Discovery_NoneOfOurs" xml:space="preserve">
+    <value>{0} on the network, and none of them is ours</value>
+  </data>
+
+  <!-- Log lines -->
+  <data name="Log_Prefix" xml:space="preserve">
+    <value>hexbridge: {0}</value>
+  </data>
+  <data name="Log_Config" xml:space="preserve">
+    <value>hexbridge: config {0}</value>
+  </data>
+  <data name="Log_ConfigSaveFailed" xml:space="preserve">
+    <value>hexbridge: could not save the config: {0}</value>
+  </data>
+  <data name="Log_SettingsSaved" xml:space="preserve">
+    <value>hexbridge: settings saved</value>
+  </data>
+  <data name="Log_RoleSet" xml:space="preserve">
+    <value>hexbridge: this computer now {0}</value>
+  </data>
+  <data name="Log_Paired" xml:space="preserve">
+    <value>hexbridge: paired, key fingerprint {0}</value>
+  </data>
+  <data name="Log_NoKeyOpeningWizard" xml:space="preserve">
+    <value>hexbridge: {0} — opening the pairing wizard</value>
+  </data>
+  <data name="Log_TrayUnavailable" xml:space="preserve">
+    <value>hexbridge: the tray icon is unavailable: {0}</value>
+  </data>
+  <data name="Log_UpdatesUnavailable" xml:space="preserve">
+    <value>hexbridge: updates are unavailable — {0}</value>
+  </data>
+  <data name="Log_UpdateCheckFailed" xml:space="preserve">
+    <value>hexbridge: the update check failed — {0}</value>
+  </data>
+  <data name="Log_UpdateDownloadFailed" xml:space="preserve">
+    <value>hexbridge: the update download failed — {0}</value>
+  </data>
+  <data name="Log_UpdateApplying" xml:space="preserve">
+    <value>hexbridge: installing {0} and restarting</value>
+  </data>
+  <data name="Log_QrFailed" xml:space="preserve">
+    <value>hexbridge: the QR did not build: {0}</value>
+  </data>
+  <data name="Log_CodeAccepted" xml:space="preserve">
+    <value>hexbridge: code accepted, fingerprint {0}</value>
+  </data>
+  <data name="Log_ExchangeUnavailable" xml:space="preserve">
+    <value>hexbridge: the short-code exchange is unavailable: {0}</value>
+  </data>
+  <data name="Log_KeyTaken" xml:space="preserve">
+    <value>hexbridge: the Mac took the pairing key</value>
+  </data>
+  <data name="Log_Sending" xml:space="preserve">
+    <value>hexbridge: sending sound to {0}, local port {1}</value>
+  </data>
+  <data name="Log_Listening" xml:space="preserve">
+    <value>hexbridge: listening on {0}</value>
+  </data>
+  <data name="Log_Relay" xml:space="preserve">
+    <value>hexbridge: registering with the relay {0}</value>
+  </data>
+  <data name="Log_FeatureStartFailed" xml:space="preserve">
+    <value>hexbridge: “{0}” did not start: {1}</value>
+  </data>
+  <data name="Log_FeatureRollback" xml:space="preserve">
+    <value>hexbridge: “{0}” while backing out: {1}</value>
+  </data>
+  <data name="Log_FeatureStopFailed" xml:space="preserve">
+    <value>hexbridge: “{0}” while stopping: {1}</value>
+  </data>
+  <data name="Log_Session" xml:space="preserve">
+    <value>hexbridge: session {0} from {1}</value>
+  </data>
+  <data name="Log_DiscoveryFailed" xml:space="preserve">
+    <value>hexbridge: discovery did not come up — {0}</value>
+  </data>
+  <data name="Log_AdvertisingUntagged" xml:space="preserve">
+    <value>hexbridge: advertising as “{0}” on port {1}, with no tag — there is no key yet</value>
+  </data>
+  <data name="Log_Advertising" xml:space="preserve">
+    <value>hexbridge: advertising as “{0}” on port {1}, tag {2}</value>
+  </data>
+  <data name="Log_Output" xml:space="preserve">
+    <value>hexbridge: sound out — {0}</value>
+  </data>
+  <data name="Log_Capture" xml:space="preserve">
+    <value>hexbridge: sound in — {0}</value>
+  </data>
+  <data name="Log_CaptureStoppedGone" xml:space="preserve">
+    <value>hexbridge: capture stopped — the device went away</value>
+  </data>
+  <data name="Log_CaptureStopped" xml:space="preserve">
+    <value>hexbridge: capture stopped: {0}</value>
+  </data>
+  <data name="Log_OutputStoppedGone" xml:space="preserve">
+    <value>hexbridge: output stopped — the device went away</value>
+  </data>
+  <data name="Log_OutputStopped" xml:space="preserve">
+    <value>hexbridge: output stopped: {0}</value>
+  </data>
+  <data name="Log_Bulk_Have" xml:space="preserve">
+    <value>bulk: {0} is already here — not pulling it</value>
+  </data>
+  <data name="Log_Bulk_HashFailed" xml:space="preserve">
+    <value>bulk: the hash did not match, asking for the item again (attempt {0})</value>
+  </data>
+  <data name="Log_Bulk_GivingUp" xml:space="preserve">
+    <value>bulk: the item came through damaged three times — giving up</value>
+  </data>
+  <data name="Log_Bulk_NoAnswer" xml:space="preserve">
+    <value>bulk: {0} — the other machine did not answer ten offers</value>
+  </data>
+  <data name="Log_Bulk_Stalled" xml:space="preserve">
+    <value>bulk: {0} — the acknowledgements stopped</value>
+  </data>
+  <data name="Log_Bulk_Describe" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="Log_Clip_On" xml:space="preserve">
+    <value>clipboard: on — what is copied here goes to the other machine</value>
+  </data>
+  <data name="Log_Clip" xml:space="preserve">
+    <value>clipboard: {0}</value>
+  </data>
+  <data name="Log_Clip_Received" xml:space="preserve">
+    <value>clipboard: arrived — {0}</value>
+  </data>
+  <data name="Log_Clip_ReadFailed" xml:space="preserve">
+    <value>clipboard: could not read it — {0}</value>
+  </data>
+  <data name="Log_Clip_NoPng" xml:space="preserve">
+    <value>clipboard: the PNG format is not registered, the image was not pasted</value>
+  </data>
+  <data name="Log_Clip_NoOwnerWindow" xml:space="preserve">
+    <value>clipboard: could not make an owner window, the paste was skipped</value>
+  </data>
+  <data name="Log_Clip_Busy" xml:space="preserve">
+    <value>clipboard: another application is holding it, the paste was skipped</value>
+  </data>
+  <data name="Log_Clip_Refused" xml:space="preserve">
+    <value>clipboard: the system would not take the data</value>
+  </data>
+  <data name="Log_Clip_WriteFailed" xml:space="preserve">
+    <value>clipboard: could not write it — {0}</value>
+  </data>
+  <data name="Log_Clip_OwnerWindowFailed" xml:space="preserve">
+    <value>clipboard: the owner window was not created</value>
+  </data>
+  <data name="Log_UsbIp_Listening" xml:space="preserve">
+    <value>usbip: the server is listening on {0}</value>
+  </data>
+  <data name="Log_UsbIp_ClientFound" xml:space="preserve">
+    <value>usbip: client found — {0}</value>
+  </data>
+  <data name="Log_UsbIp_NoClient" xml:space="preserve">
+    <value>usbip: usbip.exe was not found, attaching automatically is unavailable</value>
+  </data>
+  <data name="Log_UsbIp_AttachFailed" xml:space="preserve">
+    <value>usbip: attaching {0} failed ({1}): {2}</value>
+  </data>
+  <data name="Log_UsbIp_AttachedPort" xml:space="preserve">
+    <value>usbip: {0} attached on port {1}</value>
+  </data>
+  <data name="Log_UsbIp_Attached" xml:space="preserve">
+    <value>usbip: {0} attached</value>
+  </data>
+  <data name="Log_UsbIp_DetachFailed" xml:space="preserve">
+    <value>usbip: detaching port {0} ({1}) failed: {2}</value>
+  </data>
+  <data name="Log_UsbIp_LaunchFailed" xml:space="preserve">
+    <value>could not launch {0}</value>
+  </data>
+  <data name="Log_UsbIp_NoAnswer" xml:space="preserve">
+    <value>usbip.exe did not answer in 15 seconds</value>
+  </data>
+  <data name="Log_UsbIp_SessionLost" xml:space="preserve">
+    <value>usbip: the session broke off: {0}</value>
+  </data>
+  <data name="Log_UsbIp_Version" xml:space="preserve">
+    <value>usbip: the client speaks version 0x{0}, we speak 0x{1}</value>
+  </data>
+  <data name="Log_UsbIp_NoSuchBusId" xml:space="preserve">
+    <value>usbip: busid {0} was asked for, there is nothing to hand over</value>
+  </data>
+  <data name="Log_UsbIp_AlreadyImported" xml:space="preserve">
+    <value>usbip: busid {0} is already imported</value>
+  </data>
+  <data name="Log_UsbIp_Imported" xml:space="preserve">
+    <value>usbip: {0} imported, traffic is flowing</value>
+  </data>
+  <data name="Log_UsbIp_Detached" xml:space="preserve">
+    <value>usbip: {0} detached</value>
+  </data>
+  <data name="Log_UsbIp_UnknownCommand" xml:space="preserve">
+    <value>usbip: unknown command 0x{0}</value>
+  </data>
+  <data name="Log_UsbIp_BadCommand" xml:space="preserve">
+    <value>usbip: a request with command {0}, closing the session</value>
+  </data>
+  <data name="Log_UsbIp_BadIso" xml:space="preserve">
+    <value>usbip: a request claims {0} isochronous packets, closing the session</value>
+  </data>
+  <data name="Log_UsbIp_InterruptIn" xml:space="preserve">
+    <value>usbip: interrupt IN: {0}</value>
+  </data>
+  <data name="Log_Dev_NumberOutOfRange" xml:space="preserve">
+    <value>devices: number {0} is outside 0…{1}, refused</value>
+  </data>
+  <data name="Log_Dev" xml:space="preserve">
+    <value>devices: {0}</value>
+  </data>
+  <data name="Log_Dev_NoFeatureReports" xml:space="preserve">
+    <value>devices: no snapshots of the feature reports {0}</value>
+  </data>
+  <data name="Log_Dev_Built" xml:space="preserve">
+    <value>devices: {0} ({1}) built, busid {2}</value>
+  </data>
+  <data name="Log_Dev_HapticsReady" xml:space="preserve">
+    <value>haptics: {0} handed over as a composite, the isochronous OUT is ready</value>
+  </data>
+  <data name="Log_Dev_HapticsMissing" xml:space="preserve">
+    <value>haptics: {0} has no usable isochronous OUT — triggers and rumble work, HD haptics will not</value>
+  </data>
+  <data name="Log_Dev_Unplugged" xml:space="preserve">
+    <value>devices: “{0}” was unplugged from the Mac</value>
+  </data>
+  <data name="Log_Dev_DetachFailed" xml:space="preserve">
+    <value>usbip: could not detach {0}: {1}</value>
+  </data>
+
+  <!-- Codec and USB descriptor faults -->
+  <data name="Err_Frame_Size" xml:space="preserve">
+    <value>a frame has to be {0} samples, not {1}</value>
+  </data>
+  <data name="Err_Opus_Encode" xml:space="preserve">
+    <value>opus_encode returned {0}</value>
+  </data>
+  <data name="Err_Usb_DeviceDescriptor" xml:space="preserve">
+    <value>the device descriptor is damaged ({0})</value>
+  </data>
+  <data name="Err_Usb_ConfigDescriptor" xml:space="preserve">
+    <value>the configuration descriptor is damaged ({0})</value>
+  </data>
+  <data name="Err_Usb_NoHidInterface" xml:space="preserve">
+    <value>there is no HID interface in the configuration</value>
+  </data>
+  <data name="Err_Dev_NoDeviceDescriptor" xml:space="preserve">
+    <value>the attach request carries no device descriptor</value>
+  </data>
+  <data name="Err_Dev_NoConfigDescriptor" xml:space="preserve">
+    <value>the attach request carries no configuration descriptor</value>
+  </data>
+  <data name="Err_Dev_NoReportDescriptor" xml:space="preserve">
+    <value>the attach request carries no HID report descriptor</value>
+  </data>
+
+  <!-- Console receiver -->
+  <data name="Cli_Usage" xml:space="preserve">
+    <value>hexbridge-receiver — a microphone bridge between two machines. It does both ends:
+receives somebody else's microphone, and shares its own.
+
+Usage:
+  hexbridge-receiver [flags]         run in the role from the config (receiving by default)
+  hexbridge-receiver list-devices    list output devices and the microphones they pair with
+  hexbridge-receiver list-inputs     list this machine's microphones
+  hexbridge-receiver keygen          generate a pairing key (PSK)
+
+Both roles:
+  --config PATH     path to the config (config.json next to the exe by default)
+  --role ROLE       receiver — take somebody else's microphone, sender — share this one
+  --psk BASE64      pairing key, 32 bytes of base64; the same on both machines
+  --relay H:P       go through a relay instead of connecting directly
+  --quiet           do not print the statistics line every 5 seconds
+
+When this computer receives a microphone:
+  --listen [A:]P    what to listen on (0.0.0.0:47702 by default)
+  --device SEL      part of the output device name; detected automatically by default
+  --jitter MS       target buffer depth, ms (60 by default)
+  --max-jitter MS   the buffer is trimmed above this (240 by default)
+  --gain F          output gain, 1.0 leaves it alone
+  --latency MS      WASAPI latency to ask for (50 by default)
+  --output MODE     wasapi (default), null, or wav:path — for diagnostics
+  --no-gamepad      no USB forwarding, sound only
+  --usbip PATH      path to usbip.exe, if it is not in C:\Program Files\USBip
+
+When this computer shares its microphone:
+  --target H:P      address of the other machine; required unless --relay is set
+  --input MODE      wasapi (default), null, tone, or wav:path
+  --input-device S  part of the microphone name; the system default otherwise
+  --input-gain F    input gain, 1.0 leaves it alone
+  --bitrate BPS     Opus bitrate (32000 by default)
+  --muted           start with the microphone muted</value>
+  </data>
+  <data name="Cli_DevicesWindowsOnly" xml:space="preserve">
+    <value>the device list is available on Windows only</value>
+  </data>
+  <data name="Cli_UnknownRole" xml:space="preserve">
+    <value>hexbridge: unknown role “{0}” — there are receiver and sender</value>
+  </data>
+  <data name="Cli_NoKey" xml:space="preserve">
+    <value>hexbridge: the pairing key has to be 32 bytes of base64 — make one with `hexbridge-receiver keygen`</value>
+  </data>
+  <data name="Cli_PairedWith" xml:space="preserve">
+    <value>      pairs with: {0}</value>
+  </data>
+  <data name="Cli_Stats_Peak" xml:space="preserve">
+    <value>peak {0}</value>
+  </data>
+  <data name="Cli_Stats_Sent" xml:space="preserve">
+    <value>sent {0}  {1}  frames {2}  frame {3}  at the other end: arrived {4}, lost {5}  rtt {6}</value>
+  </data>
+  <data name="Cli_Stats_Received" xml:space="preserve">
+    <value>arrived {0}  {1}  decoded {2}  reconstructed {3}  buffer {4}  late {5}  underruns {6}</value>
+  </data>
+  <data name="Cli_Stats_Feature" xml:space="preserve">
+    <value>  [{0}: {1}]</value>
+  </data>
+  <data name="Cli_Stats_Muted" xml:space="preserve">
+    <value>  [MUTED]</value>
+  </data>
+  <data name="Cli_Stats_Silent" xml:space="preserve">
+    <value>  the other machine has been silent for {0}</value>
+  </data>
+  <data name="Cli_Stats_NoAnswer" xml:space="preserve">
+    <value>  the other machine has not answered yet</value>
+  </data>
+  <data name="Cli_Stats_Discarded" xml:space="preserve">
+    <value>  discarded {0}</value>
+  </data>
+</root>

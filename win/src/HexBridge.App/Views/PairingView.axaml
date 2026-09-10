@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              x:Class="HexBridge.App.Views.PairingView"
              x:DataType="vm:PairingViewModel">
@@ -37,7 +38,7 @@
             <Ellipse Classes="step" Classes.current="{Binding IsStep4}" />
           </StackPanel>
 
-          <Button Grid.Column="2" Classes="ghost" Content="Закрыть" Command="{Binding CloseCommand}" />
+          <Button Grid.Column="2" Classes="ghost" Content="{l:Tr Pairing_Button_Close}" Command="{Binding CloseCommand}" />
         </Grid>
 
         <!-- MARK: Step 1 — readiness -->
@@ -45,9 +46,9 @@
         <ScrollViewer Grid.Row="1" Padding="24,16" IsVisible="{Binding IsStep1}">
           <StackPanel Spacing="16">
             <TextBlock Classes="body" TextWrapping="Wrap" IsVisible="{Binding !IsGiving}"
-                       Text="HexBridge создаст общий ключ и покажет его в виде кода. На второй машине этот код нужно будет ввести один раз." />
+                       Text="{l:Tr Pairing_Intro_Receiving}" />
             <TextBlock Classes="body" TextWrapping="Wrap" IsVisible="{Binding IsGiving}"
-                       Text="Ключ создаст вторая машина — та, что принимает звук: только она знает свой адрес. Здесь нужно будет ввести код с её экрана." />
+                       Text="{l:Tr Pairing_Intro_Sharing}" />
 
             <Border Classes="tile">
               <ItemsControl ItemsSource="{Binding Readiness}">
@@ -69,14 +70,14 @@
             </Border>
 
             <StackPanel Spacing="6" IsVisible="{Binding !IsGiving}">
-              <TextBlock Classes="label" Text="Имя этого компьютера — вторая машина покажет его в списке" />
+              <TextBlock Classes="label" Text="{l:Tr Pairing_Label_MachineName}" />
               <TextBox Text="{Binding MachineName}" Width="320" HorizontalAlignment="Left" />
             </StackPanel>
 
             <!-- §9.2: a red line does not block the wizard. Pairing now and installing the
                  gamepad driver later is a perfectly reasonable order to do things in. -->
             <TextBlock Classes="caption"
-                       Text="Незакрытые строки не мешают связать машины — их можно починить потом." />
+                       Text="{l:Tr Pairing_Readiness_Note}" />
           </StackPanel>
         </ScrollViewer>
 
@@ -100,27 +101,27 @@
           </StackPanel>
 
           <StackPanel Grid.Column="1" Spacing="14" Margin="24,0,0,0">
-            <TextBlock Classes="heading" Text="На второй машине" />
+            <TextBlock Classes="heading" Text="{l:Tr Pairing_Step2_Heading}" />
             <StackPanel Spacing="6">
-              <TextBlock Classes="body" Text="1. Откройте HexBridge и начните связывание." />
-              <TextBlock Classes="body" Text="2. На Mac — «Отсканировать код» и камеру на экран." />
-              <TextBlock Classes="body" Text="3. На Windows или без камеры — наберите двенадцать символов." />
+              <TextBlock Classes="body" Text="{l:Tr Pairing_Step2_Line1}" />
+              <TextBlock Classes="body" Text="{l:Tr Pairing_Step2_Line2}" />
+              <TextBlock Classes="body" Text="{l:Tr Pairing_Step2_Line3}" />
             </StackPanel>
 
             <StackPanel Spacing="6">
-              <TextBlock Classes="section" Text="КОРОТКИЙ КОД" />
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_ShortCode}" />
               <Grid ColumnDefinitions="*,Auto">
                 <SelectableTextBlock Grid.Column="0" Classes="mono" FontSize="26" FontWeight="SemiBold"
                                      Text="{Binding Code}" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Скопировать" Command="{Binding CopyCodeCommand}" />
+                <Button Grid.Column="1" Content="{l:Tr Pairing_Button_CopyCode}" Command="{Binding CopyCodeCommand}" />
               </Grid>
             </StackPanel>
 
             <StackPanel Spacing="4">
-              <TextBlock Classes="section" Text="ОТПЕЧАТОК КЛЮЧА" />
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_Fingerprint}" />
               <SelectableTextBlock Classes="mono" Text="{Binding Fingerprint}" />
               <TextBlock Classes="caption"
-                         Text="Тот же отпечаток должен появиться на второй машине. Сам ключ никуда не показывается." />
+                         Text="{l:Tr Pairing_Fingerprint_Note_Receiving}" />
             </StackPanel>
 
             <TextBlock Classes="caption" Text="{Binding DiscoveryText}" />
@@ -139,14 +140,14 @@
           <StackPanel Spacing="14">
 
             <TextBlock Classes="body" TextWrapping="Wrap"
-                       Text="Откройте HexBridge на второй машине, дойдите до экрана с кодом и наберите его здесь." />
+                       Text="{l:Tr Pairing_Intro_Enter}" />
 
             <!-- The list is a convenience, never a decision: a machine is dialled because
                  its tag matches this one's key, and a name proves nothing. Strangers are
                  shown rather than hidden, or the one machine on screen not being the right
                  one has no explanation. -->
             <StackPanel Spacing="6">
-              <TextBlock Classes="section" Text="НАЙДЕНО В СЕТИ" />
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_Found}" />
               <ItemsControl ItemsSource="{Binding Found}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:FoundHostViewModel">
@@ -172,14 +173,14 @@
 
             <Grid ColumnDefinitions="*,220" >
               <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
-                <TextBlock Classes="section" Text="КОД СО ВТОРОЙ МАШИНЫ" />
+                <TextBlock Classes="section" Text="{l:Tr Pairing_Section_Code}" />
                 <TextBox Classes="mono" Text="{Binding EnteredCode}" PlaceholderText="ABCD-EFGH-JKLM"
                          FontSize="18" />
                 <TextBlock Classes="caption" TextWrapping="Wrap"
-                           Text="Сюда же можно вставить ссылку hexbridge://pair целиком — тогда адрес не нужен." />
+                           Text="{l:Tr Pairing_Caption_Uri}" />
               </StackPanel>
               <StackPanel Grid.Column="1" Spacing="6">
-                <TextBlock Classes="section" Text="АДРЕС" />
+                <TextBlock Classes="section" Text="{l:Tr Pairing_Section_Address}" />
                 <TextBox Text="{Binding EnteredHost}" PlaceholderText="192.168.1.10" />
               </StackPanel>
             </Grid>
@@ -189,10 +190,10 @@
             </Border>
 
             <StackPanel Spacing="4" IsVisible="{Binding Fingerprint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-              <TextBlock Classes="section" Text="ОТПЕЧАТОК КЛЮЧА" />
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_Fingerprint}" />
               <SelectableTextBlock Classes="mono" Text="{Binding Fingerprint}" />
               <TextBlock Classes="caption"
-                         Text="Он должен совпасть с тем, что показан на второй машине. Сам ключ нигде не показывается." />
+                         Text="{l:Tr Pairing_Fingerprint_Note_Sharing}" />
             </StackPanel>
 
           </StackPanel>
@@ -209,10 +210,10 @@
           </Border>
           <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
             <Ellipse Classes="dot large warn pulse" />
-            <TextBlock Classes="title" Text="Ждём вторую машину" />
+            <TextBlock Classes="title" Text="{l:Tr Pairing_Title_Step3}" />
           </StackPanel>
           <TextBlock Classes="caption" HorizontalAlignment="Center"
-                     Text="Как только вторая машина заберёт ключ, проверка связи начнётся сама." />
+                     Text="{l:Tr Pairing_Step3_Note}" />
         </StackPanel>
 
         <!-- MARK: Step 4 — the connection check -->
@@ -269,12 +270,12 @@
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
                        IsVisible="{Binding !IsGiving}"
-                       Text="Ключ создаётся на этом компьютере: только он знает свой адрес." />
+                       Text="{l:Tr Pairing_Footer_Receiving}" />
             <TextBlock Grid.Column="0" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap"
                        IsVisible="{Binding IsGiving}"
-                       Text="Ключ создаёт вторая машина — та, что принимает звук." />
+                       Text="{l:Tr Pairing_Footer_Sharing}" />
 
-            <Button Grid.Column="1" Margin="0,0,8,0" Content="Обновить код"
+            <Button Grid.Column="1" Margin="0,0,8,0" Content="{l:Tr Pairing_Button_Regenerate}"
                     Command="{Binding RegenerateCommand}">
               <Button.IsVisible>
                 <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -283,12 +284,12 @@
                 </MultiBinding>
               </Button.IsVisible>
             </Button>
-            <Button Grid.Column="1" Margin="0,0,8,0" Content="Проверить ещё раз"
+            <Button Grid.Column="1" Margin="0,0,8,0" Content="{l:Tr Pairing_Button_Retry}"
                     IsVisible="{Binding IsStep4}" Command="{Binding RetryCommand}" />
 
-            <Button Grid.Column="2" Classes="primary" Content="Далее"
+            <Button Grid.Column="2" Classes="primary" Content="{l:Tr Pairing_Button_Next}"
                     IsVisible="{Binding IsStep1}" Command="{Binding NextCommand}" />
-            <Button Grid.Column="2" Classes="primary" Content="Вторая машина готова"
+            <Button Grid.Column="2" Classes="primary" Content="{l:Tr Pairing_Button_OtherReady}"
                     Command="{Binding WaitCommand}">
               <Button.IsVisible>
                 <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -297,7 +298,7 @@
                 </MultiBinding>
               </Button.IsVisible>
             </Button>
-            <Button Grid.Column="2" Classes="primary" Content="Связать"
+            <Button Grid.Column="2" Classes="primary" Content="{l:Tr Pairing_Button_Connect}"
                     Command="{Binding ConnectCommand}" IsEnabled="{Binding !IsConnecting}">
               <Button.IsVisible>
                 <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -306,7 +307,7 @@
                 </MultiBinding>
               </Button.IsVisible>
             </Button>
-            <Button Grid.Column="2" Classes="primary" Content="Готово"
+            <Button Grid.Column="2" Classes="primary" Content="{l:Tr Pairing_Button_Done}"
                     IsVisible="{Binding IsStep4}" Command="{Binding FinishCommand}" />
           </Grid>
         </Border>

@@ -3,6 +3,8 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>Record types this responder knows. Everything else is answered with silence.</summary>
@@ -652,7 +654,7 @@ public sealed class ServiceAdvertiser : IDisposable
         }
         catch (SocketException ex)
         {
-            Error = $"порт {MulticastDns.Port} занят другой службой — {ex.Message}";
+            Error = Loc.F(Strings.Err_Port_Busy, MulticastDns.Port, ex.Message);
             return;
         }
 
@@ -887,7 +889,7 @@ public sealed class ServiceBrowser : IDisposable
         }
         catch (SocketException ex)
         {
-            Error = $"порт {MulticastDns.Port} занят другой службой — {ex.Message}";
+            Error = Loc.F(Strings.Err_Port_Busy, MulticastDns.Port, ex.Message);
             return;
         }
 

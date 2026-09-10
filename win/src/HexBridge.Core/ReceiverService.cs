@@ -4,6 +4,8 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -129,9 +131,9 @@ public sealed class ReceiverService : IAsyncDisposable
         lock (_gate) _run = run;
 
         Emit(LogLevel.Info, config.Role == BridgeRole.Sender
-            ? $"hexbridge: отдаю звук на {run.Peer}, локальный порт {run.Listen}"
-            : $"hexbridge: слушаю {run.Listen}");
-        if (run.Relay is not null) Emit(LogLevel.Info, $"hexbridge: регистрируюсь на релее {run.Relay}");
+            ? Loc.F(Strings.Log_Sending, run.Peer, run.Listen)
+            : Loc.F(Strings.Log_Listening, run.Listen));
+        if (run.Relay is not null) Emit(LogLevel.Info, Loc.F(Strings.Log_Relay, run.Relay));
 
         run.Begin();
         Publish();
@@ -344,7 +346,7 @@ public sealed class ReceiverService : IAsyncDisposable
                         Id = feature.Id,
                         Title = feature.Title,
                         Status = FeatureStatus.Disabled,
-                        Headline = unavailable is null ? "Выключено в настройках" : "Здесь недоступно",
+                        Headline = unavailable is null ? Strings.Feature_Disabled : Strings.Feature_Unavailable,
                         Detail = unavailable,
                     };
                     continue;
@@ -356,13 +358,13 @@ public sealed class ReceiverService : IAsyncDisposable
                 }
                 catch (Exception ex) when (feature.IsOptional)
                 {
-                    _owner.Emit(LogLevel.Warning, $"hexbridge: «{feature.Title}» не запущено: {ex.Message}");
+                    _owner.Emit(LogLevel.Warning, Loc.F(Strings.Log_FeatureStartFailed, feature.Title, ex.Message));
                     _startFaults[feature.Id] = new FeatureState
                     {
                         Id = feature.Id,
                         Title = feature.Title,
                         Status = FeatureStatus.Failed,
-                        Headline = "Не запущено",
+                        Headline = Strings.Feature_NotStarted,
                         Detail = ex.Message,
                         Fault = ex.Message,
                     };
@@ -385,7 +387,7 @@ public sealed class ReceiverService : IAsyncDisposable
                 }
                 catch (Exception ex)
                 {
-                    _owner.Emit(LogLevel.Warning, $"hexbridge: «{feature.Title}» при откате: {ex.Message}");
+                    _owner.Emit(LogLevel.Warning, Loc.F(Strings.Log_FeatureRollback, feature.Title, ex.Message));
                 }
             }
             _started.Clear();
@@ -421,7 +423,7 @@ public sealed class ReceiverService : IAsyncDisposable
                 }
                 catch (Exception ex)
                 {
-                    _owner.Emit(LogLevel.Warning, $"hexbridge: «{feature.Title}» при остановке: {ex.Message}");
+                    _owner.Emit(LogLevel.Warning, Loc.F(Strings.Log_FeatureStopFailed, feature.Title, ex.Message));
                 }
             }
             _started.Clear();
@@ -548,7 +550,7 @@ public sealed class ReceiverService : IAsyncDisposable
                     _session = header.Session;
                     _replay = new ReplayWindow();
                     foreach (var feature in _started) feature.OnSessionReset();
-                    _owner.Emit(LogLevel.Info, $"hexbridge: сессия {header.Session:x8} от {result.RemoteEndPoint}");
+                    _owner.Emit(LogLevel.Info, Loc.F(Strings.Log_Session, header.Session.ToString("x8", System.Globalization.CultureInfo.InvariantCulture), result.RemoteEndPoint));
                 }
 
                 if (!_replay.Accept(header.Seq))

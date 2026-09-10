@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              x:Class="HexBridge.App.Views.LogView"
              x:DataType="vm:LogViewModel">
@@ -7,10 +8,10 @@
   <Grid RowDefinitions="Auto,*" Margin="24">
 
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,12">
-      <TextBlock Grid.Column="0" Classes="section" Text="ЖУРНАЛ" VerticalAlignment="Center" />
-      <CheckBox Grid.Column="1" Content="Прокручивать" IsChecked="{Binding AutoScroll}" Margin="0,0,8,0" />
-      <Button Grid.Column="2" Content="Скопировать" Command="{Binding CopyCommand}" Margin="0,0,8,0" />
-      <Button Grid.Column="3" Content="Очистить" Command="{Binding ClearCommand}" />
+      <TextBlock Grid.Column="0" Classes="section" Text="{l:Tr Log_Section}" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="1" Content="{l:Tr Log_Follow}" IsChecked="{Binding AutoScroll}" Margin="0,0,8,0" />
+      <Button Grid.Column="2" Content="{l:Tr Log_Copy}" Command="{Binding CopyCommand}" Margin="0,0,8,0" />
+      <Button Grid.Column="3" Content="{l:Tr Log_Clear}" Command="{Binding ClearCommand}" />
     </Grid>
 
     <Border Grid.Row="1" Classes="card" Padding="0" Background="{DynamicResource LogSurface}">

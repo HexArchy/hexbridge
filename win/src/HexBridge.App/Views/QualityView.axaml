@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              xmlns:controls="using:HexBridge.App.Controls"
              x:Class="HexBridge.App.Views.QualityView"
@@ -13,20 +14,20 @@
       <UniformGrid Columns="3">
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Пакетов в секунду" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Rate}" />
             <TextBlock Classes="metric" Text="{Binding PacketsText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
-                ToolTip.Tip="Время до второй машины и обратно.">
+                ToolTip.Tip="{l:Tr Quality_Tip_Rtt}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Задержка" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Rtt}" />
             <TextBlock Classes="metric" Text="{Binding RttText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Аптайм" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Uptime}" />
             <TextBlock Classes="metric" Text="{Binding UptimeText}" />
           </StackPanel>
         </Border>
@@ -35,12 +36,12 @@
       <Border Classes="card" IsVisible="{Binding !IsGiving}">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="БУФЕР" />
+            <TextBlock Grid.Column="0" Classes="section" Text="{l:Tr Quality_Section_Buffer}" />
             <TextBlock Grid.Column="1" Classes="label" Text="{Binding DepthText}" />
           </Grid>
           <ProgressBar Minimum="0" Maximum="1" Value="{Binding DepthFraction, Mode=OneWay}" Height="8" />
           <TextBlock Classes="caption"
-                     Text="Больше буфер — меньше щелчков, но выше задержка." />
+                     Text="{l:Tr Quality_Buffer_Note}" />
         </StackPanel>
       </Border>
 
@@ -50,40 +51,40 @@
       <UniformGrid Columns="3" IsVisible="{Binding IsGiving}">
         <Border Classes="tile" Margin="0,0,8,8">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Отправлено кадров" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Sent}" />
             <TextBlock Classes="metric" Text="{Binding SentText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,8"
-                ToolTip.Tip="Размер последнего пакета Opus. Столько стоит одна двадцатимиллисекундная порция звука.">
+                ToolTip.Tip="{l:Tr Quality_Tip_FrameSize}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Размер пакета" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_FrameSize}" />
             <TextBlock Classes="metric" Text="{Binding PacketBytesText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,0,8">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Битрейт" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Bitrate}" />
             <TextBlock Classes="metric" Text="{Binding BitrateText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
-                ToolTip.Tip="Сколько кадров досчиталась вторая машина. Её цифра, не наша.">
+                ToolTip.Tip="{l:Tr Quality_Tip_RemoteReceived}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Принято там" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_RemoteReceived}" />
             <TextBlock Classes="metric" Text="{Binding RemoteReceivedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
-                ToolTip.Tip="Кадры, которых вторая машина не дождалась или восстановила приблизительно.">
+                ToolTip.Tip="{l:Tr Quality_Tip_RemoteLost}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Потеряно там" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_RemoteLost}" />
             <TextBlock Classes="metric" Text="{Binding RemoteLostText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Доля потерь" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Loss}" />
             <TextBlock Classes="metric" Text="{Binding LossText}" />
           </StackPanel>
         </Border>
@@ -91,42 +92,42 @@
 
       <UniformGrid Columns="3" IsVisible="{Binding !IsGiving}">
         <Border Classes="tile" Margin="0,0,8,8"
-                ToolTip.Tip="Кадры, которых не было вовремя: Opus восстановил их приблизительно.">
+                ToolTip.Tip="{l:Tr Quality_Tip_Concealed}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Скрытые кадры" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Concealed}" />
             <TextBlock Classes="metric" Text="{Binding ConcealedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,8"
-                ToolTip.Tip="Пакеты, пришедшие после того, как их момент уже отыграли.">
+                ToolTip.Tip="{l:Tr Quality_Tip_Late}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Поздние" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Late}" />
             <TextBlock Classes="metric" Text="{Binding LateText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,0,8"
-                ToolTip.Tip="Буфер опустел, и звук пришлось добить тишиной.">
+                ToolTip.Tip="{l:Tr Quality_Tip_Underruns}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Недоборы" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Underruns}" />
             <TextBlock Classes="metric" Text="{Binding UnderrunsText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Декодировано" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Decoded}" />
             <TextBlock Classes="metric" Text="{Binding DecodedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile" Margin="0,0,8,0"
-                ToolTip.Tip="Пакеты с чужим ключом, повторы и мусор из сети.">
+                ToolTip.Tip="{l:Tr Quality_Tip_Discarded}">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Отброшено" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Discarded}" />
             <TextBlock Classes="metric" Text="{Binding RejectedText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Доля потерь" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Loss}" />
             <TextBlock Classes="metric" Text="{Binding LossText}" />
           </StackPanel>
         </Border>
@@ -134,20 +135,20 @@
 
       <Border Classes="card">
         <StackPanel Spacing="18">
-          <TextBlock Classes="section" Text="ПОСЛЕДНИЕ 60 СЕКУНД" />
+          <TextBlock Classes="section" Text="{l:Tr Quality_Section_History}" />
 
           <StackPanel Spacing="6">
-            <TextBlock Classes="label" Text="Пакетов в секунду" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Metric_Rate}" />
             <controls:Sparkline Values="{Binding PacketHistory}" Maximum="{Binding PacketHistoryMax}" />
           </StackPanel>
 
           <StackPanel Spacing="6">
-            <TextBlock Classes="label" Text="Уровень сигнала" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Chart_Level}" />
             <controls:Sparkline Values="{Binding PeakHistory}" Maximum="1" />
           </StackPanel>
 
           <StackPanel Spacing="6" IsVisible="{Binding !IsGiving}">
-            <TextBlock Classes="label" Text="Глубина буфера, кадров" />
+            <TextBlock Classes="label" Text="{l:Tr Quality_Chart_Depth}" />
             <controls:Sparkline Values="{Binding DepthHistory}" Maximum="{Binding MaxDepth}" />
           </StackPanel>
         </StackPanel>

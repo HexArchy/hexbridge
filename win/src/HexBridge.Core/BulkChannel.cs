@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 public enum BulkDirection
@@ -121,12 +123,12 @@ public sealed class BulkChannel
     {
         if (bytes.Length == 0)
         {
-            error = "нечего передавать: объект пуст";
+            error = Strings.Err_Bulk_Empty;
             return null;
         }
         if (bytes.Length > Bulk.MaxObjectSize)
         {
-            error = $"объект больше 16 МиБ ({bytes.Length / (1024 * 1024)} МиБ) — это уже передача файлов";
+            error = Loc.F(Strings.Err_Bulk_TooBig, Loc.F(Strings.Unit_Mebibytes, bytes.Length / (1024 * 1024)));
             return null;
         }
 
@@ -235,7 +237,7 @@ public sealed class BulkChannel
         if (Owns?.Invoke(offer.Hash) == true)
         {
             _send(PacketType.BulkAck, BulkCodec.WriteAck(new BulkAck(offer.TransferId, false, 0, [])));
-            Note?.Invoke($"bulk: {Describe(offer)} уже есть — не тянем");
+            Note?.Invoke(Loc.F(Strings.Log_Bulk_Have, Describe(offer)));
             return;
         }
 
@@ -285,11 +287,11 @@ public sealed class BulkChannel
                     {
                         // «Молчаливой порчи не бывает»: every chunk is asked for again.
                         incoming.HashFailures++;
-                        note = $"bulk: хеш не сошёлся, просим объект заново (попытка {incoming.HashFailures})";
+                        note = Loc.F(Strings.Log_Bulk_HashFailed, incoming.HashFailures);
                         if (incoming.HashFailures >= MaxHashFailures)
                         {
                             _incoming.Remove(transferId);
-                            note = "bulk: объект трижды пришёл битым — отказываемся";
+                            note = Strings.Log_Bulk_GivingUp;
                         }
                         else
                         {
@@ -387,7 +389,7 @@ public sealed class BulkChannel
                 {
                     _outgoing.Remove(transfer.Id);
                     results.Add(transfer.Result(BulkOutcome.NoAnswer));
-                    notes.Add($"bulk: {Describe(transfer)} — приёмник не ответил на десять предложений");
+                    notes.Add(Loc.F(Strings.Log_Bulk_NoAnswer, Describe(transfer)));
                     continue;
                 }
 
@@ -416,7 +418,7 @@ public sealed class BulkChannel
             {
                 _outgoing.Remove(transfer.Id);
                 results.Add(transfer.Result(BulkOutcome.Stalled));
-                notes.Add($"bulk: {Describe(transfer)} — подтверждения прекратились");
+                notes.Add(Loc.F(Strings.Log_Bulk_Stalled, Describe(transfer)));
                 continue;
             }
 
@@ -465,7 +467,7 @@ public sealed class BulkChannel
         }
     }
 
-    private static string Describe(BulkOffer offer) => $"{offer.Kind} {offer.Size} Б";
+    private static string Describe(BulkOffer offer) => Loc.F(Strings.Log_Bulk_Describe, offer.Kind, Loc.F(Strings.Unit_Bytes, offer.Size));
 
     private static string Describe(Outgoing transfer) => Describe(transfer.Offer);
 

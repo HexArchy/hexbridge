@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using HexBridge.Microphone;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>Buffer health and loss counters, plus a minute of history for the sparklines.</summary>
@@ -22,32 +24,32 @@ public sealed partial class QualityViewModel : ObservableObject
 
     // The giving side's counters. Loss is reported by the far end in every PONG, which is
     // the only place either machine learns what actually arrived.
-    [ObservableProperty] private string _sentText = "0";
-    [ObservableProperty] private string _packetBytesText = "—";
-    [ObservableProperty] private string _remoteReceivedText = "0";
-    [ObservableProperty] private string _remoteLostText = "0";
-    [ObservableProperty] private string _bitrateText = "—";
+    [ObservableProperty] private string _sentText = Loc.Count(0);
+    [ObservableProperty] private string _packetBytesText = Strings.Common_Empty;
+    [ObservableProperty] private string _remoteReceivedText = Loc.Count(0);
+    [ObservableProperty] private string _remoteLostText = Loc.Count(0);
+    [ObservableProperty] private string _bitrateText = Strings.Common_Empty;
 
     [ObservableProperty] private double _depth;
     [ObservableProperty] private double _targetDepth = 1;
     [ObservableProperty] private double _maxDepth = 1;
-    [ObservableProperty] private string _depthText = "—";
-    [ObservableProperty] private string _targetText = "—";
+    [ObservableProperty] private string _depthText = Strings.Common_Empty;
+    [ObservableProperty] private string _targetText = Strings.Common_Empty;
 
     /// <summary>Buffer depth as a fraction of the trim threshold, for the progress bar.</summary>
     [ObservableProperty] private double _depthFraction;
 
     // Moved off the Status page: how well it works, not whether it works.
-    [ObservableProperty] private string _packetsText = "—";
-    [ObservableProperty] private string _rttText = "—";
-    [ObservableProperty] private string _uptimeText = "—";
+    [ObservableProperty] private string _packetsText = Strings.Common_Empty;
+    [ObservableProperty] private string _rttText = Strings.Common_Empty;
+    [ObservableProperty] private string _uptimeText = Strings.Common_Empty;
 
-    [ObservableProperty] private string _concealedText = "0";
-    [ObservableProperty] private string _lateText = "0";
-    [ObservableProperty] private string _underrunsText = "0";
-    [ObservableProperty] private string _rejectedText = "0";
-    [ObservableProperty] private string _decodedText = "0";
-    [ObservableProperty] private string _lossText = "0 %";
+    [ObservableProperty] private string _concealedText = Loc.Count(0);
+    [ObservableProperty] private string _lateText = Loc.Count(0);
+    [ObservableProperty] private string _underrunsText = Loc.Count(0);
+    [ObservableProperty] private string _rejectedText = Loc.Count(0);
+    [ObservableProperty] private string _decodedText = Loc.Count(0);
+    [ObservableProperty] private string _lossText = Loc.Percent(0);
 
     [ObservableProperty] private double[] _packetHistory = new double[HistorySeconds];
     [ObservableProperty] private double[] _peakHistory = new double[HistorySeconds];
@@ -58,11 +60,13 @@ public sealed partial class QualityViewModel : ObservableObject
     {
         IsGiving = s.Role == BridgeRole.Sender;
 
-        SentText = (m?.Sent ?? 0).ToString("N0");
-        PacketBytesText = m is { LastPacketBytes: > 0 } ? $"{m.LastPacketBytes} Б" : "—";
-        RemoteReceivedText = s.RemoteReceived.ToString("N0");
-        RemoteLostText = s.RemoteLost.ToString("N0");
-        BitrateText = m is { Bitrate: > 0 } ? $"{m.Bitrate / 1000} кбит/с" : "—";
+        SentText = Loc.Count(m?.Sent ?? 0);
+        PacketBytesText = m is { LastPacketBytes: > 0 }
+            ? Loc.F(Strings.Unit_Bytes, m.LastPacketBytes)
+            : Strings.Common_Empty;
+        RemoteReceivedText = Loc.Count(s.RemoteReceived);
+        RemoteLostText = Loc.Count(s.RemoteLost);
+        BitrateText = m is { Bitrate: > 0 } ? Loc.Kbits(m.Bitrate) : Strings.Common_Empty;
 
         var depth = m?.Depth ?? 0;
         var target = m?.TargetDepth ?? 0;
@@ -72,18 +76,22 @@ public sealed partial class QualityViewModel : ObservableObject
         TargetDepth = Math.Max(1, target);
         MaxDepth = Math.Max(1, max);
         DepthFraction = Math.Clamp(depth / (double)Math.Max(1, max), 0, 1);
-        DepthText = s.IsRunning ? $"{depth} кадр. · {depth * 20} мс" : "—";
-        TargetText = $"цель {target * 20} мс · подрезка от {max * 20} мс";
+        DepthText = s.IsRunning
+            ? Loc.F(Strings.Quality_Depth, Loc.Frames(depth), Loc.Ms(depth * 20))
+            : Strings.Common_Empty;
+        TargetText = Loc.F(Strings.Quality_Target, Loc.Ms(target * 20), Loc.Ms(max * 20));
 
-        PacketsText = s.IsRunning ? $"{m?.PacketsPerSecond ?? 0:F0}" : "—";
-        RttText = s.RttMs is { } rtt ? $"{rtt:F0} мс" : "—";
-        UptimeText = s.IsRunning ? Duration(s.Uptime) : "—";
+        PacketsText = s.IsRunning
+            ? (m?.PacketsPerSecond ?? 0).ToString("F0", System.Globalization.CultureInfo.CurrentCulture)
+            : Strings.Common_Empty;
+        RttText = s.RttMs is { } rtt ? Loc.Ms(rtt) : Strings.Common_Empty;
+        UptimeText = s.IsRunning ? Loc.Duration(s.Uptime) : Strings.Common_Empty;
 
-        ConcealedText = (m?.Concealed ?? 0).ToString("N0");
-        LateText = (m?.DroppedLate ?? 0).ToString("N0");
-        UnderrunsText = (m?.Underruns ?? 0).ToString("N0");
-        RejectedText = s.Rejected.ToString("N0");
-        DecodedText = (m?.Decoded ?? 0).ToString("N0");
+        ConcealedText = Loc.Count(m?.Concealed ?? 0);
+        LateText = Loc.Count(m?.DroppedLate ?? 0);
+        UnderrunsText = Loc.Count(m?.Underruns ?? 0);
+        RejectedText = Loc.Count(s.Rejected);
+        DecodedText = Loc.Count(m?.Decoded ?? 0);
 
         // Two different measurements of the same thing, each taken where it can be taken.
         // On the giving side the only truthful number is the one the far end reports; on the
@@ -91,13 +99,13 @@ public sealed partial class QualityViewModel : ObservableObject
         if (IsGiving)
         {
             var delivered = s.RemoteReceived + s.RemoteLost;
-            LossText = delivered > 0 ? $"{100.0 * s.RemoteLost / delivered:F2} %" : 0d.ToString("F2") + " %";
+            LossText = Loc.Percent(delivered > 0 ? 100.0 * s.RemoteLost / delivered : 0);
             return;
         }
 
         var damaged = (m?.Concealed ?? 0) + (m?.DroppedLate ?? 0);
         var total = (m?.Decoded ?? 0) + damaged;
-        LossText = total > 0 ? $"{100.0 * damaged / total:F2} %" : 0d.ToString("F2") + " %";
+        LossText = Loc.Percent(total > 0 ? 100.0 * damaged / total : 0);
     }
 
     /// <summary>Called once a second; shifts the history windows along.</summary>
@@ -127,13 +135,6 @@ public sealed partial class QualityViewModel : ObservableObject
         PeakHistory = new double[HistorySeconds];
         DepthHistory = new double[HistorySeconds];
     }
-
-    /// <summary>«2 ч 05 м», «3 м 12 с», «41 с» — never a bare count of seconds past a minute.</summary>
-    private static string Duration(TimeSpan t) => t.TotalHours >= 1
-        ? $"{(int)t.TotalHours} ч {t.Minutes:00} м"
-        : t.TotalMinutes >= 1
-            ? $"{t.Minutes} м {t.Seconds:00} с"
-            : $"{t.Seconds} с";
 
     private static void Push(double[] window, double value)
     {

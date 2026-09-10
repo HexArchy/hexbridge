@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using HexBridge.Localization;
+
 namespace HexBridge;
 
 /// <summary>
@@ -151,7 +153,7 @@ public sealed class ReceiverConfig
         catch (FormatException)
         {
             key = [];
-            error = "psk должен быть 32 байта в base64";
+            error = Strings.Err_Psk;
             return false;
         }
     }
@@ -171,7 +173,7 @@ public sealed class ReceiverConfig
         if (string.IsNullOrWhiteSpace(address))
         {
             throw new InvalidOperationException(
-                "не задан адрес второго компьютера — свяжите машины в мастере или впишите адрес в настройках");
+                Strings.Err_NoTarget);
         }
 
         try
@@ -180,7 +182,7 @@ public sealed class ReceiverConfig
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"не удаётся разобрать адрес «{address}»: {ex.Message}", ex);
+            throw new InvalidOperationException(Loc.F(Strings.Err_BadAddress, address, ex.Message), ex);
         }
     }
 

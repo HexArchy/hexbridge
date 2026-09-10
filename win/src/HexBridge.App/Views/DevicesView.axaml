@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              xmlns:controls="using:HexBridge.App.Controls"
              x:Class="HexBridge.App.Views.DevicesView"
@@ -31,17 +32,16 @@
               BorderThickness="1"
               IsVisible="{Binding DriverMissing}">
         <StackPanel Spacing="6">
-          <TextBlock Classes="section" Text="НУЖЕН ДРАЙВЕР USBIP-WIN2" />
+          <TextBlock Classes="section" Text="{l:Tr Devices_Section_DriverNeeded}" />
           <TextBlock Classes="body" Text="{Binding DriverHint}" TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 
-      <TextBlock Classes="caption" Text="{Binding SlotsText, StringFormat='Занято номеров: {0}'}"
-                 IsVisible="{Binding HasDevices}" />
+      <TextBlock Classes="caption" Text="{Binding SlotsLine}" IsVisible="{Binding HasDevices}" />
       <TextBlock Classes="caption"
                  TextWrapping="Wrap"
                  IsVisible="{Binding !HasDevices}"
-                 Text="Что пробрасывать, выбирают на второй машине. Каждое выбранное устройство появится здесь." />
+                 Text="{l:Tr Devices_Empty}" />
 
       <!--
         One card per forwarded device, keyed by device number. A model the visualisation
@@ -82,33 +82,33 @@
                 <UniformGrid Columns="2">
                   <Border Classes="tile" Margin="0,0,8,0">
                     <StackPanel Spacing="2">
-                      <TextBlock Classes="label" Text="Отчётов в секунду" />
+                      <TextBlock Classes="label" Text="{l:Tr Devices_Metric_Rate}" />
                       <TextBlock Classes="metric" Text="{Binding RateText}" />
                     </StackPanel>
                   </Border>
                   <Border Classes="tile">
                     <StackPanel Spacing="2">
-                      <TextBlock Classes="label" Text="Батарея" />
+                      <TextBlock Classes="label" Text="{l:Tr Devices_Metric_Battery}" />
                       <TextBlock Classes="metric" Text="{Binding BatteryText}" />
                     </StackPanel>
                   </Border>
                 </UniformGrid>
 
-                <Expander Header="Подробности">
+                <Expander Header="{l:Tr Devices_Expander_Details}">
                   <StackPanel Spacing="10" Margin="0,8,0,0">
                     <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto">
-                      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Принято отчётов" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="{l:Tr Devices_Label_Received}" Margin="0,0,0,8" />
                       <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding ReportsText}" Margin="0,0,0,8" />
-                      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Отправлено команд" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="{l:Tr Devices_Label_Outputs}" Margin="0,0,0,8" />
                       <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding OutputsText}" Margin="0,0,0,8" />
-                      <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Потеряно отчётов" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="{l:Tr Devices_Label_Lost}" Margin="0,0,0,8" />
                       <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding LostText}" Margin="0,0,0,8" />
-                      <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="Не забрано Windows" />
+                      <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="{l:Tr Devices_Label_Dropped}" />
                       <TextBlock Grid.Row="3" Grid.Column="1" Classes="body" Text="{Binding DroppedText}" />
                     </Grid>
                     <StackPanel Spacing="6" IsVisible="{Binding !IsImported}">
                       <TextBlock Classes="caption" TextWrapping="Wrap"
-                                 Text="Если автоподключение не сработало, эту команду можно выполнить вручную:" />
+                                 Text="{l:Tr Devices_Attach_Hint}" />
                       <SelectableTextBlock Classes="mono" TextWrapping="Wrap" Text="{Binding AttachCommand}" />
                     </StackPanel>
                   </StackPanel>

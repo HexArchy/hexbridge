@@ -1,6 +1,8 @@
 using Concentus;
 using Concentus.Enums;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Microphone;
 
 /// <summary>
@@ -48,11 +50,11 @@ public sealed class VoiceEncoder
     {
         if (pcm.Length != FrameSamples)
         {
-            throw new ArgumentException($"кадр должен быть {FrameSamples} сэмплов, а не {pcm.Length}", nameof(pcm));
+            throw new ArgumentException(Loc.F(Strings.Err_Frame_Size, FrameSamples, pcm.Length), nameof(pcm));
         }
 
         var written = _encoder.Encode(pcm, FrameSamples, _out, _out.Length);
-        if (written <= 0) throw new InvalidOperationException($"opus_encode вернул {written}");
+        if (written <= 0) throw new InvalidOperationException(Loc.F(Strings.Err_Opus_Encode, written));
 
         LastPacketBytes = written;
         return _out.AsSpan(0, written);

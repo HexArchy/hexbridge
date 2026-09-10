@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 /// <summary>
@@ -62,7 +64,7 @@ public sealed class DevicesFeature : IFeature
     }
 
     public string Id => "devices";
-    public string Title => "Устройства";
+    public string Title => Strings.Feature_Devices_Title;
     public bool IsOptional => true;
     public IReadOnlyList<PacketType> HandledTypes => Types;
 
@@ -98,10 +100,7 @@ public sealed class DevicesFeature : IFeature
     /// </para>
     /// </summary>
     public string? Unavailable(ReceiverConfig config) => config.Role == BridgeRole.Sender
-        ? "Отдавать геймпады умеет только Mac: Windows не выдаёт приложениям настоящие "
-          + "USB-дескрипторы своих HID-устройств, а без них собрать устройство на другой "
-          + "стороне не из чего. Принимать устройства этот компьютер по-прежнему умеет — "
-          + "для этого переключите роль."
+        ? Strings.Feature_Dev_Unavailable
         : null;
 
     public void Start(FeatureContext context)
@@ -120,8 +119,7 @@ public sealed class DevicesFeature : IFeature
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"не удалось занять {_listen} для USB/IP: {ex.Message}. " +
-                "Обычно это значит, что порт уже слушает другой экземпляр HexBridge или сам usbipd.", ex);
+                Loc.F(Strings.Feature_Dev_PortBusy, _listen, ex.Message), ex);
         }
 
         lock (_gate)
@@ -130,14 +128,14 @@ public sealed class DevicesFeature : IFeature
             _server = server;
         }
 
-        context.Log(LogLevel.Info, $"usbip: сервер слушает {server.LocalEndPoint}");
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_UsbIp_Listening, server.LocalEndPoint));
         if (_attacher.IsInstalled)
         {
-            context.Log(LogLevel.Info, $"usbip: клиент найден — {_attacher.ClientPath}");
+            context.Log(LogLevel.Info, Loc.F(Strings.Log_UsbIp_ClientFound, _attacher.ClientPath));
         }
         else
         {
-            context.Log(LogLevel.Warning, "usbip: usbip.exe не найден, автоподключение недоступно");
+            context.Log(LogLevel.Warning, Strings.Log_UsbIp_NoClient);
         }
     }
 
@@ -210,7 +208,7 @@ public sealed class DevicesFeature : IFeature
     {
         if (!DeviceChannel.TryReadAttach(payload, out var attach))
         {
-            Volatile.Write(ref _fault, "DEV_ATTACH не разобран");
+            Volatile.Write(ref _fault, Strings.Feature_Dev_AttachUnparsed);
             return;
         }
 
@@ -224,7 +222,7 @@ public sealed class DevicesFeature : IFeature
         {
             Interlocked.Increment(ref _rejected);
             context.Log(LogLevel.Warning,
-                $"устройства: номер {attach.Device} вне диапазона 0…{MaxDevices - 1}, отклонено");
+                Loc.F(Strings.Log_Dev_NumberOutOfRange, attach.Device, MaxDevices - 1));
             return;
         }
 
@@ -248,8 +246,8 @@ public sealed class DevicesFeature : IFeature
         }
         catch (Exception ex)
         {
-            Volatile.Write(ref _fault, $"устройство {attach.Device} не собрано: {ex.Message}");
-            context.Log(LogLevel.Error, $"устройства: {ex.Message}");
+            Volatile.Write(ref _fault, Loc.F(Strings.Feature_Dev_NotBuilt, attach.Device, ex.Message));
+            context.Log(LogLevel.Error, Loc.F(Strings.Log_Dev, ex.Message));
             return;
         }
 
@@ -259,7 +257,7 @@ public sealed class DevicesFeature : IFeature
             // 0x05 is the sensor calibration: zeros there are a divide by zero inside games,
             // so an incomplete snapshot is worth saying out loud even though we go on.
             context.Log(LogLevel.Warning,
-                $"устройства: нет снимков feature-репортов {string.Join(", ", missing.Select(id => $"0x{id:x2}"))}");
+                Loc.F(Strings.Log_Dev_NoFeatureReports, string.Join(", ", missing.Select(id => $"0x{id:x2}"))));
         }
 
         // A different device on the same number means the pad in that slot was swapped; the
@@ -270,7 +268,7 @@ public sealed class DevicesFeature : IFeature
         Volatile.Write(ref _fault, null);
 
         context.Log(LogLevel.Info,
-            $"устройства: {device.ProductName} ({device.Identity}) собран, busid {device.Info.BusId}");
+            Loc.F(Strings.Log_Dev_Built, device.ProductName, device.Identity, device.Info.BusId));
 
         if (context.Config.Haptics)
         {
@@ -279,9 +277,8 @@ public sealed class DevicesFeature : IFeature
             // never an endpoint to play into", and only the log can tell the two apart.
             context.Log(device.Haptics is not null ? LogLevel.Info : LogLevel.Warning,
                 device.Haptics is not null
-                    ? $"хаптика: {device.ProductName} отдан композитом, изохронный OUT готов"
-                    : $"хаптика: у {device.ProductName} нет пригодного изохронного OUT — "
-                      + "триггеры и вибрация работают, HD-хаптики не будет");
+                    ? Loc.F(Strings.Log_Dev_HapticsReady, device.ProductName)
+                    : Loc.F(Strings.Log_Dev_HapticsMissing, device.ProductName));
         }
 
         Acknowledge(context, attach.Device);
@@ -331,7 +328,7 @@ public sealed class DevicesFeature : IFeature
         slot.Device.Dispose();
 
         var context = Volatile.Read(ref _context);
-        context?.Log(LogLevel.Info, $"устройства: «{product}» отключено от Mac");
+        context?.Log(LogLevel.Info, Loc.F(Strings.Log_Dev_Unplugged, product));
 
         var attacher = Volatile.Read(ref _attacher);
         if (attacher is null) return;
@@ -347,7 +344,7 @@ public sealed class DevicesFeature : IFeature
             }
             catch (Exception ex)
             {
-                context?.Log(LogLevel.Warning, $"usbip: не удалось отцепить {busId}: {ex.Message}");
+                context?.Log(LogLevel.Warning, Loc.F(Strings.Log_Dev_DetachFailed, busId, ex.Message));
             }
         });
     }
@@ -466,19 +463,19 @@ public sealed class DevicesFeature : IFeature
             : imported == devices.Length ? FeatureStatus.Live
             : FeatureStatus.Warning;
 
-        var headline = fault is not null ? "Ошибка"
-            : server is null ? "Остановлено"
-            : devices.Length == 0 ? "Ждём устройства"
+        var headline = fault is not null ? Strings.Feature_Dev_Failed
+            : server is null ? Strings.Feature_Dev_Stopped
+            : devices.Length == 0 ? Strings.Feature_Dev_Waiting
             : imported == devices.Length
-                ? devices.Length == 1 ? "Устройство проброшено" : $"Проброшено устройств: {devices.Length}"
-            : $"Собрано {devices.Length}, подключено к Windows {imported}";
+                ? devices.Length == 1 ? Strings.Feature_Dev_One : Loc.Plural("Feature_Dev_Many", devices.Length)
+            : Loc.F(Strings.Feature_Dev_Partial, devices.Length, imported);
 
         var detail = fault
             ?? (server is null ? null
-                : devices.Length == 0 ? "Выберите устройства на Mac и подключите их по USB"
+                : devices.Length == 0 ? Strings.Feature_Dev_Detail_Empty
                 : imported == devices.Length ? string.Join(", ", devices.Select(d => $"{d.Product} → {d.BusId}"))
-                : installed ? "usbip.exe не смог подключить часть устройств"
-                : "Драйвер usbip-win2 не установлен");
+                : installed ? Strings.Feature_Dev_Detail_AttachFailed
+                : Strings.Feature_Dev_Detail_NoDriver);
 
         return new DevicesState
         {

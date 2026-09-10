@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HexBridge.Localization;
 
 namespace HexBridge.App;
 
@@ -15,6 +16,19 @@ public sealed class AppSettings
     // reading it back needs the converter as well.
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ThemePreference Theme { get; set; } = ThemePreference.System;
+
+    /// <summary>
+    /// Which language the interface is in. «System» is the default and the only value a
+    /// fresh install has, so a first run comes up in the language Windows is already in and
+    /// nobody is asked a question before they have seen the app.
+    ///
+    /// <para>
+    /// Here rather than in config.json for the same reason the theme is: config.json is read
+    /// by the console build and by the deployed install, and its shape must not drift.
+    /// </para>
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AppLanguage Language { get; set; } = AppLanguage.System;
 
     /// <summary>Begin receiving as soon as the app launches, the way the console build does.</summary>
     public bool StartOnLaunch { get; set; } = true;

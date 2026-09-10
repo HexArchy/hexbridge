@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              xmlns:controls="using:HexBridge.App.Controls"
              x:Class="HexBridge.App.Views.StatusView"
@@ -21,7 +22,7 @@
       <Border Classes="card">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="УРОВЕНЬ" />
+            <TextBlock Grid.Column="0" Classes="section" Text="{l:Tr Status_Section_Level}" />
             <TextBlock Grid.Column="1" Classes="label" Text="{Binding PeakText}" />
           </Grid>
           <controls:LevelMeter Level="{Binding Level}" Peak="{Binding PeakMark}"
@@ -38,11 +39,11 @@
       -->
       <Border Classes="card">
         <StackPanel Spacing="12">
-          <TextBlock Classes="section" Text="СОЕДИНЕНИЕ" />
+          <TextBlock Classes="section" Text="{l:Tr Status_Section_Connection}" />
           <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" >
             <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="{Binding PeerLabel}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding SenderText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Адрес" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="{l:Tr Status_Label_Address}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="1" Grid.Column="1" Classes="mono" Text="{Binding PeerText}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="{Binding EndpointLabel}" />
             <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding OutputText}" />
@@ -55,8 +56,7 @@
               BorderBrush="{DynamicResource AppBorder}"
               BorderThickness="1"
               IsVisible="{Binding HasGameHint}">
-        <TextBlock Classes="body" TextWrapping="Wrap"
-                   Text="{Binding GameHint, StringFormat='В играх и голосовых чатах выбирайте микрофон «{0}»'}" />
+        <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding GameHintText}" />
       </Border>
 
     </StackPanel>

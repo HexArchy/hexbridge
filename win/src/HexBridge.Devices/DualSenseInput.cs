@@ -1,3 +1,5 @@
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 // Everything in this file is DualSense-specific and nothing else in the project depends on
@@ -181,9 +183,9 @@ public readonly record struct DualSenseInput
         return status switch
         {
             0x0 => $"{percent}%",
-            0x1 => $"{percent}%, заряжается",
-            0x2 => "заряжен",
-            _ => $"статус 0x{status:x}",
+            0x1 => Loc.F(Strings.Devices_Battery_Charging, percent),
+            0x2 => Strings.Devices_Battery_Full,
+            _ => Loc.F(Strings.Devices_Battery_Status, status.ToString("x", System.Globalization.CultureInfo.InvariantCulture)),
         };
     }
 

@@ -2,6 +2,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Clipboard;
 
 /// <summary>
@@ -77,7 +79,7 @@ public sealed class WindowsClipboard : IClipboardSurface, IDisposable
         }
         catch (Exception ex)
         {
-            _log(LogLevel.Warning, $"буфер обмена: не удалось прочитать — {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_Clip_ReadFailed, ex.Message));
             return null;
         }
         finally
@@ -90,20 +92,20 @@ public sealed class WindowsClipboard : IClipboardSurface, IDisposable
     {
         if (item.Format == BulkFormat.Png && _pngFormat == 0)
         {
-            _log(LogLevel.Warning, "буфер обмена: формат PNG не зарегистрирован, картинка не вставлена");
+            _log(LogLevel.Warning, Strings.Log_Clip_NoPng);
             return;
         }
 
         var owner = Owner();
         if (owner == IntPtr.Zero)
         {
-            _log(LogLevel.Warning, "буфер обмена: не удалось создать окно-владельца, вставка пропущена");
+            _log(LogLevel.Warning, Strings.Log_Clip_NoOwnerWindow);
             return;
         }
 
         if (!Open(owner))
         {
-            _log(LogLevel.Warning, "буфер обмена: занят другим приложением, вставка пропущена");
+            _log(LogLevel.Warning, Strings.Log_Clip_Busy);
             return;
         }
 
@@ -123,12 +125,12 @@ public sealed class WindowsClipboard : IClipboardSurface, IDisposable
             if (SetClipboardData(format, handle) == IntPtr.Zero)
             {
                 GlobalFree(handle);
-                _log(LogLevel.Warning, "буфер обмена: система отказалась принять данные");
+                _log(LogLevel.Warning, Strings.Log_Clip_Refused);
             }
         }
         catch (Exception ex)
         {
-            _log(LogLevel.Warning, $"буфер обмена: не удалось записать — {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_Clip_WriteFailed, ex.Message));
         }
         finally
         {
@@ -164,7 +166,7 @@ public sealed class WindowsClipboard : IClipboardSurface, IDisposable
             new IntPtr(HwndMessage), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
         if (_owner == IntPtr.Zero)
         {
-            _log(LogLevel.Warning, "буфер обмена: окно-владелец не создалось");
+            _log(LogLevel.Warning, Strings.Log_Clip_OwnerWindowFailed);
         }
         return _owner;
     }

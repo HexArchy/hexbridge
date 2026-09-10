@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>
@@ -41,30 +43,25 @@ public sealed partial class RoleViewModel : ObservableObject
     /// <summary>True when confirming would actually change something.</summary>
     public bool WouldChange => Selected != Current;
 
-    public string Title => IsFirstRun ? "Что делает этот компьютер?" : "Сменить роль";
+    public string Title => IsFirstRun ? Strings.Role_Title_FirstRun : Strings.Role_Title_Change;
 
     public string Footnote => Selected == BridgeRole.Sender
-        ? "Ключ создаст тот компьютер, который принимает: только он знает свой адрес. Здесь нужно будет ввести код с его экрана."
-        : "Этот компьютер создаст общий ключ и покажет код — его нужно будет ввести на второй машине.";
+        ? Strings.Role_Footnote_Sender
+        : Strings.Role_Footnote_Receiver;
 
     /// <summary>What pressing the primary button will do, in the words of the choice made.</summary>
     public string ConfirmLabel => IsFirstRun
-        ? "Продолжить"
-        : WouldChange ? "Переключить" : "Оставить как есть";
+        ? Strings.Role_Confirm_Continue
+        : WouldChange ? Strings.Role_Confirm_Switch : Strings.Role_Confirm_Keep;
 
     public string ReceiverTitle => RoleWording.Title(BridgeRole.Receiver);
     public string ReceiverSummary => RoleWording.Summary(BridgeRole.Receiver);
     public string SenderTitle => RoleWording.Title(BridgeRole.Sender);
     public string SenderSummary => RoleWording.Summary(BridgeRole.Sender);
 
-    /// <summary>
-    /// The one honest sentence about what the giving role cannot do. It belongs on the
-    /// screen where the choice is made, not three pages later where somebody has already
-    /// spent an evening wondering why their gamepad never turned up.
-    /// </summary>
-    public const string SenderCaveat =
-        "Геймпады и другие USB-устройства так пробросить нельзя — Windows не отдаёт их дескрипторы. "
-        + "Микрофон и общий буфер обмена работают.";
+    // The one honest sentence about what the giving role cannot do — Role_Sender_Caveat —
+    // is bound straight from the two views that show it. It used to live here as a constant
+    // because XAML had no other way to reach a shared string; the localizer is that way now.
 
     /// <summary>Opens the question. <paramref name="firstRun"/> hides the way out of it.</summary>
     public void Open(BridgeRole current, bool firstRun)
@@ -120,5 +117,17 @@ public sealed partial class RoleViewModel : ObservableObject
         _ = value;
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(ConfirmLabel));
+    }
+
+    /// <summary>The language changed; every string here is computed, so this is the whole of it.</summary>
+    public void Retranslate()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Footnote));
+        OnPropertyChanged(nameof(ConfirmLabel));
+        OnPropertyChanged(nameof(ReceiverTitle));
+        OnPropertyChanged(nameof(ReceiverSummary));
+        OnPropertyChanged(nameof(SenderTitle));
+        OnPropertyChanged(nameof(SenderSummary));
     }
 }

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Avalonia;
 using Velopack;
 
@@ -26,11 +25,14 @@ internal static class Program
         // the classic «инсталлятор мигнул окном» bug.
         VelopackApp.Build().Run();
 
-        // The interface is Russian throughout, so numbers get Russian separators no matter
-        // which Windows locale the machine happens to run.
-        var russian = new CultureInfo("ru-RU");
-        CultureInfo.DefaultThreadCurrentCulture = russian;
-        CultureInfo.DefaultThreadCurrentUICulture = russian;
+        // The language, before anything that could produce a string. «System» — the default
+        // — leaves the machine's own culture in place, so a Russian Windows comes up in
+        // Russian and everything else in English; an explicit choice brings its own number
+        // conventions with it, because somebody who asked for English asked for 12.5 too.
+        //
+        // Reading ui.json here rather than waiting for the view model is what keeps the very
+        // first log line and the tray tooltip in the right language.
+        HexBridge.Localization.Language.Apply(AppSettings.Load().Language);
 
         var index = Array.IndexOf(args, "--config");
         if (index >= 0 && index + 1 < args.Length) ConfigPath = args[index + 1];

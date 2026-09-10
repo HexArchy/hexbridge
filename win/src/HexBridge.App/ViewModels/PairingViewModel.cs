@@ -8,20 +8,28 @@ using HexBridge.Devices;
 using HexBridge.Microphone;
 using Net.Codecrete.QrCodeGenerator;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>
 /// One line of the step-1 checklist: a fact about this PC and, when the fact is not what
 /// the user wants, the sentence that says what to do about it.
 /// </summary>
-public sealed partial class ReadinessItem(string title, string hint) : ObservableObject
+public sealed partial class ReadinessItem(string titleKey, string hintKey) : ObservableObject
 {
-    public string Title { get; } = title;
+    // Keys rather than strings: the checklist is built once, when the wizard opens, and a
+    // language switched while it is on screen has to reach the lines already drawn.
+    public string TitleKey { get; } = titleKey;
+
+    public string HintKey { get; } = hintKey;
+
+    public string Title => Loc.Of(TitleKey);
 
     /// <summary>What to do about it. Shown only while the line is not green.</summary>
-    public string Hint { get; } = hint;
+    public string Hint => Loc.Of(HintKey);
 
-    [ObservableProperty] private string _value = "проверяется";
+    [ObservableProperty] private string _value = Strings.Pairing_Ready_Checking;
     [ObservableProperty] private bool _isOk;
     [ObservableProperty] private bool _isBad;
 
@@ -30,6 +38,12 @@ public sealed partial class ReadinessItem(string title, string hint) : Observabl
         IsOk = ok;
         IsBad = !ok;
         Value = value;
+    }
+
+    public void Retranslate()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Hint));
     }
 }
 
@@ -44,15 +58,15 @@ public sealed partial class FoundHostViewModel(DiscoveredHost host, string note,
 {
     public DiscoveredHost Host { get; } = host;
 
-    public string Title { get; } = string.IsNullOrWhiteSpace(host.Name) ? "без имени" : host.Name;
-    public string Address { get; } = host.Target.Length == 0 ? "адрес выясняется" : host.Target;
+    public string Title { get; } = string.IsNullOrWhiteSpace(host.Name) ? Strings.Pairing_Host_Unnamed : host.Name;
+    public string Address { get; } = host.Target.Length == 0 ? Strings.Pairing_Host_NoAddress : host.Target;
     public string Note { get; } = note;
     public bool IsOurs { get; } = isOurs;
     public bool CanDial { get; } = host.Target.Length > 0;
 }
 
 /// <summary>One line of the §9.4 connection check.</summary>
-public sealed partial class CheckItem(int number, string title) : ObservableObject
+public sealed partial class CheckItem(int number, string titleKey) : ObservableObject
 {
     public int Number { get; } = number;
 
@@ -60,8 +74,13 @@ public sealed partial class CheckItem(int number, string title) : ObservableObje
     /// Settable because the same six lines ask the same six questions in both roles, and
     /// four of them are worded for whichever machine is asking. Six more CheckItems for the
     /// other role would be six more places for the wording and the logic to drift apart.
+    ///
+    /// <para>It holds the key, not the sentence, so a language change reaches a line already
+    /// drawn on the screen.</para>
     /// </summary>
-    [ObservableProperty] private string _title = title;
+    [ObservableProperty] private string _titleKey = titleKey;
+
+    public string Title => Loc.Of(TitleKey);
 
     [ObservableProperty] private CheckState _state = CheckState.Pending;
     [ObservableProperty] private string _detail = "";
@@ -80,6 +99,18 @@ public sealed partial class CheckItem(int number, string title) : ObservableObje
         State = outcome.State;
         Detail = outcome.Detail;
     }
+
+    partial void OnTitleKeyChanged(string value)
+    {
+        _ = value;
+        OnPropertyChanged(nameof(Title));
+    }
+
+    /// <summary>
+    /// The language changed. The detail beside the line is not touched: it was measured at a
+    /// moment — a fingerprint, a round trip, a device name — and the next run rewrites it.
+    /// </summary>
+    public void Retranslate() => OnPropertyChanged(nameof(Title));
 
     partial void OnStateChanged(CheckState value)
     {
@@ -152,7 +183,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
     [ObservableProperty] private bool _isOpen;
     [ObservableProperty] private int _step;
-    [ObservableProperty] private string _title = "Связать этот компьютер со второй машиной";
+    [ObservableProperty] private string _title = Strings.Pairing_Title_Step1;
 
     /// <summary>
     /// Which side of the pairing this machine is. The one that listens makes the key and
@@ -215,12 +246,12 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         _log = log;
         _discovery = discovery;
 
-        Checks.Add(new CheckItem(1, "Адрес разрешается"));
-        Checks.Add(new CheckItem(2, "Пакеты доходят"));
-        Checks.Add(new CheckItem(3, "Ключи совпадают"));
-        Checks.Add(new CheckItem(4, "Аудиоустройство найдено"));
-        Checks.Add(new CheckItem(5, "Звук проходит насквозь"));
-        Checks.Add(new CheckItem(6, "Проброшенные устройства"));
+        Checks.Add(new CheckItem(1, "Check_Address_Receiving"));
+        Checks.Add(new CheckItem(2, "Check_Traffic_Receiving"));
+        Checks.Add(new CheckItem(3, "Check_Keys"));
+        Checks.Add(new CheckItem(4, "Check_Device_Receiving"));
+        Checks.Add(new CheckItem(5, "Check_Sound_Receiving"));
+        Checks.Add(new CheckItem(6, "Check_Devices"));
     }
 
     public bool IsGiving => Role == BridgeRole.Sender;
@@ -231,12 +262,12 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     /// computer and concluding the product is broken.
     /// </summary>
     public string SoundPrompt => IsGiving
-        ? "Скажите что-нибудь вслух рядом с этим компьютером"
-        : "Скажите что-нибудь вслух рядом со второй машиной";
+        ? Strings.Pairing_Sound_Prompt_Sharing
+        : Strings.Pairing_Sound_Prompt_Receiving;
 
     public string SoundNote => IsGiving
-        ? "Уровень измеряется здесь, до отправки."
-        : "Уровень измеряется на этом компьютере, а не на второй машине.";
+        ? Strings.Pairing_Sound_Note_Sharing
+        : Strings.Pairing_Sound_Note_Receiving;
 
     partial void OnRoleChanged(BridgeRole value)
     {
@@ -259,24 +290,17 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         Readiness.Clear();
         if (IsGiving)
         {
-            Readiness.Add(new ReadinessItem("Микрофон",
-                "Подключите микрофон или гарнитуру — это то, что будет уходить на вторую машину."));
-            Readiness.Add(new ReadinessItem("Доступ к микрофону",
-                "Разрешите приложениям доступ к микрофону: Параметры → Конфиденциальность → Микрофон."));
-            Readiness.Add(new ReadinessItem("Адрес в сети",
-                "Подключите этот компьютер к той же сети, что и вторую — по кабелю или по Wi-Fi."));
-            Readiness.Add(new ReadinessItem("Вторая машина",
-                "Откройте HexBridge на второй машине и дойдите там до экрана с кодом."));
+            Readiness.Add(new ReadinessItem("Pairing_Ready_Microphone", "Pairing_Ready_Microphone_Hint"));
+            Readiness.Add(new ReadinessItem("Pairing_Ready_MicAccess", "Pairing_Ready_MicAccess_Hint"));
+            Readiness.Add(new ReadinessItem("Pairing_Ready_Network", "Pairing_Ready_Network_Hint"));
+            Readiness.Add(new ReadinessItem("Pairing_Ready_Peer", "Pairing_Ready_Peer_Hint"));
             return;
         }
 
-        Readiness.Add(new ReadinessItem("Драйвер usbip-win2", UsbIpAttacher.InstallHint));
-        Readiness.Add(new ReadinessItem("Виртуальный аудиокабель",
-            "Без него принятый звук некуда отдать. Установите Steam или VB-Audio Virtual Cable."));
-        Readiness.Add(new ReadinessItem("Порт UDP",
-            "Разрешите HexBridge в брандмауэре Windows для частной сети."));
-        Readiness.Add(new ReadinessItem("Адрес в сети",
-            "Подключите этот компьютер к той же сети, что и вторую — по кабелю или по Wi-Fi."));
+        Readiness.Add(new ReadinessItem("Pairing_Ready_Driver", "Devices_Driver_InstallHint"));
+        Readiness.Add(new ReadinessItem("Pairing_Ready_Cable", "Pairing_Ready_Cable_Hint"));
+        Readiness.Add(new ReadinessItem("Pairing_Ready_Port", "Pairing_Ready_Port_Hint"));
+        Readiness.Add(new ReadinessItem("Pairing_Ready_Network", "Pairing_Ready_Network_Hint"));
     }
 
     // MARK: - Step bookkeeping
@@ -305,11 +329,31 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
     private void Retitle() => Title = Step switch
     {
-        0 => "Связать этот компьютер со второй машиной",
-        1 => IsGiving ? "Код со второй машины" : "Код для второй машины",
-        2 => "Ждём вторую машину",
-        _ => "Проверка связи",
+        0 => Strings.Pairing_Title_Step1,
+        1 => IsGiving ? Strings.Pairing_Title_Step2_Sharing : Strings.Pairing_Title_Step2_Receiving,
+        2 => Strings.Pairing_Title_Step3,
+        _ => Strings.Pairing_Title_Step4,
     };
+
+    /// <summary>
+    /// The language changed. The wizard is the one screen in the app that is not rebuilt from
+    /// a snapshot ten times a second, so every line of it is listed here by hand.
+    /// </summary>
+    public void Retranslate()
+    {
+        Retitle();
+        OnPropertyChanged(nameof(SoundPrompt));
+        OnPropertyChanged(nameof(SoundNote));
+        foreach (var item in Readiness) item.Retranslate();
+        foreach (var check in Checks) check.Retranslate();
+
+        // Two lines that say what the network is doing right now, and one that reports a
+        // measurement the user is looking at. Re-reading the facts is the only honest way to
+        // put them into another language.
+        if (IsOpen && Step == 0) Survey();
+        if (_browser is not null) ShowFound(_browser.Hosts);
+        if (IsFinished) Conclude();
+    }
 
     // MARK: - Opening and closing
 
@@ -360,8 +404,8 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         _browser = browser;
 
         BrowseText = browser.Error is { } error
-            ? $"Автопоиск недоступен: {error}. Введите адрес второй машины вручную."
-            : "Ищем HexBridge в сети…";
+            ? Loc.F(Strings.Pairing_Browse_Unavailable, error)
+            : Strings.Pairing_Browse_Searching;
         ShowFound(browser.Hosts);
     }
 
@@ -373,16 +417,16 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         foreach (var host in hosts)
         {
             var ours = DiscoveryTag.Same(ownTag, host.Tag);
-            var note = ours ? "это ваша вторая машина"
-                : host.Tag is null ? "ещё ни с кем не связана"
-                : "связана с другой машиной";
+            var note = ours ? Strings.Pairing_Host_Ours
+                : host.Tag is null ? Strings.Pairing_Host_Unpaired
+                : Strings.Pairing_Host_Other;
             Found.Add(new FoundHostViewModel(host, note, ours));
         }
 
         if (_browser?.Error is not null) return;
         BrowseText = Found.Count == 0
-            ? "Пока никого не видно. Откройте HexBridge на второй машине — или введите её адрес вручную."
-            : "Выберите машину и введите код с её экрана.";
+            ? Strings.Pairing_Browse_Empty
+            : Strings.Pairing_Browse_Found;
 
         // A machine that already published our own tag is the one we are paired with, so its
         // address is filled in without asking. The key is not touched: an address is not a
@@ -422,15 +466,14 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
         if (!ShortCode.IsComplete(typed))
         {
-            ConnectError = "Код состоит из двенадцати символов — например ABCD-EFGH-JKLM. "
-                + "Можно вставить и ссылку hexbridge://pair целиком.";
+            ConnectError = Strings.Pairing_Error_ShortCode;
             return;
         }
 
         var (host, port) = SplitTarget(EnteredHost);
         if (host.Length == 0)
         {
-            ConnectError = "Не указан адрес второй машины. Выберите её в списке или впишите вида 192.168.1.10.";
+            ConnectError = Strings.Pairing_Error_NoHost;
             return;
         }
 
@@ -444,7 +487,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
                 return;
             }
 
-            _log(LogLevel.Info, $"hexbridge: код принят, отпечаток {result.Payload!.Fingerprint}");
+            _log(LogLevel.Info, Loc.F(Strings.Log_CodeAccepted, result.Payload!.Fingerprint));
             Adopt(result.Payload);
         }
         finally
@@ -506,18 +549,18 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         }
 
         var driver = UsbIpAttacher.Locate(config.UsbIpPath);
-        Readiness[0].Set(driver is not null, driver ?? "не установлен");
+        Readiness[0].Set(driver is not null, driver ?? Strings.Pairing_Ready_NotInstalled);
 
         var device = FindOutputDevice(config);
-        Readiness[1].Set(device is not null, device ?? "не найден");
+        Readiness[1].Set(device is not null, device ?? Strings.Pairing_Ready_NotFound);
 
         // Whether the port is actually open cannot be known from inside this process —
         // that needs a packet from outside — so the line says what is true and no more.
         var port = ParsePort(config.Listen);
-        Readiness[2].Set(true, $"{port} — проверяется на шаге 4");
+        Readiness[2].Set(true, Loc.F(Strings.Pairing_Ready_PortAtStep4, port));
 
         var address = MulticastDns.LocalAddresses().FirstOrDefault();
-        Readiness[3].Set(address is not null, address?.ToString() ?? "сеть недоступна");
+        Readiness[3].Set(address is not null, address?.ToString() ?? Strings.Pairing_Ready_NoNetwork);
     }
 
     /// <summary>
@@ -528,17 +571,17 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     private void SurveyGiving(ReceiverConfig config)
     {
         var microphone = FindInputDevice(config);
-        Readiness[0].Set(microphone is not null, microphone ?? "не найден");
+        Readiness[0].Set(microphone is not null, microphone ?? Strings.Pairing_Ready_NotFound);
 
         // Whether Windows will actually hand over the samples cannot be known without asking
         // for them, and asking here would put a permission prompt in front of somebody who
         // is reading a checklist. It becomes a real answer at step 4, where sound is measured.
-        Readiness[1].Set(true, "проверяется на шаге 4");
+        Readiness[1].Set(true, Strings.Pairing_Ready_AtStep4);
 
         var address = MulticastDns.LocalAddresses().FirstOrDefault();
-        Readiness[2].Set(address is not null, address?.ToString() ?? "сеть недоступна");
+        Readiness[2].Set(address is not null, address?.ToString() ?? Strings.Pairing_Ready_NoNetwork);
 
-        Readiness[3].Set(true, "нужен её код");
+        Readiness[3].Set(true, Strings.Pairing_Ready_NeedsCode);
     }
 
     private static string? FindInputDevice(ReceiverConfig config)
@@ -667,7 +710,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
             // A payload that will not encode is a bug, not a user error — but the short
             // code still works, so the wizard keeps going and says so in the log.
             Qr = null;
-            _log(LogLevel.Warning, $"hexbridge: QR не построился: {ex.Message}");
+            _log(LogLevel.Warning, Loc.F(Strings.Log_QrFailed, ex.Message));
         }
     }
 
@@ -683,14 +726,15 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         var left = _codeExpiresAt - DateTime.UtcNow;
         if (left <= TimeSpan.Zero)
         {
-            CountdownText = "Код истёк";
+            CountdownText = Strings.Pairing_Code_Expired;
             // The listener stops answering the moment the code is dead, rather than
             // waiting for the user to notice the label.
             if (_exchange is not null) _exchange.Code = "";
             return;
         }
 
-        CountdownText = $"Код действует ещё {left.Minutes}:{left.Seconds:00}";
+        CountdownText = Loc.F(Strings.Pairing_Code_Valid,
+            $"{left.Minutes}:{left.Seconds.ToString("00", System.Globalization.CultureInfo.InvariantCulture)}");
     }
 
     /// <summary>
@@ -727,7 +771,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
             catch (Exception ex)
             {
                 _exchange = null;
-                _log(LogLevel.Warning, $"hexbridge: обмен по короткому коду недоступен: {ex.Message}");
+                _log(LogLevel.Warning, Loc.F(Strings.Log_ExchangeUnavailable, ex.Message));
             }
         }
 
@@ -739,14 +783,14 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
         IsDiscovering = _discovery.IsPublishing;
         DiscoveryText = _discovery.Error is { } error
-            ? $"Автопоиск недоступен: {error}. Код и QR работают как обычно."
-            : "Mac найдёт этот ПК сам — выберите его в списке и введите код с этого экрана.";
+            ? Loc.F(Strings.Pairing_Discovery_Unavailable, error)
+            : Strings.Pairing_Discovery_Ok;
     }
 
     /// <summary>Raised on the exchange server's own thread; the UI is touched on the UI one.</summary>
     private void OnPaired() => Dispatcher.UIThread.Post(() =>
     {
-        _log(LogLevel.Info, "hexbridge: Mac забрал ключ связывания");
+        _log(LogLevel.Info, Strings.Log_KeyTaken);
         if (Step <= 2) Step = 3;
         _ = RunChecksAsync();
     });
@@ -793,9 +837,9 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
             // The first line asks the same question of a different address: the machine that
             // listens checks what it is listening on, the one that dials checks what it dials.
-            Checks[0].Title = IsGiving ? "Адрес второй машины разбирается" : "Адрес разрешается";
-            Checks[1].Title = IsGiving ? "Ответ приходит" : "Пакеты доходят";
-            Checks[3].Title = IsGiving ? "Микрофон найден" : "Аудиоустройство найдено";
+            Checks[0].TitleKey = IsGiving ? "Check_Address_Sharing" : "Check_Address_Receiving";
+            Checks[1].TitleKey = IsGiving ? "Check_Traffic_Sharing" : "Check_Traffic_Receiving";
+            Checks[3].TitleKey = IsGiving ? "Check_Device_Sharing" : "Check_Device_Receiving";
 
             await Advance(Checks[0],
                 () => PairingChecks.Address(IsGiving ? config.Relay ?? config.Target : config.Listen), gap, token);
@@ -814,7 +858,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
             var devices = _snapshot.Feature<DevicesState>("devices");
             await Advance(Checks[5],
                 () => IsGiving
-                    ? CheckOutcome.Skip("отсюда устройства не пробрасываются")
+                    ? CheckOutcome.Skip(Strings.Check_Detail_NoForwardingHere)
                     : PairingChecks.Controller(config.Gamepad, devices?.DriverInstalled ?? false,
                         devices?.Attached ?? false, Named(devices)), gap, token);
 
@@ -855,8 +899,8 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     {
         var item = Checks[4];
         item.State = CheckState.Running;
-        item.Detail = "скажите что-нибудь вслух";
-        Checks[4].Title = IsGiving ? "Микрофон слышит голос" : "Звук проходит насквозь";
+        item.Detail = Strings.Check_Detail_SaySomething;
+        Checks[4].TitleKey = IsGiving ? "Check_Sound_Sharing" : "Check_Sound_Receiving";
 
         _soundPeak = 0;
         _soundStartedAt = DateTime.UtcNow;
@@ -868,7 +912,7 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
             var left = PairingChecks.SoundWindow - elapsed;
             if (left <= TimeSpan.Zero) break;
 
-            SoundCountdown = $"{left.TotalSeconds:0} с";
+            SoundCountdown = Loc.Seconds(left.TotalSeconds);
             var outcome = PairingChecks.Sound(_soundPeak, windowElapsed: false, capturing: IsGiving);
             if (outcome.State == CheckState.Passed)
             {
@@ -905,24 +949,24 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         if (AllPassed)
         {
             var device = _snapshot.Feature<MicrophoneState>("microphone");
-            ResultHeadline = "Всё работает";
-            var peer = _snapshot.SenderName is { Length: > 0 } named ? named : "вторую машину";
+            ResultHeadline = Strings.Pairing_Result_Ok;
+            var peer = _snapshot.SenderName is { Length: > 0 } named ? named : Strings.Pairing_Peer_Fallback;
             ResultDetail = IsGiving
-                ? $"Микрофон этого компьютера уходит на {peer}."
+                ? Loc.F(Strings.Pairing_Result_Ok_Sharing, peer)
                 : device?.PairedCaptureName is { } capture
-                    ? $"Звук идёт на {MachineName}. В играх выбирайте микрофон {capture}."
-                    : $"Звук идёт на {MachineName}.";
+                    ? Loc.F(Strings.Pairing_Result_Ok_Receiving_WithCapture, MachineName, capture)
+                    : Loc.F(Strings.Pairing_Result_Ok_Receiving, MachineName);
             return;
         }
 
         ResultHeadline = failed[0].Number switch
         {
-            1 => IsGiving ? "Адрес второй машины не разбирается" : "Адрес этого компьютера не определяется",
-            2 => IsGiving ? "Вторая машина не отвечает" : "Пакеты со второй машины не доходят",
-            3 => "Ключи не совпадают",
-            4 => IsGiving ? "Микрофон не найден" : "Принятый звук некуда отдать",
-            5 => IsGiving ? "Микрофон молчит" : "Звук не доходит",
-            _ => "Контроллер не проброшен",
+            1 => IsGiving ? Strings.Pairing_Fail_Address_Sharing : Strings.Pairing_Fail_Address_Receiving,
+            2 => IsGiving ? Strings.Pairing_Fail_Traffic_Sharing : Strings.Pairing_Fail_Traffic_Receiving,
+            3 => Strings.Pairing_Fail_Keys,
+            4 => IsGiving ? Strings.Pairing_Fail_Device_Sharing : Strings.Pairing_Fail_Device_Receiving,
+            5 => IsGiving ? Strings.Pairing_Fail_Sound_Sharing : Strings.Pairing_Fail_Sound_Receiving,
+            _ => Strings.Pairing_Fail_Controller,
         };
         ResultDetail = failed[0].Detail;
     }

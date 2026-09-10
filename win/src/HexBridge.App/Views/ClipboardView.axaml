@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
              xmlns:vm="using:HexBridge.App.ViewModels"
              x:Class="HexBridge.App.Views.ClipboardView"
              x:DataType="vm:ClipboardViewModel">
@@ -32,7 +33,7 @@
               BorderThickness="1"
               IsVisible="{Binding IsOn}">
         <TextBlock Classes="body" TextWrapping="Wrap"
-                   Text="Скопированное на любой из двух машин уходит на другую — включая пароли. Передаются текст и картинки PNG." />
+                   Text="{l:Tr Clipboard_Privacy}" />
       </Border>
 
       <!-- The bar only. What is moving and which way is the headline above it. -->
@@ -44,13 +45,13 @@
       <UniformGrid Columns="2" IsVisible="{Binding IsOn}">
         <Border Classes="tile" Margin="0,0,8,0">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Отправлено объектов" />
+            <TextBlock Classes="label" Text="{l:Tr Clipboard_Metric_Sent}" />
             <TextBlock Classes="metric" Text="{Binding SentText}" />
           </StackPanel>
         </Border>
         <Border Classes="tile">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Принято объектов" />
+            <TextBlock Classes="label" Text="{l:Tr Clipboard_Metric_Received}" />
             <TextBlock Classes="metric" Text="{Binding ReceivedText}" />
           </StackPanel>
         </Border>
@@ -58,17 +59,17 @@
 
       <Border Classes="card" IsVisible="{Binding IsOn}">
         <StackPanel Spacing="12">
-          <TextBlock Classes="section" Text="ПОСЛЕДНЯЯ ПЕРЕДАЧА" />
+          <TextBlock Classes="section" Text="{l:Tr Clipboard_Section_Last}" />
           <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto">
-            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Что" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="{l:Tr Clipboard_Label_What}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="0" Grid.Column="1" Classes="body" Text="{Binding LastText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Куда" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="{l:Tr Clipboard_Label_Where}" Margin="0,0,0,8" />
             <TextBlock Grid.Row="1" Grid.Column="1" Classes="body" Text="{Binding LastDirectionText}" Margin="0,0,0,8" />
-            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Когда" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="{l:Tr Clipboard_Label_When}" />
             <TextBlock Grid.Row="2" Grid.Column="1" Classes="body" Text="{Binding LastWhenText}" />
           </Grid>
           <TextBlock Classes="caption" TextWrapping="Wrap"
-                     Text="Записывается вид и размер объекта, не содержимое." />
+                     Text="{l:Tr Clipboard_Note_Recorded}" />
         </StackPanel>
       </Border>
 

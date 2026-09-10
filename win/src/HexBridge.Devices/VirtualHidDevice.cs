@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Devices;
 
 /// <summary>
@@ -112,11 +114,11 @@ public sealed class VirtualHidDevice : IUsbIpDevice, IDisposable
         DeviceNumber = attach.Device;
 
         var deviceBytes = attach.First(DescriptorKind.Device)
-            ?? throw new FormatException("в DEV_ATTACH нет дескриптора устройства");
+            ?? throw new FormatException(Strings.Err_Dev_NoDeviceDescriptor);
         var configBytes = attach.First(DescriptorKind.Configuration)
-            ?? throw new FormatException("в DEV_ATTACH нет дескриптора конфигурации");
+            ?? throw new FormatException(Strings.Err_Dev_NoConfigDescriptor);
         _reportDescriptor = attach.First(DescriptorKind.HidReport)
-            ?? throw new FormatException("в DEV_ATTACH нет HID report descriptor");
+            ?? throw new FormatException(Strings.Err_Dev_NoReportDescriptor);
 
         _device = UsbDeviceDescriptor.Parse(deviceBytes);
         _configuration = UsbConfigurationDescriptor.FromFullDescriptor(configBytes, withAudio: haptics);

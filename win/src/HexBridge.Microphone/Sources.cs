@@ -3,6 +3,8 @@ using System.Runtime.Versioning;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
+using HexBridge.Localization;
+
 namespace HexBridge.Microphone;
 
 /// <summary>
@@ -129,13 +131,13 @@ public sealed class WasapiSource : IAudioSource
 
         _format = _recorder.WaveFormat;
         _assembler = new FrameAssembler(_format.SampleRate, _format.Channels, gain);
-        _description = $"{device.FriendlyName} [{_format.SampleRate} Гц, {_format.Channels} ch]" +
-                       (_format.SampleRate == FrameAssembler.SampleRate ? "" : " → пересчёт в 48000 Гц");
+        _description = Loc.F(Strings.Audio_Device_Format, device.FriendlyName, _format.SampleRate, _format.Channels) +
+                       (_format.SampleRate == FrameAssembler.SampleRate ? "" : Strings.Audio_Device_Resampled);
 
         _recorder.DataAvailable += OnData;
         _recorder.RecordingStopped += (_, e) => Faulted?.Invoke(e.Exception is null
-            ? "hexbridge: захват остановлен — устройство пропало"
-            : $"hexbridge: захват остановлен: {e.Exception.Message}");
+            ? Strings.Log_CaptureStoppedGone
+            : Loc.F(Strings.Log_CaptureStopped, e.Exception.Message));
     }
 
     public string Describe() => _description;
@@ -257,7 +259,7 @@ public abstract class PacedSource : IAudioSource
 /// <summary>Silence at the right rate — a link with nothing to say, on purpose.</summary>
 public sealed class SilentSource : PacedSource
 {
-    public override string Describe() => "null (ничего не захватывается)";
+    public override string Describe() => Strings.Audio_Source_Null;
 
     /// <summary>The pump already handed us a cleared frame, which is the whole of silence.</summary>
     protected override void Fill(Span<float> frame, long frameIndex) { }
@@ -272,7 +274,7 @@ public sealed class ToneSource : PacedSource
     public const double Frequency = 440;
     public const float Amplitude = 0.5f;
 
-    public override string Describe() => $"тон {Frequency:F0} Гц (проверка тракта)";
+    public override string Describe() => Loc.F(Strings.Audio_Source_Tone, Frequency.ToString("F0", System.Globalization.CultureInfo.CurrentCulture));
 
     protected override void Fill(Span<float> frame, long frameIndex)
     {
@@ -298,11 +300,12 @@ public sealed class WaveFileSource : PacedSource
     {
         _path = path;
         _mono = ReadAll(path, gain);
-        if (_mono.Length == 0) throw new InvalidOperationException($"в «{path}» нет звука");
+        if (_mono.Length == 0) throw new InvalidOperationException(Loc.F(Strings.Audio_Source_NoSound, path));
     }
 
     public override string Describe() =>
-        $"файл {Path.GetFileName(_path)} ({_mono.Length / (double)FrameAssembler.SampleRate:F1} с, по кругу)";
+        Loc.F(Strings.Audio_Source_File, Path.GetFileName(_path),
+            (_mono.Length / (double)FrameAssembler.SampleRate).ToString("F1", System.Globalization.CultureInfo.CurrentCulture));
 
     protected override void Fill(Span<float> frame, long frameIndex)
     {

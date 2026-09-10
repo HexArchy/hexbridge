@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
+using HexBridge.Localization;
+
 namespace HexBridge.App.ViewModels;
 
 /// <summary>
@@ -71,10 +73,6 @@ public abstract partial class PageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPending));
     }
 
-    /// <summary>«2 ч 05 м», «3 м 12 с», «41 с» — never a bare number of seconds past a minute.</summary>
-    protected static string Duration(TimeSpan span) => span.TotalHours >= 1
-        ? $"{(int)span.TotalHours} ч {span.Minutes:00} м"
-        : span.TotalMinutes >= 1
-            ? $"{span.Minutes} м {span.Seconds:00} с"
-            : $"{span.Seconds} с";
+    /// <summary>«2 h 05 m», «3 m 12 s», «41 s» — never a bare number of seconds past a minute.</summary>
+    protected static string Duration(TimeSpan span) => Loc.Duration(span);
 }
