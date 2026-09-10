@@ -36,13 +36,23 @@ public static class DeviceCatalog
     /// Tried in order. Steam's driver ships with every Steam install; the VB-Audio and
     /// VoiceMeeter cables are the usual alternatives.
     /// </summary>
+    /// <summary>
+    /// Tried in this order.
+    ///
+    /// VB-Cable comes first even though Steam's cable is more likely to be already
+    /// installed. Sunshine's maintainers state there is no ARM64 build of Steam
+    /// Streaming Microphone, and Apollo's testers report it either not working as a
+    /// capture device or emitting full-volume white noise on x64 — that project
+    /// moved to VB-Cable for the same reason. Steam's stays in the list because on a
+    /// machine that has only it, it is better than nothing.
+    /// </summary>
     public static readonly string[] PreferredPatterns =
     [
-        "Steam Streaming Microphone",
         "CABLE Input",
         "VoiceMeeter Aux Input",
         "VoiceMeeter Input",
         "VB-Audio",
+        "Steam Streaming Microphone",
     ];
 
     /// <summary>Steam also exposes a 16-channel variant that cannot carry plain stereo.</summary>

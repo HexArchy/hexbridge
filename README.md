@@ -35,7 +35,7 @@ sending side, for a reason spelled out under [Limitations](#limitations).
 
 | | What it does | What you need on Windows |
 |---|---|---|
-| **Microphone** | Audio from the Mac arrives on the PC and shows up to games and Discord as a normal microphone | A virtual audio cable: Steam Streaming Microphone (installed with Steam) or [VB-Cable](https://vb-audio.com/Cable/) |
+| **Microphone** | Audio from the Mac arrives on the PC and shows up to games and Discord as a normal microphone | A virtual audio cable — [VB-Cable](https://vb-audio.com/Cable/) is the one to install |
 | **DualSense** | A controller plugged into the Mac appears on the PC as a genuine PS5 gamepad | The [usbip-win2](https://github.com/vadimgrn/usbip-win2) driver, signed by Microsoft |
 
 The features are independent: run only the microphone, only the gamepad, or both.
@@ -133,6 +133,18 @@ Needed only when the Mac cannot reach the PC directly. Both sides dial out to th
 relay themselves, so no port forwarding is required on either end. The relay sees
 only the header and cannot decrypt either the audio or the input. Deployment:
 [docs/VPS.md](docs/VPS.md).
+
+### Which virtual cable
+
+Install **VB-Cable**. HexBridge writes into its input, games pick the paired
+output, and that is the whole setup.
+
+Steam Streaming Microphone, which arrives with Steam, is also detected and will
+be used if it is the only one present — but do not go out of your way for it.
+Sunshine's own maintainers state there is no ARM64 build of it, and testers on
+Apollo report it either failing to act as a capture device or producing
+full-volume white noise on x64, which is why that project moved to VB-Cable as
+well. If you have both, HexBridge prefers Steam's only when VB-Cable is absent.
 
 ## Languages
 
