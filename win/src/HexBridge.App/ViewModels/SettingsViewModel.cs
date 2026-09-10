@@ -30,6 +30,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public Func<string, Task>? CopyToClipboard { get; set; }
 
+    /// <summary>
+    /// The update card, owned by the shell and shown here. Handed over rather than created
+    /// because a check is a thing the whole app does once a day, not a thing a settings
+    /// page does whenever it is opened.
+    /// </summary>
+    public UpdateViewModel? Updates { get; set; }
+
     public ObservableCollection<DeviceOption> Devices { get; } = [];
 
     public IReadOnlyList<OutputMode> OutputModes { get; } =
@@ -76,6 +83,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _autostart;
     [ObservableProperty] private string? _autostartError;
 
+    /// <summary>
+    /// «Проверять обновления». Applies immediately like the other preferences below the
+    /// line — an off switch that needs «Сохранить» to take effect is not an off switch.
+    /// </summary>
+    [ObservableProperty] private bool _autoUpdate = true;
+
     /// <summary>Gain shown the way the user thinks about it, rather than as a multiplier.</summary>
     public string GainText => Gain <= 0.001 ? "тишина" : $"{20 * Math.Log10(Gain):+0.0;-0.0;0.0} дБ";
 
@@ -111,6 +124,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Theme = Themes.First(t => t.Value == ui.Theme);
         StartOnLaunch = ui.StartOnLaunch;
         StartMinimised = ui.StartMinimised;
+        AutoUpdate = ui.AutoUpdate;
         // Read back from the registry rather than ui.json: the Run key is the
         // real state, and it can be changed outside this app.
         Autostart = HexBridge.App.Autostart.IsEnabled;
@@ -220,6 +234,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Theme = Theme?.Value ?? ThemePreference.System,
         StartOnLaunch = StartOnLaunch,
         StartMinimised = StartMinimised,
+        AutoUpdate = AutoUpdate,
     });
 
     private bool Validate()
@@ -286,7 +301,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             case nameof(Psk): OnPropertyChanged(nameof(FingerprintText)); break;
             // Bookkeeping and the preferences that apply immediately are not "unsaved edits".
             case nameof(IsDirty) or nameof(ValidationError) or nameof(PskRevealed) or nameof(DeviceNotice)
-                or nameof(Theme) or nameof(StartOnLaunch) or nameof(StartMinimised):
+                or nameof(Theme) or nameof(StartOnLaunch) or nameof(StartMinimised) or nameof(AutoUpdate):
                 return;
         }
 

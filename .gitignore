@@ -7,6 +7,12 @@ dist/
 **/ui.json
 *.psk
 
+# Приватный ключ подписи обновлений Sparkle. Он живёт здесь на машине релиз-менеджера
+# и как секрет SPARKLE_PRIVATE_KEY в GitHub Actions — см. docs/UPDATES.md. Попадание
+# его в репозиторий означает, что кто угодно может подписать «обновление» HexBridge.
+secrets/
+*_private_key
+
 # Сборка
 mac/.build/
 mac/build/

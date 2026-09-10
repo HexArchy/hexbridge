@@ -32,12 +32,30 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly string _configPath;
     private readonly AppSettings _ui;
 
+    /// <summary>
+    /// The Bonjour advertisement, alive for as long as the receiver is (PROTOCOL.md,
+    /// «Автопоиск хоста»). It is the shell's and not the wizard's, because the reason it
+    /// exists outlasts pairing by months: the tag is not tied to an address, so a Mac that
+    /// was paired last year finds this PC again after the router hands it a new lease —
+    /// but only if the advertisement is still on the wire to be found.
+    /// </summary>
+    private readonly DiscoveryPublisher _discovery;
+
+    private readonly DateTime _startedAt = DateTime.UtcNow;
+
     private ReceiverConfig _config;
     private int _ticksToSample;
     private bool _stoppedByUser;
 
     public SettingsViewModel Settings { get; } = new();
     public LogViewModel Log { get; } = new();
+
+    /// <summary>
+    /// Updates (docs/UPDATES.md). Driven from the same clock as everything else, and it
+    /// does nothing at all on all but one tick a day — and nothing ever, when the switch in
+    /// the settings is off.
+    /// </summary>
+    public UpdateViewModel Updates { get; }
 
     /// <summary>
     /// The pairing wizard (§9). It lives on the shell rather than on a page because it is
@@ -76,8 +94,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         ConfigPathText = _configPath;
         _ui = AppSettings.Load();
         _config = ReceiverConfig.Load(_configPath);
+        _discovery = new DiscoveryPublisher(Log.Add);
+        Updates = new UpdateViewModel(
+            isEnabled: () => _ui.AutoUpdate,
+            rememberCheck: when =>
+            {
+                _ui.LastUpdateCheckUtc = when;
+                _ui.Save();
+            },
+            log: Log.Add);
 
-        Pairing = new PairingViewModel(() => _config, CommitPairingAsync, Log.Add);
+        Pairing = new PairingViewModel(() => _config, CommitPairingAsync, Log.Add, _discovery);
 
         _modules = FeatureUiCatalog.For(_receiver.Features);
         foreach (var page in _modules.SelectMany(module => module.CreatePages())) Pages.Add(page);
@@ -85,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Pages.Add(new FeaturePage("Журнал", Log));
 
         SelectedTab = Math.Clamp(_ui.LastTab, 0, Pages.Count - 1);
+        Settings.Updates = Updates;
         Settings.Load(_config, _ui);
         Settings.SaveRequested += OnSaveRequested;
         Settings.PairRequested += Pairing.Open;
@@ -166,6 +194,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         _stoppedByUser = false;
         await RunGuarded(() => _receiver.StartAsync(_config));
+        Advertise();
     }
 
     [RelayCommand]
@@ -174,6 +203,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _stoppedByUser = true;
         foreach (var module in _modules) module.Reset();
         await RunGuarded(() => _receiver.StopAsync());
+        // A PC that is not listening must not be findable: a Mac that dialled it would get
+        // silence and no explanation, which is worse than an empty list.
+        if (!Pairing.IsOpen) _discovery.Stop();
     }
 
     [RelayCommand]
@@ -186,6 +218,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             await _receiver.StopAsync();
             await _receiver.StartAsync(_config);
         });
+        Advertise();
+    }
+
+    /// <summary>
+    /// Puts the current key's tag and the current port on the wire. Idempotent, so calling
+    /// it after every transition costs nothing when nothing moved — and republishes the
+    /// moment the key changes, which is what makes a re-pairing stop the old Mac from
+    /// finding this PC.
+    /// </summary>
+    private void Advertise()
+    {
+        if (!_receiver.IsRunning) return;
+        _discovery.Publish(_config, Pairing.MachineName);
     }
 
     [RelayCommand]
@@ -241,6 +286,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _ui.StartOnLaunch = Settings.StartOnLaunch;
         _ui.StartMinimised = Settings.StartMinimised;
+        _ui.AutoUpdate = Settings.AutoUpdate;
 
         if (Autostart.IsEnabled != Settings.Autostart)
         {
@@ -261,6 +307,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(SettingsViewModel.AutoUpdate))
+        {
+            // Applied on the spot rather than on «Сохранить»: a switch that says «не
+            // проверять» must stop the next check, not the one after the user remembers to
+            // press save.
+            _ui.AutoUpdate = Settings.AutoUpdate;
+            _ui.Save();
+            return;
+        }
+
         if (e.PropertyName != nameof(SettingsViewModel.Theme) || Settings.Theme is null) return;
 
         _ui.Theme = Settings.Theme.Value;
@@ -284,6 +340,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             _ticksToSample = 10;
             foreach (var module in _modules) module.Sample(snapshot);
+            // Once a second, and `TickAsync` returns immediately on all but one of them a
+            // day. Fire-and-forget: an update check must never make the UI wait.
+            _ = Updates.TickAsync(_ui.LastUpdateCheckUtc, DateTime.UtcNow, DateTime.UtcNow - _startedAt);
         }
 
         Headline = snapshot.Status switch
@@ -321,6 +380,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _timer.Stop();
+        _discovery.Dispose();
         await Pairing.DisposeAsync();
         await _receiver.DisposeAsync();
     }

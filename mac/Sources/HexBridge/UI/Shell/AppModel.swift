@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import HexBridgeDiscovery
 import Observation
 
 /// What a feature is allowed to ask of the shell.
@@ -63,6 +64,14 @@ final class AppModel: FeatureHost {
     let linkCheck = LinkCheck()
     let discovery = ReceiverDiscovery()
 
+    /// Sparkle, or a hollow stand-in when this build is not an app bundle
+    /// (docs/UPDATES.md).
+    ///
+    /// Built in `init`, after the config, and not before: constructing it
+    /// starts Sparkle's scheduler, and a scheduler started before the switch
+    /// has been read would make its first check regardless of it.
+    private(set) var updater: Updater!
+
     private var uiTimer: Timer?
     private var saveTimer: Timer?
     private var muteSignal: DispatchSourceSignal?
@@ -76,6 +85,7 @@ final class AppModel: FeatureHost {
         self.runtime = runtime
         self.config = runtime.config
         self.selectedPane = UserDefaults.standard.string(forKey: Self.paneKey) ?? "general"
+        self.updater = Updater(automaticallyChecks: self.config.checksForUpdates)
         features = [
             MicrophoneFeature(host: self),
             DevicesFeature(host: self),
@@ -158,6 +168,32 @@ final class AppModel: FeatureHost {
 
     var fingerprint: String? { Pairing.fingerprint(ofBase64Key: config.psk) }
 
+    // MARK: - Updates
+
+    /// The one switch. Off means Sparkle makes no request at all.
+    var checksForUpdates: Bool {
+        get { config.checksForUpdates }
+        set {
+            config.autoUpdate = newValue
+            updater.configure(automaticallyChecks: newValue)
+            saveSoon()
+        }
+    }
+
+    /// The line under the switch: what is running, and when it last looked.
+    var updateNote: String {
+        guard updater.isAvailable else {
+            return "Эта сборка запущена не из HexBridge.app — обновлять нечего. "
+                + "Соберите приложение через mac/scripts/build-app.sh."
+        }
+        var text = "Версия \(updater.currentVersion). Ставится только по вашей команде."
+        if let last = updater.lastCheck {
+            let stamp = DateFormatter.localizedString(from: last, dateStyle: .short, timeStyle: .short)
+            text += " Последняя проверка: \(stamp)."
+        }
+        return text
+    }
+
     // MARK: - Lifecycle
 
     func onLaunch() {
@@ -165,6 +201,7 @@ final class AppModel: FeatureHost {
         // SIGUSR1 mute keeps working with the UI up; the poll timer mirrors the
         // flag back so the icon follows an external toggle.
         muteSignal = CLI.installMuteSignal(runtime)
+        startDiscovery()
 
         // 20 Hz only while somebody is looking. The popover's content view stays
         // instantiated when the popover is closed, so every model update still
@@ -355,14 +392,71 @@ final class AppModel: FeatureHost {
         config.paired = true
         saveNow()
         needsRestart = true
+        // The new key means a new tag, and from this moment the host that
+        // published the old one is a stranger. Telling the browser now rather
+        // than at the next launch is what makes the first reconnection after a
+        // re-pairing work.
+        syncDiscovery()
         restartPipeline()
+    }
+
+    // MARK: - Autodiscovery
+
+    /// The tag of this Mac's own key — the only thing that decides whether a
+    /// host found on the network is ours (PROTOCOL.md, «Автопоиск хоста»).
+    var discoveryTag: String? { DiscoveryTag.tag(forBase64Key: config.psk) }
+
+    private func startDiscovery() {
+        discovery.onRetarget = { [weak self] target in
+            self?.followHost(to: target)
+        }
+        syncDiscovery()
+        discovery.start()
+    }
+
+    /// Hands the browser the two facts it compares against. Cheap; called
+    /// whenever either could have changed.
+    private func syncDiscovery() {
+        // Address first: setting `ownTag` re-decides on the spot, and a decision
+        // taken against a stale target would «follow» the host to an address the
+        // config has already been given by hand or by a QR code.
+        discovery.currentTarget = config.target
+        discovery.ownTag = discoveryTag
+    }
+
+    /// The host moved, and this Mac follows it.
+    ///
+    /// Only ever called for a host whose tag is ours, and it changes the address
+    /// and nothing else — never the key. A router that reboots and hands out a
+    /// new lease is the most common «вчера работало, сегодня нет», and asking
+    /// the user to pair again over it would be asking them to fix something that
+    /// fixes itself.
+    private func followHost(to target: String) {
+        guard config.target != target else { return }
+        let previous = config.target
+        config.target = target
+        saveNow()
+
+        noticeText = previous.isEmpty
+            ? "Игровой ПК найден в сети: \(target)."
+            : "Игровой ПК переехал на \(target). Адрес обновлён сам, связывать заново не нужно."
+        print("hexbridge: хост нашёлся по метке на \(target) (было «\(previous.isEmpty ? "—" : previous)»)")
+
+        needsRestart = true
+        if runtime.isRunning || config.isConfigured { restartPipeline() }
     }
 
     // MARK: - Editable settings
 
     var target: String {
         get { config.target }
-        set { config.target = newValue; markNeedsRestart() }
+        set {
+            config.target = newValue
+            // Otherwise the browser would see its own last answer as stale and
+            // undo what the user just typed on the next browse cycle.
+            discovery.currentTarget = newValue
+            markNeedsRestart()
+        }
     }
 
     var nodeName: String {
@@ -372,7 +466,11 @@ final class AppModel: FeatureHost {
 
     var psk: String {
         get { config.psk }
-        set { config.psk = newValue; markNeedsRestart() }
+        set {
+            config.psk = newValue
+            discovery.ownTag = discoveryTag
+            markNeedsRestart()
+        }
     }
 
     var bitrate: Int {

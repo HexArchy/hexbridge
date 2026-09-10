@@ -19,13 +19,50 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: brew install opus
-      - run: bash mac/scripts/build-app.sh
+
+      # The tag drives both version strings in the bundle. CFBundleVersion has to
+      # increase with every release or Sparkle offers the update to nobody.
+      - name: Определить версию
+        id: version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Тесты Swift
+        run: bash mac/scripts/test.sh
+
+      - name: Собрать приложение
+        env:
+          HEXBRIDGE_VERSION: ${{ steps.version.outputs.value }}
+        run: bash mac/scripts/build-app.sh
+
       - name: Упаковать
         run: ditto -c -k --keepParent mac/build/HexBridge.app HexBridge-macOS-arm64.zip
+
+      # The appcast is built here and not in the publish job, for two reasons:
+      # `sign_update` is a macOS binary, and the archive it signs exists only on
+      # this runner. What travels onward is the signature, never the key.
+      - name: Собрать appcast для Sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::error::нет секрета SPARKLE_PRIVATE_KEY — обновления на macOS не будут подписаны, см. docs/UPDATES.md"
+            exit 1
+          fi
+          bash mac/scripts/make-appcast.sh \
+            "${{ steps.version.outputs.value }}" \
+            HexBridge-macOS-arm64.zip \
+            "https://github.com/${{ github.repository }}/releases/download/$TAG/HexBridge-macOS-arm64.zip" \
+            appcast.xml
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: HexBridge-macOS-arm64.zip
+          path: |
+            HexBridge-macOS-arm64.zip
+            appcast.xml
 
   windows:
     name: Windows
@@ -56,6 +93,57 @@ jobs:
           name: windows
           path: HexBridge-Windows-x64.zip
 
+  # Velopack cross-compiles: `vpk [win] pack -r win-x64` builds the Windows
+  # installer and the update channel on a Mac runner. It is a separate job from
+  # `windows` on purpose — that one produces the portable zip people carry to the
+  # gaming PC on a stick, this one produces the thing that updates itself.
+  velopack:
+    name: Инсталлятор Windows
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Определить версию
+        id: version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # Pinned to the same version as the Velopack package reference in
+      # HexBridge.App.csproj: the tool writes the release metadata the library
+      # reads, and a mismatch shows up as an update that never applies.
+      - name: Поставить vpk
+        run: dotnet tool install -g vpk --version 1.2.0
+
+      - name: Опубликовать под win-x64
+        run: |
+          dotnet publish win/src/HexBridge.App -c Release -r win-x64 --self-contained true -o publish/win
+
+      - name: Собрать пакет Velopack
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          vpk '[win]' pack \
+            --packId HexBridge \
+            --packVersion "${{ steps.version.outputs.value }}" \
+            --packDir publish/win \
+            --mainExe HexBridge.exe \
+            --packTitle HexBridge \
+            --packAuthors HexArchy \
+            -r win-x64 \
+            -o velopack
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velopack
+          path: |
+            velopack/HexBridge-win-Setup.exe
+            velopack/*.nupkg
+            velopack/RELEASES
+            velopack/releases.win.json
+
   relay:
     name: Релей
     runs-on: ubuntu-24.04
@@ -76,7 +164,7 @@ jobs:
 
   publish:
     name: Опубликовать релиз
-    needs: [macos, windows, relay]
+    needs: [macos, windows, velopack, relay]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -88,10 +176,24 @@ jobs:
 
       # Контрольные суммы нужны не для галочки: пакет с приёмником пользователь
       # переносит на игровой ПК вручную, и это единственный способ убедиться,
-      # что доехало то же самое.
+      # что доехало то же самое. appcast.xml в них не участвует: он сам подписан
+      # EdDSA, и его контрольная сумма ничего не добавляет.
       - name: Посчитать контрольные суммы
         working-directory: artifacts
-        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: sha256sum $(ls | grep -v '^appcast.xml$') > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      # Both update channels are release assets, and both are reached by a URL
+      # that never changes: `releases/latest/download/appcast.xml` for Sparkle,
+      # and the repository itself for Velopack, which reads the newest release.
+      - name: Проверить, что каналы обновлений собрались
+        working-directory: artifacts
+        run: |
+          for required in appcast.xml HexBridge-win-Setup.exe RELEASES releases.win.json; do
+            if [ ! -f "$required" ]; then
+              echo "::error::в релизе нет $required — обновления встанут молча"
+              exit 1
+            fi
+          done
 
       - name: Создать релиз
         env:

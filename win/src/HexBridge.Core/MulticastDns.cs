@@ -411,6 +411,18 @@ public sealed class ServiceAdvertiser : IDisposable
     private Task? _loop;
     private bool _disposed;
 
+    /// <summary>
+    /// The local addresses the group was joined on, one per interface that took it.
+    ///
+    /// Joining «the default interface» is not good enough on the machine this runs on. A
+    /// gaming PC routinely carries a Hyper-V switch, a WSL adapter and a VPN, any of which
+    /// can be the one the stack picks — and an advertisement that goes out on a virtual
+    /// network reaches nobody, with no error and nothing in a log to say so. Announcing on
+    /// every interface costs three small packets and removes the whole class of «Mac его не
+    /// видит, а пинг проходит».
+    /// </summary>
+    private readonly List<IPAddress> _interfaces = [];
+
     public string? Error { get; private set; }
     public bool IsPublishing => _socket is not null;
 
@@ -443,8 +455,29 @@ public sealed class ServiceAdvertiser : IDisposable
             socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             socket.ExclusiveAddressUse = false;
             socket.Client.Bind(new IPEndPoint(IPAddress.Any, MulticastDns.Port));
-            socket.JoinMulticastGroup(MulticastDns.Group);
-            // Multicast that never leaves the local link, which is the whole point.
+
+            foreach (var local in MulticastDns.LocalAddresses())
+            {
+                try
+                {
+                    socket.Client.SetSocketOption(
+                        SocketOptionLevel.IP,
+                        SocketOptionName.AddMembership,
+                        new MulticastOption(MulticastDns.Group, local));
+                    _interfaces.Add(local);
+                }
+                catch (SocketException)
+                {
+                    // An adapter that went away between being enumerated and being joined,
+                    // or one that does not do multicast. The others still work.
+                }
+            }
+
+            if (_interfaces.Count == 0) socket.JoinMulticastGroup(MulticastDns.Group);
+
+            // RFC 6762 §11: mDNS is sent with IP TTL 255, and responders are entitled to
+            // drop anything else. `Ttl` is the unicast one and does not cover this.
+            socket.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 255);
             socket.Ttl = 255;
             _socket = socket;
             Error = null;
@@ -506,13 +539,39 @@ public sealed class ServiceAdvertiser : IDisposable
 
     private void Send(byte[] packet)
     {
-        try
+        var socket = _socket;
+        if (socket is null) return;
+
+        var target = new IPEndPoint(MulticastDns.Group, MulticastDns.Port);
+
+        if (_interfaces.Count == 0)
         {
-            _socket?.Send(packet, packet.Length, new IPEndPoint(MulticastDns.Group, MulticastDns.Port));
+            try
+            {
+                socket.Send(packet, packet.Length, target);
+            }
+            catch (Exception)
+            {
+                // A network that came and went. The next announcement will find out.
+            }
+            return;
         }
-        catch (Exception)
+
+        foreach (var local in _interfaces)
         {
-            // A network that came and went. The next announcement will find out.
+            try
+            {
+                // The outgoing interface has to be chosen per send: a socket has one
+                // IP_MULTICAST_IF, and leaving it at the stack's default is what puts the
+                // advertisement on a Hyper-V switch nobody is listening to.
+                socket.Client.SetSocketOption(
+                    SocketOptionLevel.IP, SocketOptionName.MulticastInterface, local.GetAddressBytes());
+                socket.Send(packet, packet.Length, target);
+            }
+            catch (Exception)
+            {
+                // One adapter unplugged mid-announcement must not silence the others.
+            }
         }
     }
 

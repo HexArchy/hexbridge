@@ -48,6 +48,16 @@
     <!-- QR for the pairing wizard. Zero transitive dependencies, and ToGraphicsPath()
          hands us an SVG path string that Geometry.Parse takes as is. -->
     <PackageReference Include="Net.Codecrete.QrCodeGenerator" Version="3.2.1" />
+    <!--
+      Updates. Velopack rather than Squirrel or a hand-rolled downloader, for one decisive
+      reason: it builds the Windows installer and the update channel from macOS, which is
+      the machine this project is developed and released on. `vpk [win] pack -r win-x64`
+      cross-compiles, so the release workflow does not need a Windows runner to produce a
+      setup.exe. Pinned to 1.2.0 to match the `vpk` tool version in the workflow: the
+      package and the tool write and read the same release metadata, and a mismatch shows
+      up as an update that silently never applies.
+    -->
+    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>

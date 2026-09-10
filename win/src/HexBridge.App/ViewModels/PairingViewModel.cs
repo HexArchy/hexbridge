@@ -97,9 +97,19 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     private readonly Func<PairingPayload, Task> _commit;
     private readonly Action<LogLevel, string> _log;
 
+    /// <summary>
+    /// The shell's advertisement, borrowed rather than owned.
+    ///
+    /// The wizard used to run its own: it was the only place autodiscovery was needed,
+    /// because pairing was the only thing it was for. It is not any more — a paired Mac
+    /// finds the host again by its tag after the router changes its address, and that has
+    /// to work with no wizard open. So the advertisement outlives this window, and the
+    /// wizard only reports on it and asks for a refresh when the port may have moved.
+    /// </summary>
+    private readonly DiscoveryPublisher _discovery;
+
     private DispatcherTimer? _countdown;
     private PairingExchangeServer? _exchange;
-    private ServiceAdvertiser? _advertiser;
     private CancellationTokenSource? _checks;
 
     private DateTime _codeExpiresAt;
@@ -150,11 +160,13 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     public PairingViewModel(
         Func<ReceiverConfig> readConfig,
         Func<PairingPayload, Task> commit,
-        Action<LogLevel, string> log)
+        Action<LogLevel, string> log,
+        DiscoveryPublisher discovery)
     {
         _readConfig = readConfig;
         _commit = commit;
         _log = log;
+        _discovery = discovery;
 
         Readiness.Add(new ReadinessItem("Драйвер usbip-win2", UsbIpAttacher.InstallHint));
         Readiness.Add(new ReadinessItem("Виртуальный аудиокабель",
@@ -393,31 +405,43 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     /// </summary>
     private void StartServices(int dataPort)
     {
-        StopServices();
-
-        try
+        // «Обновить код» comes back through here, and the listener is kept rather than
+        // rebuilt: rebinding a port the previous listener has not finished releasing fails,
+        // and the wizard would then show a code nothing answers. Rotating the code on the
+        // live listener also invalidates the old one at that same instant, which is what
+        // the three-minute window is supposed to mean.
+        if (_exchange is not null)
         {
-            _exchange = new PairingExchangeServer(PairingPayload.ExchangePort(dataPort));
             _exchange.Code = Code;
             _exchange.Uri = Uri;
-            _exchange.Paired += OnPaired;
-            _exchange.Start();
         }
-        catch (Exception ex)
+        else
         {
-            _exchange = null;
-            _log(LogLevel.Warning, $"hexbridge: обмен по короткому коду недоступен: {ex.Message}");
+            try
+            {
+                _exchange = new PairingExchangeServer(PairingPayload.ExchangePort(dataPort));
+                _exchange.Code = Code;
+                _exchange.Uri = Uri;
+                _exchange.Paired += OnPaired;
+                _exchange.Start();
+            }
+            catch (Exception ex)
+            {
+                _exchange = null;
+                _log(LogLevel.Warning, $"hexbridge: обмен по короткому коду недоступен: {ex.Message}");
+            }
         }
 
-        _advertiser = new ServiceAdvertiser(
-            MachineName, dataPort,
-            txt: [new KeyValuePair<string, string>("v", PairingPayload.Version.ToString())]);
-        _advertiser.Start();
+        // The advertisement carries the tag of the key this PC is *currently* running on,
+        // not of the one on screen: the key on screen is an offer nobody has accepted yet,
+        // and a Mac already paired with this PC must keep finding it until the moment the
+        // new key is committed. `CommitPairingAsync` republishes then.
+        _discovery.Publish(_readConfig(), MachineName);
 
-        IsDiscovering = _advertiser.IsPublishing;
-        DiscoveryText = _advertiser.Error is { } error
+        IsDiscovering = _discovery.IsPublishing;
+        DiscoveryText = _discovery.Error is { } error
             ? $"Автопоиск недоступен: {error}. Код и QR работают как обычно."
-            : "Mac найдёт этот ПК сам — выберите его в списке и введите код.";
+            : "Mac найдёт этот ПК сам — выберите его в списке и введите код с этого экрана.";
     }
 
     /// <summary>Raised on the exchange server's own thread; the UI is touched on the UI one.</summary>
@@ -620,19 +644,14 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
     // MARK: - Shutdown
 
-    private void StopServices()
-    {
-        _advertiser?.Dispose();
-        _advertiser = null;
-    }
-
     private async Task StopServicesAsync()
     {
         _countdown?.Stop();
         if (_checks is not null) await _checks.CancelAsync();
 
-        StopServices();
-
+        // The advertisement is deliberately left running: it belongs to the shell, and
+        // taking it down when the wizard closes is exactly what would break finding this
+        // PC again tomorrow on a new address.
         if (_exchange is not null)
         {
             _exchange.Paired -= OnPaired;

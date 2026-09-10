@@ -184,13 +184,19 @@ struct PairingWindow: View {
 
     @ViewBuilder
     private var discoveryBody: some View {
-        if model.discovery.results.isEmpty {
+        if model.discovery.hosts.isEmpty {
             Text(model.discovery.searching
                  ? "Ищу HexBridge в локальной сети…"
-                 : "Mac умеет находить ПК сам, когда приёмник объявляет себя по Bonjour. Приёмник этого пока не делает — до тех пор список будет пустым.")
+                 : "Mac находит игровой ПК сам, если тот в той же сети и HexBridge на нём запущен.")
                 .font(.dsCaption)
                 .foregroundStyle(palette.textDim)
                 .fixedSize(horizontal: false, vertical: true)
+            if let error = model.discovery.lastError {
+                Text("Поиск не работает: \(error). Ссылка и код работают как обычно.")
+                    .font(.dsCaption)
+                    .foregroundStyle(palette.badText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Button(model.discovery.searching ? "Остановить поиск" : "Искать") {
                 if model.discovery.searching {
                     model.discovery.stop()
@@ -200,17 +206,28 @@ struct PairingWindow: View {
             }
             .buttonStyle(.dsSecondary)
         } else {
-            ForEach(model.discovery.results) { found in
+            ForEach(model.discovery.hosts) { found in
                 CheckRow(
                     title: found.name,
-                    detail: found.host ?? "",
-                    state: .ok,
+                    detail: [found.target, model.discovery.note(for: found)]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: " · "),
+                    state: model.discovery.isOurs(found) ? .ok : .pending,
                     action: FeatureAction(title: "Выбрать") {
-                        pcAddress = found.host ?? found.name
+                        pcAddress = found.address.isEmpty ? found.name : found.address
                         step = .code
                     }
                 )
             }
+
+            // §9.3, and the reason autodiscovery is safe to have at all: the
+            // list is a shortcut past typing an address, never past the code.
+            // Without this sentence a user looking at one row labelled «связан
+            // с другим Mac» has no way to know why nothing happened.
+            Text("Найденный ПК ещё нужно подтвердить кодом с его экрана — сам по себе Mac подключается только к ПК, с которым уже связан.")
+                .font(.dsCaption)
+                .foregroundStyle(palette.textDim)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

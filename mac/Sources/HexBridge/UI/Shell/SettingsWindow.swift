@@ -103,6 +103,37 @@ struct GeneralPane: View {
                 }
             }
 
+            Section("Обновления") {
+                Toggle("Проверять обновления раз в сутки", isOn: Binding(
+                    get: { model.checksForUpdates },
+                    set: { model.checksForUpdates = $0 }
+                ))
+                .disabled(!model.updater.isAvailable)
+
+                Text(model.updateNote)
+                    .font(.dsCaption)
+                    .foregroundStyle(palette.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Said here rather than in the update dialog, because the
+                // dialog is where the user is already committed. This is the
+                // screen where they decide.
+                Text(Wording.updateWillReaskForMicrophone)
+                    .font(.dsCaption)
+                    .foregroundStyle(palette.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let failure = model.updater.lastError {
+                    Text(failure)
+                        .font(.dsCaption)
+                        .foregroundStyle(palette.badText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button("Проверить сейчас") { model.updater.checkNow() }
+                    .disabled(!model.updater.isAvailable)
+            }
+
             Section("О программе") {
                 LabeledContent("Версия", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")
                 Text("«PlayStation» и «DualSense» — товарные знаки Sony Interactive Entertainment Inc. HexBridge не связан с Sony; изображение контроллера в приложении — собственная схематичная абстракция, а не воспроизведение продукта.")

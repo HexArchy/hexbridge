@@ -211,6 +211,19 @@ enum Wording {
         return first.lowercased() + text.dropFirst()
     }
 
+    /// Said before an update, not after.
+    ///
+    /// HexBridge is signed ad-hoc rather than with a Developer ID, and an
+    /// ad-hoc signature has no stable identity: the code hash changes with
+    /// every build, so after an update macOS treats this as a new application
+    /// and TCC asks for the microphone again. Nothing has been reset and
+    /// nothing is broken — but a permission prompt right after an update reads
+    /// as damage unless it was announced first.
+    static let updateWillReaskForMicrophone =
+        "После обновления macOS ещё раз спросит доступ к микрофону. Это нормально: "
+        + "сборка подписана ad-hoc, и система считает обновлённое приложение новым. "
+        + "Нажмите «Разрешить» — настройки и ключ связывания при этом никуда не денутся."
+
     /// Words that are capitalised because of what they are, not because of
     /// where they stand in the sentence.
     private static let properNouns: Set<String> = [

@@ -20,10 +20,19 @@ let package = Package(
         //
         // Not added, and why: `KeyboardShortcuts` 3.0.1 cannot be built with
         // the Command Line Tools toolchain on this machine — it uses SwiftUI's
-        // `@Entry` macro, whose plugin ships only inside Xcode. `Sparkle` is
-        // deferred until there is an appcast and an EdDSA key to sign it with.
+        // `@Entry` macro, whose plugin ships only inside Xcode.
         // `LaunchAtLogin` is deliberately absent: `SMAppService` is 30 lines.
         .package(url: "https://github.com/orchetect/MenuBarExtraAccess.git", from: "1.3.1"),
+        // Updates outside the App Store. There is no alternative and there has
+        // not been one for a decade. 2.9.6 rather than 2.10: the 2.10 line
+        // raises the floor to macOS 12, and 2.9.4 carries the fix for
+        // «activation for backgrounded / dockless applications», which is a
+        // description of exactly this app (DESIGN.md §2).
+        //
+        // ⚠️ The licence is not plain MIT: MIT plus an EXTERNAL LICENSES
+        // section for the vendored bsdiff (BSD-2-clause) and sais-lite. The
+        // whole file has to ship — see docs/UPDATES.md.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.6"),
     ],
     targets: [
         .target(
@@ -31,11 +40,26 @@ let package = Package(
             path: "Sources/COpusShim",
             cSettings: [.unsafeFlags(["-I\(opusPrefix)/include"])]
         ),
+        // The rule that decides whether a host found on the network is ours
+        // lives here rather than in the app, and for one reason: it is a
+        // security decision, so it has to be testable. The app target drags in
+        // AppKit, SwiftUI, CoreAudio and a static libopus, and none of that can
+        // be linked into an XCTest bundle without a fight. This target is
+        // Foundation and CryptoKit, and `swift test` runs it in a second.
+        .target(
+            name: "HexBridgeDiscovery",
+            path: "Sources/HexBridgeDiscovery"
+        ),
         .executableTarget(
             name: "HexBridge",
-            dependencies: ["COpusShim", "MenuBarExtraAccess"],
+            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "Sparkle"],
             path: "Sources/HexBridge",
             linkerSettings: [.unsafeFlags(["-Xlinker", "\(opusPrefix)/lib/libopus.a"])]
+        ),
+        .testTarget(
+            name: "HexBridgeDiscoveryTests",
+            dependencies: ["HexBridgeDiscovery"],
+            path: "Tests/HexBridgeDiscoveryTests"
         ),
     ]
 )

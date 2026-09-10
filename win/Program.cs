@@ -109,6 +109,18 @@ catch (Exception ex)
     return 1;
 }
 
+// Autodiscovery (PROTOCOL.md, «Автопоиск хоста»). The advertisement carries a tag derived
+// from the key, never the key or the name, so only the Mac holding this same key treats
+// this PC as its own. It runs here and not only in the desktop wizard because the case it
+// exists for happens long after pairing: the router reboots, DHCP hands out a different
+// address, and the Mac has to find this PC again with nobody at either keyboard.
+using var discovery = new DiscoveryPublisher((level, message) =>
+{
+    if (level == LogLevel.Error) Console.Error.WriteLine(message);
+    else Console.WriteLine(message);
+});
+discovery.Publish(config, Environment.MachineName);
+
 using var cancel = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
 {

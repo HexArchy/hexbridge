@@ -25,6 +25,22 @@ public sealed class AppSettings
     /// <summary>Reopens on the page the user was last looking at.</summary>
     public int LastTab { get; set; }
 
+    /// <summary>
+    /// Look for new versions once a day. On by default — a stream utility that silently
+    /// rots is worse than one that mentions a release — but it is one switch, and off means
+    /// no network request of any kind.
+    ///
+    /// Nothing is ever installed by this: the check offers, the user decides.
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
+
+    /// <summary>
+    /// When the last check finished, UTC. Persisted so restarting the app is not a way to
+    /// make it check again — otherwise «раз в сутки» would mean «раз в запуск» for anyone
+    /// who starts it with the game.
+    /// </summary>
+    public DateTime? LastUpdateCheckUtc { get; set; }
+
     public static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "ui.json");
 
     public static AppSettings Load()

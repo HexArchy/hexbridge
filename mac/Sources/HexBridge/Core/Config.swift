@@ -54,7 +54,19 @@ struct Config: Codable {
     /// stops being shown (§10.2).
     var paired: Bool?
 
+    /// Look for a new version once a day (docs/UPDATES.md). Optional for the
+    /// same reason as `gamepad`: a config written before this existed must not
+    /// fail to decode, and a failed decode silently loses the key and the
+    /// address with it.
+    ///
+    /// On by default. Nothing is ever downloaded or installed without the user
+    /// saying so — this switch governs only whether HexBridge looks.
+    var autoUpdate: Bool?
+
     var streamsMicrophone: Bool { microphone ?? true }
+
+    /// On unless asked otherwise. Off means no request leaves the machine.
+    var checksForUpdates: Bool { autoUpdate ?? true }
 
     /// Off unless asked for. See `clipboard`.
     var sharesClipboard: Bool { clipboard ?? false }

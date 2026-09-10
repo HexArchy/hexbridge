@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeDiscovery
 
 /// Flags and the optional leading subcommand, parsed once at startup.
 struct Arguments {
@@ -59,6 +60,7 @@ enum CLI {
       hexbridge list-devices         показать устройства ввода
       hexbridge keygen               сгенерировать общий ключ (PSK)
       hexbridge probe                проверить, что микрофон реально захватывается
+      hexbridge discover             показать HexBridge, видимые в локальной сети
       hexbridge devices list         показать подключённые HID-устройства
       hexbridge devices probe        полная диагностика: чтение, запись, дескрипторы
       hexbridge devices monitor      живое состояние устройства, Ctrl-C для выхода
@@ -82,6 +84,7 @@ enum CLI {
                       остаётся подключённым и к Mac, поэтому клавиатура
                       печатала бы сразу на двух машинах.
       --hid SEL       для devices probe/monitor: VID:PID или часть имени
+      --seconds N     сколько секунд искать в `discover` (по умолчанию 4)
       --headless      не поднимать интерфейс, только передача и лог в stdout
       --quiet         не печатать строку статистики раз в 5 секунд
 
@@ -126,6 +129,10 @@ enum CLI {
             }
             exit(0)
 
+        case "discover":
+            runDiscover(args)
+            exit(0)
+
         case "gamepad", "devices":
             runDevices(args)
             exit(0)
@@ -154,6 +161,58 @@ enum CLI {
             fail("укажите действие: \(args.subcommand ?? "devices") list | probe | monitor | haptics")
         case let other?:
             fail("неизвестное действие: \(args.subcommand ?? "devices") \(other)")
+        }
+    }
+
+    /// `hexbridge discover` — what is on the network and which of it is ours.
+    ///
+    /// This is the only way to see the autodiscovery decision without a window,
+    /// and it is deliberately blunt about strangers: a host whose tag is not
+    /// ours is listed and marked as somebody else's, because «его не видно
+    /// вовсе» is indistinguishable from «поиск сломался» when you are the one
+    /// debugging it.
+    private static func runDiscover(_ args: Arguments) {
+        let (config, _) = resolveConfig(args)
+        let ownTag = DiscoveryTag.tag(forBase64Key: config.psk)
+        let seconds = Double(args.value("seconds") ?? "") ?? 4
+
+        print("метка этого Mac: \(ownTag ?? "нет — ключ не задан, автоподключение выключено")")
+        print("ищу \(Int(seconds)) с…")
+
+        let done = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var hosts: [DiscoveredHost] = []
+        Task {
+            hosts = await DiscoveryBrowser.scan(seconds: seconds)
+            done.signal()
+        }
+        done.wait()
+
+        if hosts.isEmpty {
+            print("в сети не видно ни одного HexBridge")
+        }
+        for host in hosts {
+            let mark: String
+            if DiscoveryTag.same(ownTag, host.tag) {
+                mark = "  ← наш"
+            } else if host.tag == nil {
+                mark = "  (без метки, ни с кем не связан)"
+            } else if ownTag == nil {
+                // With no key of our own there is nobody to be a stranger to.
+                mark = "  (с кем-то связан)"
+            } else {
+                mark = "  (чужой)"
+            }
+            let where_ = host.target.isEmpty ? "адрес ещё не разрешён" : host.target
+            print("  \(host.name)  \(where_)  v\(host.version)  tag=\(host.tag ?? "—")\(mark)")
+        }
+
+        let choice = DiscoveryMatch.choose(ownTag: ownTag, hosts: hosts)
+        print("")
+        print("решение: \(choice.reason)")
+        if let target = DiscoveryMatch.retarget(current: config.target, choice: choice) {
+            print("адрес в конфиге сменился бы на \(target) (сейчас «\(config.target.isEmpty ? "—" : config.target)»)")
+        } else if choice.shouldConnect {
+            print("адрес в конфиге уже верный")
         }
     }
 

@@ -23,8 +23,14 @@ jobs:
       - name: Установить libopus
         run: brew install opus
 
+      # --disable-keychain --disable-netrc: все зависимости публичные, а без этих
+      # флагов SwiftPM спрашивает у Keychain пароль для хоста с бинарным артефактом
+      # Sparkle и на машине, где Keychain не может показать диалог, зависает молча.
       - name: Собрать
-        run: swift build -c release --package-path mac
+        run: swift build -c release --package-path mac --disable-keychain --disable-netrc
+
+      - name: Тесты
+        run: bash mac/scripts/test.sh
 
       - name: Проверить CLI
         run: |
@@ -140,6 +146,13 @@ jobs:
 
           if git ls-files | grep -E '\.(zip|exe|dmg)$'; then
             echo "::error::в репозитории собранные артефакты, их место в релизах"
+            fail=1
+          fi
+
+          # Приватный ключ подписи обновлений. Если он утечёт, кто угодно сможет
+          # подписать «обновление» HexBridge, и Sparkle его молча поставит.
+          if git ls-files | grep -E '(^|/)secrets/|_private_key$'; then
+            echo "::error::в репозитории приватный ключ подписи обновлений — см. docs/UPDATES.md"
             fail=1
           fi
 
