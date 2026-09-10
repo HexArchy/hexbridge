@@ -1,183 +1,192 @@
-# Проброс DualSense
+# DualSense forwarding
 
-DualSense воткнут в Mac по USB, а Windows видит его как настоящий контроллер
-`054C:0CE6` — с адаптивными триггерами, гироскопом и тачпадом, без DS4Windows и
-прочих прослоек.
+The DualSense is plugged into the Mac over USB, and Windows sees it as a real
+`054C:0CE6` controller — with adaptive triggers, gyro and touchpad, without
+DS4Windows or any other shim in between.
 
-## Почему устроено именно так
+## Why it is built this way
 
 ```
-     Mac                                           Windows
+     Mac                                          Windows
 ┌──────────────┐                          ┌──────────────────────────┐
-│ IOHIDManager │  HID-репорты             │ HexBridge  ──USB/IP──▶   │
-│ реальный пад │──────────────────────────▶│ 127.0.0.1:3240           │
-│              │◀──────────────────────────│      usbip-win2 vhci     │
-└──────────────┘  вибрация, триггеры,     │              │           │
-                  подсветка               │      игры ◀──┘           │
+│ IOHIDManager │  HID reports             │ HexBridge  ──USB/IP──▶   │
+│ real gamepad ├─────────────────────────▶│ 127.0.0.1:3240           │
+│              │◀─────────────────────────┤      usbip-win2 vhci     │
+└──────────────┘  rumble, triggers,       │              │           │
+                  lightbar                │      games ◀─┘           │
                                           └──────────────────────────┘
 ```
 
-Граница проведена по HID, а не по USB, и это не выбор из удобства.
+The boundary runs along HID rather than USB, and that is not a convenience choice.
 
-Пробросить USB-устройство с macOS средствами USB/IP **невозможно**:
-`usbipd-mac` отказывает в `bind` для HID-класса, потому что `IOHIDFamily`
-держит интерфейс эксклюзивно и отцепить его нельзя. Запрос автора проекта на
-DriverKit-энтайтлмент для захвата HID Apple отклонила в феврале 2026. Поэтому
-Mac отдаёт только то, что ему доступно без привилегий — HID-репорты и
-дескриптор, — а виртуальное USB-устройство целиком собирается на стороне
-Windows.
+Forwarding a USB device off macOS with USB/IP is **impossible**: `usbipd-mac`
+refuses to `bind` anything in the HID class, because `IOHIDFamily` holds the
+interface exclusively and it cannot be detached. Apple rejected the project
+author's request for a DriverKit entitlement to claim HID in February 2026. So the
+Mac hands over only what it can get at without privileges — HID reports and the
+descriptor — and the virtual USB device is assembled in full on the Windows side.
 
-Побочная выгода: драйвер на Windows можно заменить, не трогая код на Mac.
+A side benefit: the Windows driver can be swapped out without touching any Mac
+code.
 
-## Что ставить на Windows
+## What to install on Windows
 
-Один драйвер — **usbip-win2**. Он даёт виртуальный USB-контроллер, в который
-HexBridge подключает собранное устройство.
+One driver: **usbip-win2**. It provides the virtual USB controller that HexBridge
+plugs the assembled device into.
 
-Версия зафиксирована намеренно:
+The version is pinned deliberately:
 
 | | |
 |---|---|
-| Версия | `0.9.8.0` от 07.09.2026 |
-| Файл | `USBip-0.9.8.0-x64.exe`, 25 МБ |
-| Ссылка | https://github.com/vadimgrn/usbip-win2/releases/tag/v.0.9.8.0 |
+| Version | `0.9.8.0`, 7 September 2026 |
+| File | `USBip-0.9.8.0-x64.exe`, 25 MB |
+| Link | https://github.com/vadimgrn/usbip-win2/releases/tag/v.0.9.8.0 |
 | SHA256 | `81f426741f7ee2ed991febe24a22daca8400b6ae2f171054e3fb404897e15d39` |
 
-Проверить перед установкой:
+Check it before installing:
 
 ```powershell
 (Get-FileHash .\USBip-0.9.8.0-x64.exe -Algorithm SHA256).Hash
-# должно совпасть с строкой выше
+# must match the line above
 ```
 
-### Ничего отключать не нужно
+### Nothing has to be disabled
 
-Драйверы **подписаны Microsoft**: начиная с `0.9.7.2` — attestation-подпись, с
-`0.9.7.5` — сертификация WHLK для x64 через [OSSign](https://github.com/OSSign).
-В релизных заметках дословно: *«The installer and all binaries are signed by
-Microsoft»* и *«Windows Test Signing Mode activation is not required»*.
+The drivers are **signed by Microsoft**: attestation signing since `0.9.7.2`, and
+WHLK certification for x64 since `0.9.7.5` via [OSSign](https://github.com/OSSign).
+The release notes say it in as many words: *"The installer and all binaries are
+signed by Microsoft"* and *"Windows Test Signing Mode activation is not required"*.
 
-| Требование | Нужно? |
+| Requirement | Needed? |
 |---|---|
-| Отключать Secure Boot | Нет |
-| `bcdedit /set testsigning on` | Нет |
-| Ставить сторонний корневой сертификат | Нет |
-| Права администратора, один UAC | Да |
-| Перезагрузка | Нет |
+| Disable Secure Boot | No |
+| `bcdedit /set testsigning on` | No |
+| Install a third-party root certificate | No |
+| Administrator rights, one UAC prompt | Yes |
+| Reboot | No |
 
-Инструкции в интернете, требующие отключить Secure Boot, относятся к сборкам
-2021–2023 годов и устарели.
+Instructions on the internet that tell you to disable Secure Boot describe builds
+from 2021–2023 and are out of date.
 
-**Единственный побочный эффект:** при установке драйвера один раз
-переинициализируются все USB 3.0 хабы — подключённые устройства отвалятся на
-секунду. Точку восстановления перед установкой создать стоит: это
-kernel-mode драйвер.
+**The one side effect:** installing the driver reinitializes every USB 3.0 hub
+once, so connected devices drop out for a second. It is worth creating a restore
+point beforehand: this is a kernel-mode driver.
 
-### Почему именно 0.9.8.0
+### Why 0.9.8.0 specifically
 
-В этой версии появился режим приёма на WSK event callbacks, добавленный
-автором ровно под наш случай — «устройства, которые генерируют мало данных, но
-с высокой частотой, такие как HID-клавиатуры и мыши». Для геймпада, шлющего
-сотни репортов в секунду, это заметно меньше задержка:
+This version added a receive mode based on WSK event callbacks, which the author
+put in for exactly our case — "devices that generate little data but at high
+frequency, such as HID keyboards and mice". For a gamepad sending hundreds of
+reports per second that is a noticeable latency reduction:
 
 ```powershell
 usbip.exe attach --receive-mode=low-latency -r 127.0.0.1 -b 1-1
 ```
 
-Запасной вариант, если 0.9.8.0 окажется сырым (вышел недавно) — `0.9.7.7`,
-именно её пинят другие проекты. Брать версии старше `0.9.7.7` не стоит: там был
-баг с энумерацией Full-Speed устройств, а заодно не было части фиксов стабильности.
+The fallback, if 0.9.8.0 turns out to be raw (it was released recently), is
+`0.9.7.7` — the version other projects pin. Do not go older than `0.9.7.7`: it had
+a bug enumerating Full-Speed devices, and it was missing several stability fixes
+besides.
 
-DualSense при этом **High-Speed**, а не Full-Speed, как иногда пишут. Это видно
-из арифметики: изохронный OUT имеет `wMaxPacketSize 392` при `bInterval 4`, то
-есть 392 байта в миллисекунду — ровно 4 канала × 16 бит × 48 кГц. На Full Speed
-столько не пролезает. Отсюда же и частота HID: `bInterval 6` на High Speed это
-32 микрокадра = 4 мс = **250 Гц**, что совпадает с аппаратными замерами.
+The DualSense, incidentally, is **High-Speed**, not Full-Speed as is sometimes
+claimed. The arithmetic shows it: the isochronous OUT endpoint has
+`wMaxPacketSize 392` at `bInterval 4`, that is 392 bytes per millisecond — exactly
+4 channels × 16 bits × 48 kHz. That does not fit on Full Speed. The same
+arithmetic gives the HID rate: `bInterval 6` on High Speed is 32 microframes =
+4 ms = **250 Hz**, which matches the hardware measurements.
 
-## Риск на стороне Mac, который надо проверить первым
+## The Mac-side risk to check first
 
-Разрешение Input Monitoring геймпаду **не нужно** — TCC-гейт в `IOHIDFamily`
-ставится только для клавиатур, мышей и тачпадов, а DualSense представляется
-одной коллекцией Game Pad. Важно лишь матчить строго по `VID 0x054C /
-PID 0x0CE6`: широкий фильтр заденет клавиатуру и вызовет диалог.
+Input Monitoring permission is **not required** for a gamepad — the TCC gate in
+`IOHIDFamily` only fires for keyboards, mice and trackpads, and a DualSense
+presents itself as a single Game Pad collection. The only thing that matters is
+matching strictly on `VID 0x054C / PID 0x0CE6`: a broad filter would catch the
+keyboard and trigger the dialog.
 
-А вот запись output-репортов на **macOS 26** под вопросом. Есть независимые
-отчёты, что сторонние приложения не из App Store не могут менять адаптивные
-триггеры и лайтбар — репорт принимается молча, но не применяется. Технически это
-похоже на `IOHIDLibUserClient::setReport()`, возвращающий
-`kIOReturnNotPrivileged` (`0xE00002C1`) непривилегированному клиенту.
+Writing output reports on **macOS 26**, however, is an open question. There are
+independent reports that third-party apps outside the App Store cannot change the
+adaptive triggers or the lightbar — the report is accepted silently but never
+applied. Technically that looks like `IOHIDLibUserClient::setReport()` returning
+`kIOReturnNotPrivileged` (`0xE00002C1`) to an unprivileged client.
 
-Это ровно та функциональность, ради которой всё затевается, поэтому проверяется
-она первым делом:
+That is exactly the functionality this whole thing exists for, so it is the first
+thing to check:
 
 ```
 HexBridge gamepad probe
 ```
 
-Команда открывает контроллер неэксклюзивно, читает input-репорты, пишет
-output-репорт и **показывает код возврата**. Если там `0xE00002C1` — триггеры с
-этого Mac не поедут, и это надо знать до, а не после написания USB/IP-сервера.
+The command opens the controller non-exclusively, reads input reports, writes an
+output report and **prints the return code**. If it says `0xE00002C1`, triggers are
+not going anywhere from this Mac — and that is something to find out before writing
+a USB/IP server, not after.
 
-Диагностика уровнем ниже:
+One level down:
 
 ```
 log stream --predicate 'subsystem == "com.apple.iohid"'
 ```
 
-## Подводные камни
+## Pitfalls
 
-* **Античиты.** Виртуальный USB-контроллер виден в дереве устройств, и
-  kernel-level античиты его замечают. Для игр с агрессивной защитой это риск.
-* **Второй геймпад.** Если параллельно воткнуть физический пад в сам Windows,
-  игры увидят два устройства. Лечится [HidHide](https://github.com/nefarius/HidHide).
-* **Строка продукта.** Пады 2020 года представляются как `Wireless Controller`,
-  свежие — как `DualSense Wireless Controller`, при одинаковом `bcdDevice`.
-  HexBridge берёт строку с вашего физического устройства, а не из справочника.
-* **Steam** перед захватом устройства сам опрашивает feature-репорты. Если
-  отвечать на них нулями, пад будет виден в Steam Input, но невидим для игры —
-  поэтому HexBridge проксирует эти запросы на реальный пад. Критичны три:
-  `0x20` (прошивка), `0x09` (MAC), `0x05` (калибровка сенсоров — нули в ней
-  дают деление на ноль и отказ игры).
-* **Не захватывать устройство эксклюзивно.** `kIOHIDOptionsTypeSeizeDevice`
-  доступен без прав, но отключает DualSense от системы, Steam и
-  GameController.framework. Открываем неэксклюзивно.
-* **Система сама пишет в контроллер.** macOS ставит свой цвет лайтбара при
-  подключении, а любое приложение на GameController.framework перезапишет
-  наше состояние: DualSense применяет последний репорт `0x02` целиком.
-* **Только LaunchAgent, не LaunchDaemon.** `IOHIDDeviceOpen` требует локальной
-  графической сессии, по SSH он не отработает. У нас уже агент — менять нечего.
+* **Anti-cheats.** The virtual USB controller is visible in the device tree, and
+  kernel-level anti-cheats notice it. For games with aggressive protection that is
+  a risk.
+* **A second gamepad.** If you also plug a physical pad into the Windows machine,
+  games will see two devices. [HidHide](https://github.com/nefarius/HidHide) fixes
+  that.
+* **The product string.** 2020-vintage pads report themselves as
+  `Wireless Controller`, newer ones as `DualSense Wireless Controller`, with the
+  same `bcdDevice`. HexBridge takes the string from your physical device rather
+  than from a lookup table.
+* **Steam** queries feature reports itself before claiming a device. If you answer
+  them with zeros, the pad will show up in Steam Input but be invisible to the
+  game — which is why HexBridge proxies those requests to the real pad. Three
+  matter: `0x20` (firmware), `0x09` (MAC), `0x05` (sensor calibration — zeros there
+  give a division by zero and the game rejects the pad).
+* **Do not claim the device exclusively.** `kIOHIDOptionsTypeSeizeDevice` is
+  available without privileges, but it disconnects the DualSense from the system,
+  from Steam and from GameController.framework. We open non-exclusively.
+* **The system writes to the controller too.** macOS sets its own lightbar color on
+  connect, and any app using GameController.framework will overwrite our state: the
+  DualSense applies the whole of the last `0x02` report.
+* **LaunchAgent only, never LaunchDaemon.** `IOHIDDeviceOpen` requires a local
+  graphical session; it will not work over SSH. We already run as an agent, so
+  there is nothing to change.
 
-## HD-хаптика
+## HD haptics
 
-Поддерживается, но **по умолчанию выключена** — включается отдельным тумблером,
-не связанным с триггерами и вибрацией.
+Supported, but **off by default** — it has its own toggle, independent of triggers
+and rumble.
 
-Причина осторожности в драйвере, а не в нашем коде: у `usbip-win2` открыт баг
-[#181](https://github.com/vadimgrn/usbip-win2/issues/181) — гонка времени жизни
-запроса при закрытии audio pin, то есть ровно на изохронном пути. Риск снижен
-тем, что при выключенной хаптике аудиофункции нет в дескрипторе конфигурации
-вовсе, и Windows даже не загружает `usbaudio.sys`; микрофонный эндпоинт отвечает
-тишиной вместо ошибки, чтобы не провоцировать цикл открытия и закрытия пина; а
-каждый изохронный запрос отвечается сразу, чтобы ни один не остался висеть.
-Самого бага это не чинит. Включая хаптику в первый раз, стоит выключить
-автозапуск приёмника.
+The caution is about the driver, not our code: usbip-win2 has an open bug,
+[#181](https://github.com/vadimgrn/usbip-win2/issues/181), a request-lifetime race
+when an audio pin is closed — that is, exactly on the isochronous path. The risk is
+reduced by three things: with haptics off, the audio functions are not in the
+configuration descriptor at all and Windows never even loads `usbaudio.sys`; the
+microphone endpoint answers with silence rather than an error, so as not to provoke
+a pin open-and-close loop; and every isochronous request is answered immediately, so
+none is left hanging. None of that fixes the bug itself. The first time you turn
+haptics on, it is worth disabling autostart of the receiver.
 
-### Что выяснилось на живом контроллере
+### What the real controller turned out to do
 
-DualSense **загружается с заглушенной хаптикой** и молча выбрасывает
-присланный PCM, пока мьют не снят отдельным output-репортом. В документации
-этого нет, нашли измерением: подавали тон 60 Гц на каналы 2–3 и смотрели на
-гироскоп самого контроллера — σ 0.9 нетронутым, 128 после снятия мьюта.
+A DualSense **boots with haptics muted** and silently discards the PCM you send it
+until the mute is lifted by a separate output report. This is not documented
+anywhere; we found it by measurement — feeding a 60 Hz tone into channels 2–3 and
+watching the controller's own gyro: σ 0.9 with the mute untouched, 128 after
+lifting it.
 
-Отдельная ловушка: флаг `HAPTICS_SELECT` в `valid_flag0` эту дорогу
-**выключает**, отдавая актуаторы эмулятору классической вибрации.
+A separate trap: the `HAPTICS_SELECT` flag in `valid_flag0` **turns this path off**,
+handing the actuators over to the classic rumble emulator.
 
-Принадлежность каналов подтверждена частотной подписью: на 40 Гц каналы 2–3
-дают σ 188, каналы 0–1 — 4.7. Первое — voice-coil, второе — пьезодинамик.
+Channel assignment was confirmed by frequency signature: at 40 Hz, channels 2–3
+give σ 188 and channels 0–1 give 4.7. The first is the voice coils, the second is
+the piezo speaker.
 
-Адаптивные триггеры — это обычный HID-репорт `0x02`, они работают. А фирменная
-хаптика DualSense устроена иначе: это изохронный аудиопоток 48 кГц на четыре
-канала, где каналы 2–3 идут на voice-coil актуаторы. Для неё нужно собрать
-композитное USB-устройство с полноценными audio-интерфейсами, а на этом пути у
-usbip-win2 открыт баг с BSOD при закрытии audio pin. Вибрация при этом работает
-обычными байтами rumble в том же репорте `0x02`.
+Adaptive triggers are an ordinary HID report `0x02`, and they work. The DualSense's
+signature haptics is a different thing entirely: a 48 kHz isochronous audio stream
+over four channels, where channels 2–3 drive the voice-coil actuators. Carrying it
+requires assembling a composite USB device with full audio interfaces, and that path
+runs into the open usbip-win2 bug with a BSOD on audio pin close. Rumble, meanwhile,
+works through the ordinary rumble bytes in that same `0x02` report.

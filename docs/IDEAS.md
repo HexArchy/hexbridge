@@ -1,84 +1,60 @@
-# Идеи для следующих фич
+# Ideas for the next features
 
-Архитектура уже разложена по фичам: у каждой свой модуль, свои типы пакетов и свой
-раздел UI, а оболочка перебирает их и не знает поимённо. Поэтому всё ниже
-добавляется, не трогая микрофон и геймпад.
+The architecture is already organized by feature: each one owns its module, its
+packet types and its section of the UI, and the shell iterates over them without
+knowing any of them by name. So everything below can be added without touching the
+microphone or the gamepad.
 
-Оценки сложности — грубые, по трудоёмкости относительно уже сделанного.
+Already shipped, and therefore no longer listed here: HD haptics, the shared
+clipboard, up to four controllers, forwarding of any HID device, automatic
+updates, and host discovery without a QR code.
 
-## Достраивают то, что уже есть
+The difficulty estimates are rough, relative to the effort already spent.
 
-**HD-хаптика DualSense.** Единственное, чего сейчас не хватает до полного паритета
-с проводным подключением. Фирменная хаптика — это не байты вибрации, а изохронный
-поток 48 кГц на четыре канала, где 2–3 идут на voice-coil актуаторы. Нужен
-композитный виртуальный USB с audio-интерфейсами вместо нынешнего чисто-HID.
-Приятная деталь: DualSense, воткнутый в Mac, виден как обычное устройство
-CoreAudio, поэтому обратный путь есть без всякого raw USB.
-*Сложность: высокая. Риск: у usbip-win2 открыт баг с BSOD ровно на audio-пути.*
+## Finishing what already exists
 
-**Микрофон обратно, с Windows на Mac.** Канал сейчас односторонний. Если на игровом
-ПК стоит нормальный микрофон, а говорить хочется через Mac — направление
-переворачивается почти бесплатно, транспорт уже двусторонний.
-*Сложность: низкая.*
+**The microphone the other way, Windows to Mac.** The channel is one-way today. If
+the gaming PC has a decent microphone and you would rather talk through the Mac,
+reversing the direction is nearly free — the transport is already bidirectional.
+*Difficulty: low.*
 
-**Второй и третий контроллер.** В протоколе поле номера устройства уже есть, USB/IP
-умеет несколько устройств. Нужно только развести состояние и UI.
-*Сложность: низкая.*
+**DualShock 4 and third-party gamepads.** The same path, different descriptors.
+Everything is in place for the DS4; an arbitrary HID device would need someone
+else's report descriptor parsed.
+*Difficulty: medium.*
 
-**DualShock 4 и сторонние геймпады.** Тот же путь, другие дескрипторы. Для DS4 всё
-готово, для произвольного HID-устройства нужен разбор чужого report descriptor.
-*Сложность: средняя.*
+## New features
 
-## Новые фичи
+**File transfer by drag and drop.** Drop a file onto the menu bar icon and it lands
+on the gaming PC. The transport exists; what is needed is a mode with delivery
+confirmation instead of the current fire-and-forget.
+*Difficulty: medium.*
 
-**Проброс любого USB-устройства.** Логическое продолжение: руль, педали, HOTAS,
-MIDI-клавиатура, стример-дек. Ограничение то же, что и с геймпадом — на macOS
-доступен только HID-класс, поэтому флешки и веб-камеры мимо.
-*Сложность: средняя. Ценность: высокая, это превращает утилиту в платформу.*
+**Notifications from the PC on the Mac.** The game minimized, Steam finished a
+download, a friend messaged — it pops up on the Mac without leaving the stream.
+*Difficulty: medium.*
 
-**Общий буфер обмена.** Скопировал на Mac — вставил в игре или в Discord на ПК.
-Текст тривиально, картинки чуть сложнее. Работает и вне стрима.
-*Сложность: низкая. Ценность: используется каждый день.*
+**A global mute hotkey.** Mute is `kill -USR1` today. A proper global hotkey that
+works over a fullscreen Moonlight, plus an indicator. The library is already picked
+in the design document.
+*Difficulty: low. Value: annoying every single day.*
 
-**Передача файлов перетаскиванием.** Бросил файл на значок в строке меню — он
-оказался на игровом ПК. Транспорт есть, нужен режим с подтверждением доставки
-вместо нынешнего «потерял и забыл».
-*Сложность: средняя.*
+**Noise suppression on the microphone.** RNNoise or similar, ahead of Opus. A laptop
+microphone picks up fans and keyboard.
+*Difficulty: medium.*
 
-**Уведомления с ПК на Mac.** Игра свернулась, Steam что-то скачал, друг написал —
-всплывает на Mac, не выходя из стрима.
-*Сложность: средняя.*
+**The webcam as a virtual camera on the PC.** A different class of problem: camera
+access on macOS is standard, but a virtual camera on Windows means a driver of its
+own, same as with the microphone.
+*Difficulty: high.*
 
-**Мьют по горячей клавише глобально.** Сейчас мьют это `kill -USR1`. Нормальная
-глобальная горячая клавиша, работающая поверх полноэкранного Moonlight, плюс
-индикация. Библиотека уже выбрана в дизайн-документе.
-*Сложность: низкая. Ценность: раздражает каждый день.*
+## Infrastructure, not features
 
-**Шумодав на микрофоне.** RNNoise или аналог перед Opus. Ноутбучный микрофон
-ловит вентиляторы и клавиатуру.
-*Сложность: средняя.*
+**Signing and notarization.** The macOS build is ad-hoc signed today and the Windows
+one is not signed at all — other people will hit Gatekeeper and SmartScreen.
+Certificates are needed, and that is money rather than code.
+*Difficulty: low, technically.*
 
-**Веб-камера как виртуальная камера на ПК.** Отдельный класс задачи: на macOS
-доступ к камере есть штатно, но виртуальная камера на Windows — это свой драйвер,
-как и с микрофоном.
-*Сложность: высокая.*
-
-## Инфраструктура, не фичи
-
-**Автообновление.** Sparkle на macOS уже в списке зависимостей, Velopack на Windows
-проверен и умеет собирать инсталлятор прямо с Mac. Релизы в CI есть, осталось
-связать.
-*Сложность: низкая.*
-
-**Подпись и нотаризация.** Сейчас macOS-сборка подписана ad-hoc, Windows не
-подписана вовсе — у чужих людей будет Gatekeeper и SmartScreen. Нужны сертификаты,
-это деньги, а не код.
-*Сложность: низкая технически.*
-
-**Автопоиск хоста без QR.** Bonjour на Mac-стороне уже есть. Довести до состояния
-«запустил на обеих машинах, они нашли друг друга сами».
-*Сложность: низкая.*
-
-**Метрики и диагностика одной кнопкой.** Собрать состояние обеих сторон в один
-файл для отправки в issue. Сильно упростит поддержку чужих людей.
-*Сложность: низкая.*
+**Metrics and diagnostics in one click.** Collect the state of both sides into a
+single file to attach to an issue. It would make supporting other people far easier.
+*Difficulty: low.*

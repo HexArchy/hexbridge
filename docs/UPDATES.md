@@ -1,88 +1,89 @@
-# Автообновление HexBridge
+# HexBridge automatic updates
 
-Две платформы, два механизма, одно обещание: **проверка раз в сутки, установка
-только по команде пользователя, выключается одним переключателем.**
+Two platforms, two mechanisms, one promise: **check once a day, install only on the
+user's command, switch it off with a single toggle.**
 
 | | macOS | Windows |
 |---|---|---|
-| Механизм | Sparkle 2.9.6 | Velopack 1.2.0 |
-| Канал | `appcast.xml` — ассет релиза | GitHub Releases репозитория |
-| Подпись | EdDSA (ed25519) поверх подписи кода | подпись установщика (пока нет) |
-| Выключатель | Настройки → Основное → Обновления | Настройки → ОБНОВЛЕНИЯ |
-| Интервал | `SUScheduledCheckInterval` = 86400 | `UpdatePolicy.CheckInterval` = 1 сутки |
+| Mechanism | Sparkle 2.9.6 | Velopack 1.2.0 |
+| Channel | `appcast.xml` — a release asset | the repository's GitHub Releases |
+| Signature | EdDSA (ed25519) on top of the code signature | installer signature (none yet) |
+| Toggle | Settings → General → Updates | Settings → UPDATES |
+| Interval | `SUScheduledCheckInterval` = 86400 | `UpdatePolicy.CheckInterval` = 1 day |
 
-Обе половины держат один и тот же интервал, и это проверяется тестом
-(`UpdatePolicyTests.TheIntervalIsADay`), а не памятью.
+Both halves hold the same interval, and that is enforced by a test
+(`UpdatePolicyTests.TheIntervalIsADay`) rather than by memory.
 
 ---
 
 ## macOS: Sparkle
 
-### Почему это вообще работает на ad-hoc подписи
+### Why this works at all on an ad-hoc signature
 
-HexBridge подписан **ad-hoc**, а не сертификатом Developer ID: платного
-сертификата за проектом нет. Sparkle он и не нужен. Sparkle проверяет
-**EdDSA-подпись архива** по ключу `SUPublicEDKey` из `Info.plist`, и эта проверка
-не зависит от подписи кода — именно она и позволяет обновлять неподписанную или
-ad-hoc подписанную сборку.
+HexBridge is **ad-hoc signed**, not signed with a Developer ID certificate: the
+project has no paid certificate. Sparkle does not need one. Sparkle verifies the
+**EdDSA signature of the archive** against the `SUPublicEDKey` from `Info.plist`,
+and that check does not depend on the code signature — which is exactly what makes
+it possible to update an unsigned or ad-hoc signed build.
 
-Что теряется без Developer ID: нотаризация. Пользователь при первом запуске
-по-прежнему проходит через «Открыть всё равно» в настройках безопасности. Это не
-изменилось и обновлениями не лечится.
+What is lost without a Developer ID: notarization. On first launch the user still
+has to go through "Open Anyway" in the security settings. That has not changed, and
+updates do not fix it.
 
-### Микрофон спросят заново — и это надо сказать заранее
+### The microphone prompt comes back — and that has to be said in advance
 
-У ad-hoc подписи нет устойчивого идентификатора: хеш кода меняется с каждой
-сборкой, поэтому после обновления macOS считает приложение **новым** и TCC
-спрашивает доступ к микрофону ещё раз.
+An ad-hoc signature has no stable identity: the code hash changes with every build,
+so after an update macOS considers the app **new** and TCC asks for microphone
+access again.
 
-Ничего не сломалось и ничего не сбросилось: адрес ПК и ключ связывания лежат в
-`~/Library/Application Support/HexBridge/config.json` и обновления не касаются.
-Но человек, которому этого не сказали, читает запрос разрешения как поломку.
-Поэтому текст показывается **до** обновления, а не после, и в двух местах:
+Nothing broke and nothing was reset: the PC's address and the pairing key live in
+`~/Library/Application Support/HexBridge/config.json` and updates never touch them.
+But someone who was not told this reads a permission prompt as a failure. So the
+text is shown **before** the update rather than after, in two places:
 
-* в настройках, рядом с переключателем — `Wording.updateWillReaskForMicrophone`;
-* в самом окне Sparkle — этот же абзац лежит в `<description>` элемента appcast,
-  который генерирует `mac/scripts/make-appcast.sh`.
+* in Settings, next to the toggle — `Wording.updateWillReaskForMicrophone`;
+* in Sparkle's own window — the same paragraph sits in the `<description>` of the
+  appcast item that `mac/scripts/make-appcast.sh` generates.
 
-### Ключ подписи
+### The signing key
 
-Ключ — ed25519. Приватная половина в репозиторий **не попадает никогда**: с ней
-кто угодно подпишет «обновление» HexBridge, и Sparkle поставит его молча, потому
-что подпись сойдётся.
+The key is ed25519. The private half **never** goes into the repository: with it,
+anyone can sign an "update" to HexBridge, and Sparkle will install it silently,
+because the signature checks out.
 
-**Где он лежит сейчас:**
+**Where it lives today:**
 
 ```
-secrets/sparkle_ed25519_private_key      # приватный, 0600, в .gitignore
-secrets/sparkle_ed25519_public_key       # публичный, он же в Info.plist
+secrets/sparkle_ed25519_private_key      # private, 0600, in .gitignore
+secrets/sparkle_ed25519_public_key       # public, the same one as in Info.plist
 ```
 
-Публичный ключ этой сборки:
+The public key of this build:
 
 ```
 dCeQPn6bc2CeCgLpffrSITwjLydswffxxHQGvjPbnUI=
 ```
 
-Он прошит в `mac/scripts/build-app.sh` как значение по умолчанию для
-`SPARKLE_PUBLIC_KEY` и попадает в `Info.plist` при сборке.
+It is baked into `mac/scripts/build-app.sh` as the default for
+`SPARKLE_PUBLIC_KEY` and ends up in `Info.plist` at build time.
 
-**Как положить приватный ключ в GitHub Actions:**
+**How to put the private key into GitHub Actions:**
 
 ```bash
 gh secret set SPARKLE_PRIVATE_KEY < secrets/sparkle_ed25519_private_key
 ```
 
-или руками: Settings → Secrets and variables → Actions → New repository secret,
-имя `SPARKLE_PRIVATE_KEY`, значение — **содержимое файла целиком** (одна строка
-base64, 44 символа). Workflow `release.yml` пишет её во временный файл, отдаёт
-`sign_update` и удаляет через `trap` — в том числе если сборка упала.
+or by hand: Settings → Secrets and variables → Actions → New repository secret,
+name `SPARKLE_PRIVATE_KEY`, value — **the entire contents of the file** (one line
+of base64, 44 characters). The `release.yml` workflow writes it to a temporary
+file, hands it to `sign_update` and deletes it via `trap` — including when the
+build fails.
 
-Без этого секрета релиз **падает намеренно**, с сообщением в лог. Молча выпустить
-неподписанный appcast нельзя: Sparkle его отвергнет, обновления просто перестанут
-приходить, и заметит это никто.
+Without that secret the release **fails deliberately**, with a message in the log.
+Shipping an unsigned appcast silently is not an option: Sparkle would reject it,
+updates would simply stop arriving, and nobody would notice.
 
-**Если ключ понадобилось сделать заново** (утёк, потерян):
+**If the key ever has to be regenerated** (leaked, lost):
 
 ```bash
 openssl genpkey -algorithm ed25519 -out /tmp/k.pem
@@ -96,102 +97,101 @@ PY
 rm -f /tmp/k.pem /tmp/k.der /tmp/kp.der
 ```
 
-Формат файла приватного ключа для Sparkle — **base64 32-байтного seed**, ровно то,
-что печатает скрипт выше. (Sparkle умеет и старый 96-байтный формат; новый —
-seed.) `bin/generate_keys` делает то же самое, но кладёт ключ в Keychain, что для
-CI бесполезно, а на машине без разблокированного Keychain ещё и зависает.
+Sparkle's private key file format is **base64 of a 32-byte seed**, exactly what the
+script above prints. (Sparkle also accepts the old 96-byte format; the new one is
+the seed.) `bin/generate_keys` does the same thing but puts the key in the Keychain,
+which is useless for CI and, on a machine with a locked Keychain, hangs silently.
 
-Смена ключа означает, что **уже установленные сборки перестанут обновляться**: у
-них в `Info.plist` старый публичный ключ. Такие пользователи скачивают новую
-версию руками один раз.
+Rotating the key means **builds already installed stop updating**: their
+`Info.plist` has the old public key. Those users download the new version by hand,
+once.
 
-### Как собирается appcast
+### How the appcast is built
 
 ```bash
-mac/scripts/make-appcast.sh <версия> <zip> <URL, по которому zip будет лежать> [output]
+mac/scripts/make-appcast.sh <version> <zip> <URL where the zip will live> [output]
 ```
 
-В фиде **ровно один элемент** — тот релиз, который публикуется. Это не упрощение,
-а следствие того, где фид живёт: `SUFeedURL` указывает на
+The feed contains **exactly one item** — the release being published. That is not a
+simplification but a consequence of where the feed lives: `SUFeedURL` points at
 
 ```
 https://github.com/HexArchy/hexbridge/releases/latest/download/appcast.xml
 ```
 
-а GitHub разворачивает `latest/download/…` в ассет самого свежего релиза. Значит,
-каждый релиз несёт свой фид, URL не меняется никогда, и нет файла, который надо
-править руками и переподписывать при каждом выпуске.
+and GitHub resolves `latest/download/…` to an asset of the newest release. So every
+release carries its own feed, the URL never changes, and there is no file that has
+to be hand-edited and re-signed on every ship.
 
 ---
 
 ## Windows: Velopack
 
-Velopack выбран не по вкусу, а по одной решающей причине: **он собирает
-установщик и канал обновлений прямо с macOS.**
+Velopack was chosen not by taste but for one decisive reason: **it builds the
+installer and the update channel straight from macOS.**
 
 ```bash
 vpk '[win]' pack --packId HexBridge --packVersion 1.2.0 \
     --packDir publish/win --mainExe HexBridge.exe -r win-x64 -o velopack
 ```
 
-Директива `[win]` включает кросс-компиляцию, и Windows-раннер в релизном
-workflow не нужен. Проверено на этой машине: `Directive enabled for
-cross-compiling from OSX (current os) to Windows`, на выходе
-`HexBridge-win-Setup.exe`, `*-full.nupkg`, `RELEASES` и `releases.win.json`.
+The `[win]` directive turns on cross-compilation, and the release workflow needs no
+Windows runner. Verified on this machine: `Directive enabled for cross-compiling
+from OSX (current os) to Windows`, producing `HexBridge-win-Setup.exe`,
+`*-full.nupkg`, `RELEASES` and `releases.win.json`.
 
-### `VelopackApp.Build().Run()` — первой строкой
+### `VelopackApp.Build().Run()` — on the first line
 
-Это не стилистика. Velopack перезапускает исполняемый файл со служебными
-аргументами (`--veloapp-install` и родственные) во время установки, обновления и
-удаления. `Run()` их распознаёт, делает своё дело и завершает процесс. Всё, что
-стоит **выше** него, выполнится при каждом таком невидимом запуске — а поднятое
-там окно и есть классический баг «инсталлятор мигнул интерфейсом».
+This is not a style preference. Velopack relaunches the executable with internal
+arguments (`--veloapp-install` and relatives) during install, update and uninstall.
+`Run()` recognizes them, does its job and exits the process. Anything **above** it
+runs on every one of those invisible launches — and a window opened up there is the
+classic "the installer flashed a UI" bug.
 
-`vpk` проверяет это сам и печатает в лог:
+`vpk` checks this itself and prints to the log:
 `Verified VelopackApp.Run() in 'System.Void HexBridge.App.Program::Main(System.String)'`.
 
-### Портативная сборка
+### The portable build
 
-Zip с распакованным приёмником, который пользователь переносит на игровой ПК
-руками, остаётся как был и обновлять себя не умеет. Приложение это знает
-(`UpdateViewModel.IsSupported` читает `UpdateManager.IsInstalled`) и не показывает
-кнопку, которая всё равно не сработает.
+The zip with the unpacked receiver, the one the user carries over to the gaming PC
+by hand, stays as it was and cannot update itself. The app knows this
+(`UpdateViewModel.IsSupported` reads `UpdateManager.IsInstalled`) and does not show
+a button that would not work anyway.
 
-### Подпись установщика
+### Installer signing
 
-Пока её нет — `vpk` честно предупреждает `No signing parameters provided`.
-SmartScreen будет ругаться на первый запуск установщика, как ругался бы и на
-любой другой неподписанный exe. Решается сертификатом подписи кода; когда он
-появится, добавляется флагом `--signParams` и ничего больше в конвейере не
-меняет.
-
----
-
-## Что происходит при релизе
-
-`.github/workflows/release.yml`, тег `v*`:
-
-1. **macos** — тесты Swift, сборка `.app` с версией из тега, zip, appcast,
-   подписанный секретом `SPARKLE_PRIVATE_KEY`.
-2. **windows** — тесты .NET и портативный zip, как раньше.
-3. **velopack** — на macOS-раннере: `dotnet publish -r win-x64`, затем `vpk pack`.
-4. **relay** — как раньше.
-5. **publish** — собирает всё вместе, считает контрольные суммы (кроме appcast:
-   он подписан сам по себе) и **проверяет, что каналы обновлений на месте** —
-   `appcast.xml`, `HexBridge-win-Setup.exe`, `RELEASES`, `releases.win.json`.
-   Если чего-то нет, релиз падает: обновления, которые молча не работают, хуже
-   отсутствующих.
+There is none yet — `vpk` warns about it honestly: `No signing parameters provided`.
+SmartScreen will complain about the first launch of the installer, as it would about
+any other unsigned exe. A code signing certificate fixes it; when one exists, it goes
+in as a `--signParams` flag and nothing else in the pipeline changes.
 
 ---
 
-## Что не проверено
+## What happens on a release
 
-* **Настоящее обновление ни разу не проходило целиком.** Для этого нужны два
-  выпущенных релиза и установка первого из них. Проверено по частям: подпись
-  и её верификация тем же ключом, что в `Info.plist`; разбор appcast как XML;
-  наличие `Sparkle.framework` в бандле и то, что `dyld` его находит; сборка
-  пакета Velopack с macOS.
-* **SmartScreen и Gatekeeper** на свежескачанных артефактах — только на живой
-  машине пользователя.
-* **Дельта-обновления Sparkle** (`BinaryDelta`) не используются: они требуют
-  предыдущего архива на раннере. Пользователь качает полный zip, это 2 МБ.
+`.github/workflows/release.yml`, tag `v*`:
+
+1. **macos** — Swift tests, build the `.app` with the version from the tag, zip it,
+   build the appcast signed with the `SPARKLE_PRIVATE_KEY` secret.
+2. **windows** — .NET tests and the portable zip, as before.
+3. **velopack** — on the macOS runner: `dotnet publish -r win-x64`, then `vpk pack`.
+4. **relay** — as before.
+5. **publish** — gathers everything, computes checksums (except for the appcast,
+   which is signed in its own right) and **checks that the update channels are
+   there** — `appcast.xml`, `HexBridge-win-Setup.exe`, `RELEASES`,
+   `releases.win.json`. If any is missing the release fails: updates that silently
+   do not work are worse than no updates.
+
+---
+
+## What has not been verified
+
+* **A real update has never run end to end.** That needs two published releases and
+  an installation of the first. What has been verified piecewise: the signature and
+  its verification with the same key that is in `Info.plist`; parsing the appcast as
+  XML; the presence of `Sparkle.framework` in the bundle and that `dyld` finds it;
+  building the Velopack package from macOS.
+* **SmartScreen and Gatekeeper** on freshly downloaded artifacts — only on a real
+  user's machine.
+* **Sparkle delta updates** (`BinaryDelta`) are not used: they require the previous
+  archive on the runner. The user downloads the full zip, which is 2 MB.

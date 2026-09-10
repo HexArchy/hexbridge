@@ -1,143 +1,158 @@
 # HexBridge
 
-Микрофон и геймпад с Mac на игровой ПК с Windows — во время стрима, но **мимо стрима**.
+[![build](https://github.com/HexArchy/hexbridge/actions/workflows/build.yml/badge.svg)](https://github.com/HexArchy/hexbridge/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/HexArchy/hexbridge?sort=semver)](https://github.com/HexArchy/hexbridge/releases/latest)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Вы играете через Moonlight, а микрофон и DualSense физически воткнуты в Mac. Игры
-на игровом ПК видят их как обычные локальные устройства: микрофон — как микрофон,
-DualSense — как настоящий контроллер `054C:0CE6` с адаптивными триггерами,
-гироскопом и тачпадом.
+Your Mac's microphone and DualSense, on your Windows gaming PC — alongside the
+game stream, but not through it.
 
-Moonlight и Sunshine при этом **не патчатся вообще**. HexBridge работает рядом,
-своим зашифрованным каналом, поэтому подходит любой стоковый клиент и любой хост —
-Sunshine, Apollo, Vibepollo. Обновление стримингового софта его не ломает.
+You play over Moonlight, the game-streaming client, while the microphone and the
+DualSense are physically plugged into your Mac. Games on the gaming PC see them as
+ordinary local devices: the microphone as a microphone, the DualSense as a real
+`054C:0CE6` controller with adaptive triggers, gyro and touchpad.
+
+Moonlight and Sunshine are **not patched at all**. HexBridge runs beside them over
+its own encrypted channel, so any stock client and any host will do — Sunshine,
+Apollo, Vibepollo. Updating your streaming software does not break it.
 
 ```
-        Mac                        сеть                    Windows
+        Mac                       network                  Windows
 ┌──────────────────┐         ┌──────────────┐      ┌────────────────────┐
-│ микрофон ────────┼── Opus ─┤              ├─────▶│ виртуальный кабель │──▶ игры
-│                  │         │  UDP, прямо  │      │                    │
-│ DualSense ───────┼── HID ──┤  или релей   ├─────▶│ USB/IP → vhci      │──▶ игры
-│                  │◀── вибрация, триггеры ─┤      │                    │
+│ microphone ──────┼── Opus ─┤              ├─────▶│ virtual cable      │──▶ games
+│                  │         │ UDP, direct  │      │                    │
+│ DualSense ───────┼── HID ──┤ or via relay ├─────▶│ USB/IP → vhci      │──▶ games
+│                  │◀── rumble, triggers ───┤      │                    │
 └──────────────────┘         └──────────────┘      └────────────────────┘
                               AES-256-GCM
 ```
 
-## Фичи
+## Features
 
-| | Что делает | Что нужно на Windows |
+| | What it does | What you need on Windows |
 |---|---|---|
-| **Микрофон** | Звук с Mac приходит на ПК и виден играм и Discord как обычный микрофон | Виртуальный аудиокабель: Steam Streaming Microphone (ставится со Steam) или [VB-Cable](https://vb-audio.com/Cable/) |
-| **DualSense** | Контроллер, воткнутый в Mac, появляется на ПК как настоящий PS5-геймпад | Драйвер [usbip-win2](https://github.com/vadimgrn/usbip-win2), подписанный Microsoft |
+| **Microphone** | Audio from the Mac arrives on the PC and shows up to games and Discord as a normal microphone | A virtual audio cable: Steam Streaming Microphone (installed with Steam) or [VB-Cable](https://vb-audio.com/Cable/) |
+| **DualSense** | A controller plugged into the Mac appears on the PC as a genuine PS5 gamepad | The [usbip-win2](https://github.com/vadimgrn/usbip-win2) driver, signed by Microsoft |
 
-Фичи независимы: можно включить только микрофон, только геймпад, или обе.
+The features are independent: run only the microphone, only the gamepad, or both.
 
-## Установка
+## Install
 
-**Windows.** Скачайте `HexBridge-Windows-x64.zip` из [релизов](https://github.com/HexArchy/hexbridge/releases),
-распакуйте и запустите от администратора:
+**Windows.** Download `HexBridge-Windows-x64.zip` from [Releases](https://github.com/HexArchy/hexbridge/releases),
+unpack it, and run as administrator:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Скрипт остановит старые версии, скопирует файлы, откроет порт в брандмауэре и
-включит автозапуск. Приложение сгенерирует ключ и покажет QR-код.
+The script stops any older version, copies the files, opens the firewall port and
+enables autostart. The app then generates a key and shows a QR code.
 
-**macOS.** Скачайте `HexBridge-macOS-arm64.zip`, положите `HexBridge.app` в
-«Программы» и запустите. Отсканируйте QR с экрана Windows или введите короткий код.
+**macOS.** Download `HexBridge-macOS-arm64.zip`, put `HexBridge.app` into
+Applications and launch it. Scan the QR code off the Windows screen, or type in
+the short code.
 
-Готово. Значок появится в строке меню на Mac и в трее на Windows.
+That's it. You get a menu bar icon on the Mac and a tray icon on Windows.
 
-Связать нужно один раз. Дальше Mac находит ПК в сети сам — по метке, выведенной из
-общего ключа, а не по имени, — поэтому смена IP после перезагрузки роутера лечится
-без вашего участия. К чужому HexBridge в той же сети Mac не подключится ни при
-каких обстоятельствах: у чужого ПК другой ключ, значит другая метка. Подробности —
-[docs/PROTOCOL.md](docs/PROTOCOL.md), раздел «Автопоиск хоста».
+Pairing happens once. After that the Mac finds the PC on its own — by a tag
+derived from the shared key rather than by hostname — so an IP change after a
+router reboot fixes itself without your involvement. The Mac will never connect to
+someone else's HexBridge on the same network: a different PC has a different key,
+therefore a different tag. Details in [docs/PROTOCOL.md](docs/PROTOCOL.md), under
+"Host discovery".
 
-Обновления обе стороны проверяют раз в сутки и ставят только с вашего согласия;
-выключается одним переключателем в настройках ([docs/UPDATES.md](docs/UPDATES.md)).
+Both sides check for updates once a day and install only with your consent; one
+switch in Settings turns that off ([docs/UPDATES.md](docs/UPDATES.md)).
 
-## Как это устроено
+## How it works
 
-Свой протокол поверх UDP: 24-байтный открытый заголовок и полезная нагрузка под
-AES-256-GCM с общим ключом. Заголовок открыт намеренно — чтобы необязательный
-релей на VPS мог маршрутизировать пакеты, не зная ключа и не имея возможности
-расшифровать содержимое.
+A custom protocol over UDP: a 24-byte plaintext header and a payload under
+AES-256-GCM with a shared key. The header is deliberately in the clear so that the
+optional VPS relay can route packets without knowing the key and without any way
+to decrypt what it forwards.
 
-* **Звук** — Opus 48 кГц моно, кадр 20 мс, ~45 кбит/с. На приёмнике jitter-буфер
-  с восстановлением потерь и вывод в WASAPI.
-* **Геймпад** — сырые HID-репорты, 250 Гц. Windows собирает из них виртуальное
-  USB-устройство и отдаёт его системе через USB/IP.
+* **Audio** — Opus, 48 kHz mono, 20 ms frames, ~45 kbit/s. The receiver runs a
+  jitter buffer with loss concealment and plays out through WASAPI.
+* **Gamepad** — raw HID reports at 250 Hz. Windows assembles a virtual USB device
+  from them and hands it to the system over USB/IP.
 
-Полное описание формата: [docs/PROTOCOL.md](docs/PROTOCOL.md).
+Full wire format: [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
-### Почему геймпад устроен именно так
+### Why the gamepad works this way
 
-Пробросить USB-устройство с macOS штатными средствами **невозможно**: `IOHIDFamily`
-держит HID-интерфейс эксклюзивно, а DriverKit-энтайтлмент для захвата устройства
-Apple обычным разработчикам не выдаёт. Поэтому граница проходит по HID: Mac отдаёт
-репорты и настоящие дескрипторы устройства, а виртуальный USB собирается уже на
-Windows. Подробности и подводные камни — [docs/DUALSENSE.md](docs/DUALSENSE.md).
+Forwarding a USB device off macOS with the stock tooling is **impossible**:
+`IOHIDFamily` holds the HID interface exclusively, and Apple does not hand the
+DriverKit entitlement for claiming a device to ordinary developers. So the boundary
+runs along HID: the Mac ships reports and the device's real descriptors, and the
+virtual USB device is assembled on the Windows side. Details and pitfalls in
+[docs/DUALSENSE.md](docs/DUALSENSE.md).
 
-## Структура
+## Layout
 
 ```
-mac/       Swift + SwiftUI, приложение в строке меню и CLI
-win/       .NET 10 + Avalonia, приложение в трее и консольный приёмник
-relay/     Go, необязательный релей для случая, когда прямой путь недоступен
-docs/      протокол, дизайн-система, руководство по DualSense, развёртывание релея
+mac/       Swift + SwiftUI, menu bar app and CLI
+win/       .NET 10 + Avalonia, tray app and console receiver
+relay/     Go, optional relay for when the direct path is unavailable
+docs/      protocol, design system, DualSense guide, relay deployment
 ```
 
-Обе платформы разложены по фичам: у каждой фичи свой модуль, свой раздел UI и свой
-набор типов пакетов. Оболочка перебирает зарегистрированные фичи и не знает их
-поимённо, поэтому третья добавляется, не трогая первые две.
+Both platforms are organized by feature: each feature owns its module, its section
+of the UI and its set of packet types. The shell iterates over registered features
+and does not know any of them by name, so a third one can be added without touching
+the first two.
 
-## Сборка
+## Build
 
 ```bash
 brew install opus
 swift build -c release --package-path mac      # macOS
-bash mac/scripts/test.sh                       # тесты Swift
+bash mac/scripts/test.sh                       # Swift tests
 dotnet build win/src/HexBridge.sln -c Release  # Windows
 dotnet test  win/src/HexBridge.sln -c Release
-go build -C relay .                            # релей
+go build -C relay .                            # relay
 ```
 
-`mac/scripts/test.sh`, а не голый `swift test`: на машине без Xcode swift-testing
-лежит там, где компоновщик его сам не найдёт, и скрипт добавляет ровно эти пути.
+Use `mac/scripts/test.sh` rather than a bare `swift test`: on a machine without
+Xcode, swift-testing lives where the linker won't find it by itself, and the script
+adds exactly those paths.
 
-Посмотреть, что видно в сети и что из этого «наше»:
+To see what is visible on the network and which of it is ours:
 `mac/build/HexBridge.app/Contents/MacOS/HexBridge discover`.
 
-Windows-сборка собирается и с macOS: `dotnet publish` умеет кросс-таргет, а
-Avalonia не требует Windows-only инструментов. Настоящая проверка идёт в CI на
+The Windows build also builds from macOS: `dotnet publish` cross-targets, and
+Avalonia needs no Windows-only tooling. The real check runs in CI on
 `windows-latest`.
 
-## Релей
+## Relay
 
-Нужен, только если Mac не может достучаться до ПК напрямую. Обе стороны сами
-подключаются к релею исходящими соединениями, проброс портов не требуется ни на
-одном конце. Релей видит только заголовок и не может расшифровать ни звук, ни
-ввод. Развёртывание: [docs/VPS.md](docs/VPS.md).
+Needed only when the Mac cannot reach the PC directly. Both sides dial out to the
+relay themselves, so no port forwarding is required on either end. The relay sees
+only the header and cannot decrypt either the audio or the input. Deployment:
+[docs/VPS.md](docs/VPS.md).
 
-## Ограничения
+## Limitations
 
-* HD-хаптика DualSense пока не поддерживается. Адаптивные триггеры и вибрация
-  работают; фирменная хаптика — это изохронный аудиопоток на voice-coil актуаторы,
-  для неё нужно композитное USB-устройство. Отдельный этап.
-* Bluetooth-подключение контроллера не поддерживается, только USB.
-* Автопоиск работает в пределах одной подсети: mDNS не маршрутизируется, и через
-  гостевую сеть или изоляцию клиентов на роутере он не пройдёт. Ссылка и короткий
-  код работают всегда.
-* Виртуальный USB-контроллер виден в дереве устройств, и kernel-level античиты его
-  замечают.
-* **Разрешение на микрофон приходится выдавать заново после каждого обновления.**
-  Сборка подписана ad-hoc, а не Developer ID: хеш кода меняется с каждой версией,
-  и macOS считает её новым приложением, не перенося выданный доступ. Приложение
-  само покажет запрос и поднимет передачу, как только доступ дадут, — но если оно
-  запущено через launchd, а вас нет за компьютером, запрос будет ждать на экране.
-  Лечится подписью Developer ID, а это платный сертификат, а не строчка кода.
+* DualSense HD haptics is **off by default**. It works — the signature haptics is
+  an isochronous audio stream driving the voice-coil actuators, and HexBridge
+  presents the controller as a composite USB device to carry it — but usbip-win2
+  has an open bugcheck on exactly that isochronous audio path. With the switch
+  off the audio function is absent from the configuration descriptor entirely, so
+  Windows never loads the driver that carries the bug. Turn it on the first time
+  with the receiver's autostart disabled. See [docs/DUALSENSE.md](docs/DUALSENSE.md).
+* Connecting the controller over Bluetooth is not supported, USB only.
+* Discovery works within a single subnet: mDNS is not routed, and it will not cross
+  a guest network or client isolation on the router. The link and the short code
+  always work.
+* The virtual USB controller is visible in the device tree, and kernel-level
+  anti-cheats notice it.
+* **Microphone permission has to be granted again after every update.** The build
+  is ad-hoc signed rather than Developer ID signed: the code hash changes with each
+  version, so macOS treats it as a new app and does not carry the granted access
+  over. The app will show the prompt itself and bring the stream up as soon as
+  access is granted — but if it was started by launchd and you aren't at the
+  computer, the prompt sits there waiting. The fix is a Developer ID signature,
+  which is a paid certificate rather than a line of code.
 
-## Лицензия
+## License
 
-MIT, см. [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

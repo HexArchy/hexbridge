@@ -1,14 +1,14 @@
-# Релей на VPS
+# The relay on a VPS
 
-Релей нужен только когда прямой путь `Mac → белый IP хоста` не работает.
-Он ничего не расшифровывает: видит 24-байтный заголовок, сводит участников по
-`room` и пересылает датаграммы байт в байт.
+The relay is only needed when the direct path `Mac → the host's public IP` does not
+work. It decrypts nothing: it sees the 24-byte header, matches participants up by
+`room`, and forwards datagrams byte for byte.
 
-## Отдельным compose-файлом
+## As a standalone compose file
 
-Самый быстрый вариант, не трогает существующий стек:
+The quickest option, and it does not disturb an existing stack.
 
-Ниже `vps` — ваш ssh-алиас для сервера.
+Below, `vps` is your ssh alias for the server.
 
 ```bash
 rsync -a relay/ vps:/opt/hexbridge-relay/
@@ -16,7 +16,7 @@ ssh vps 'cd /opt/hexbridge-relay && docker compose up -d --build'
 ssh vps 'ufw allow 47702/udp comment "hexbridge relay"'
 ```
 
-Проверка:
+To check:
 
 ```bash
 ssh vps 'docker logs -f hexbridge-relay'
@@ -24,15 +24,15 @@ ssh vps 'docker logs -f hexbridge-relay'
 # rooms=1 endpoints=2 forwarded=648 dropped=3
 ```
 
-`endpoints=2` означает, что обе стороны нашлись. `endpoints=1` — вторая сторона
-до релея не достучалась.
+`endpoints=2` means both sides found each other. `endpoints=1` means the other side
+never reached the relay.
 
-## Внутри основного стека
+## Inside an existing stack
 
-Если релей должен жить вместе с остальным `~/Workspace/vps`:
+If the relay has to live alongside the rest of `~/Workspace/vps`:
 
-1. Скопируйте `relay/` в репозиторий как `hexbridge/`.
-2. Добавьте сервис в `docker-compose.yml`:
+1. Copy `relay/` into the repository as `hexbridge/`.
+2. Add the service to `docker-compose.yml`:
 
 ```yaml
   hexbridge-relay:
@@ -48,24 +48,25 @@ ssh vps 'docker logs -f hexbridge-relay'
         max-file: "3"
 ```
 
-3. Добавьте порт в `setup-firewall.sh` рядом с остальными правилами:
+3. Add the port to `setup-firewall.sh` next to the other rules:
 
 ```bash
 ufw allow 47702/udp comment "hexbridge relay"
 ```
 
-4. `./deploy.sh` — он сам сделает rsync и `docker compose up -d`.
+4. `./deploy.sh` — it does the rsync and the `docker compose up -d` itself.
 
-## Почему не через существующий Hysteria2
+## Why not go through the existing Hysteria2
 
-Hysteria2 на UDP/443 — это прокси для клиентского трафика, туда голосовой поток
-заворачивать незачем: он добавит собственный конгестион-контроль и шифрование
-поверх уже зашифрованного потока, то есть только задержку. Релей делает ровно
-одно действие — пересылку датаграммы — и стоит около нуля по CPU.
+Hysteria2 on UDP/443 is a proxy for client traffic, and there is no reason to route
+the voice stream into it: it would add its own congestion control and its own
+encryption on top of an already encrypted stream, which means nothing but latency.
+The relay does exactly one thing — forward a datagram — and costs roughly zero CPU.
 
-## Ограничения
+## Limits
 
-* 512 комнат, 4 адреса на комнату, TTL адреса 60 секунд.
-* 2000 пакетов/с с адреса: голос это 51 пакет/с, но проброшенный геймпад
-  добавляет по пакету на каждый HID-репорт.
-* Только IPv4/IPv6 UDP, без TLS-обёртки: полезная нагрузка уже под AES-256-GCM.
+* 512 rooms, 4 addresses per room, address TTL 60 seconds.
+* 2000 packets/s per address: voice is 51 packets/s, but a forwarded gamepad adds
+  one packet per HID report.
+* IPv4/IPv6 UDP only, with no TLS wrapper: the payload is already under
+  AES-256-GCM.

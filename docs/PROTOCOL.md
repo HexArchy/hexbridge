@@ -1,13 +1,14 @@
 # HexBridge wire protocol v1
 
-Однонаправленный поток голоса `Mac → Windows` поверх UDP. Транспорт не зависит от
-Moonlight/Sunshine: это отдельный канал, поэтому работает с любым стоковым клиентом.
+A one-way voice stream, `Mac → Windows`, over UDP. The transport does not depend on
+Moonlight or Sunshine: it is a separate channel, which is why it works with any
+stock client.
 
-## Пакет
+## Packet
 
 ```
-+--------------------- header, 24 байта, plaintext ----------------------+
-| off | size | field   | описание                                        |
++--------------------- header, 24 bytes, plaintext ----------------------+
+| off | size | field   | description                                     |
 |-----|------|---------|-------------------------------------------------|
 |  0  |  4   | magic   | ASCII "MBG1"                                    |
 |  4  |  1   | version | 1                                               |
@@ -16,32 +17,35 @@ Moonlight/Sunshine: это отдельный канал, поэтому раб�
 |     |      |         | 9=BULK_OFFER, 10=BULK_CHUNK, 11=BULK_ACK,       |
 |     |      |         | 12=BULK_DONE, 13=HAPTIC                         |
 |  6  |  2   | flags   | LE u16, bit0=MUTED, bit1=DTX_GAP                |
-|  8  |  8   | room    | LE u64, идентификатор комнаты для релея          |
-| 16  |  4   | session | LE u32, случайный на каждый запуск отправителя   |
-| 20  |  4   | seq     | LE u32, монотонный счётчик пакетов              |
+|  8  |  8   | room    | LE u64, room id for the relay                   |
+| 16  |  4   | session | LE u32, random on every sender start            |
+| 20  |  4   | seq     | LE u32, monotonic packet counter                |
 +------------------------------------------------------------------------+
-| ciphertext (переменной длины)                                          |
+| ciphertext (variable length)                                           |
 +------------------------------------------------------------------------+
-| GCM tag, 16 байт                                                       |
+| GCM tag, 16 bytes                                                      |
 +------------------------------------------------------------------------+
 ```
 
-Максимальный размер пакета — 1400 байт, что помещается в типовой MTU без фрагментации.
+The maximum packet size is 1400 bytes, which fits a typical MTU without
+fragmentation.
 
-## Шифрование
+## Encryption
 
 AES-256-GCM.
 
-* **key** — 32-байтный pre-shared key (PSK), общий для отправителя и приёмника.
-* **nonce** (12 байт) — `session (LE u32) || seq (LE u32) || direction (LE u32)`,
-  где `direction` = 0 для `Mac → Windows` и 1 для обратных служебных пакетов.
-  `session` случаен на каждый запуск, поэтому пара (session, seq) не повторяется.
-* **AAD** — все 24 байта заголовка. Заголовок не шифруется, чтобы релей мог
-  маршрутизировать пакеты, не зная PSK.
-* **tag** — 16 байт, дописывается в конец.
+* **key** — a 32-byte pre-shared key (PSK) shared by sender and receiver.
+* **nonce** (12 bytes) — `session (LE u32) || seq (LE u32) || direction (LE u32)`,
+  where `direction` is 0 for `Mac → Windows` and 1 for control packets going the
+  other way. `session` is random on every start, so the (session, seq) pair never
+  repeats.
+* **AAD** — all 24 bytes of the header. The header is not encrypted, so that the
+  relay can route packets without knowing the PSK.
+* **tag** — 16 bytes, appended at the end.
 
-Приёмник держит окно антиреплея на 1024 пакета: пакет с уже виденным `seq`
-отбрасывается, слишком старый (`seq < max_seq - 1024`) — тоже.
+The receiver keeps a 1024-packet anti-replay window: a packet whose `seq` has
+already been seen is dropped, and so is one that is too old
+(`seq < max_seq - 1024`).
 
 ## room
 
@@ -49,396 +53,409 @@ AES-256-GCM.
 room = LE_u64( SHA256("hexbridge-room-v1" || PSK)[0..8] )
 ```
 
-Релей маршрутизирует по `room`, но PSK не знает и расшифровать полезную нагрузку
-не может. Утечка `room` даёт максимум возможность «шуметь» в чужую комнату —
-такие пакеты отбрасываются на этапе проверки GCM-тега.
+The relay routes by `room`, but it does not know the PSK and cannot decrypt the
+payload. Leaking `room` buys an attacker nothing more than the ability to make
+noise in someone else's room — those packets are dropped when the GCM tag is
+checked.
 
-## Типы пакетов
+## Packet types
 
 ### AUDIO (type=1)
 
 ```
 | off | size | field                                      |
-|  0  |  4   | номер аудиокадра, LE u32                   |
-|  4  |  N   | Opus-пакет                                 |
+|  0  |  4   | audio frame number, LE u32                 |
+|  4  |  N   | Opus packet                                |
 ```
 
-Opus: 48 000 Гц, моно, кадр 20 мс (960 сэмплов), `OPUS_APPLICATION_VOIP`, inband
-FEC включён. Пакеты идут ровно каждые 20 мс, пока микрофон не в муте.
+Opus: 48 000 Hz, mono, 20 ms frames (960 samples), `OPUS_APPLICATION_VOIP`, inband
+FEC on. Packets go out exactly every 20 ms while the microphone is unmuted.
 
-Номер кадра отделён от `seq` намеренно: `seq` считает и HELLO-пакеты, поэтому
-использовать его для упорядочивания в jitter-буфере нельзя — раз в секунду
-получался бы «потерянный» кадр.
+The frame number is deliberately separate from `seq`: `seq` also counts HELLO
+packets, so it cannot be used to order frames in the jitter buffer — you would get
+one phantom "lost" frame every second.
 
 ### HELLO (type=2)
 
-Отправляется раз в секунду обеими сторонами. Нужен для двух вещей: релей узнаёт
-адреса участников комнаты, а приёмник — что отправитель жив.
+Sent once a second by both sides. It serves two purposes: the relay learns the
+addresses of the room's participants, and the receiver learns that the sender is
+alive.
 
 ```
-| off | size | field |
-|  0  |  8   | unix-время отправки, мс, LE u64 |
+| off | size | field                           |
+|  0  |  8   | unix send time, ms, LE u64      |
 |  8  |  1   | role: 0=sender, 1=receiver      |
-|  9  |  1   | длина имени, N                  |
-| 10  |  N   | имя узла, UTF-8                 |
+|  9  |  1   | name length, N                  |
+| 10  |  N   | node name, UTF-8                |
 ```
 
 ### PONG (type=3)
 
-Ответ приёмника на HELLO отправителя, direction=1. Позволяет отправителю показать
-RTT и подтвердить, что звук доходит.
+The receiver's answer to the sender's HELLO, direction=1. It lets the sender show
+an RTT and confirm that audio is arriving.
 
 ```
-| off | size | field |
-|  0  |  8   | эхо unix-времени из HELLO, LE u64 |
-|  8  |  8   | принято AUDIO-пакетов, LE u64     |
-| 16  |  8   | потеряно AUDIO-пакетов, LE u64    |
+| off | size | field                                     |
+|  0  |  8   | echo of the unix time from HELLO, LE u64  |
+|  8  |  8   | AUDIO packets received, LE u64            |
+| 16  |  8   | AUDIO packets lost, LE u64                |
 ```
 
-## Канал устройства (HID)
+## Device channel (HID)
 
-Тот же сокет, те же ключ и `session`, отдельные типы пакетов. Проброс геймпада
-работает поверх этого канала.
+Same socket, same key and `session`, separate packet types. Gamepad forwarding
+runs over this channel.
 
-Граница ответственности проходит по HID: **Mac передаёт репорты и дескрипторы**,
-а сборка виртуального USB-устройства и USB/IP целиком живут на Windows.
+The line of responsibility runs along HID: **the Mac sends reports and
+descriptors**, while assembling the virtual USB device and speaking USB/IP live
+entirely on Windows.
 
-Так сделано не из удобства. Пробросить USB-устройство с macOS нельзя в принципе:
-`IOHIDFamily` держит HID-интерфейс эксклюзивно (`USBInterfaceOpen` на нём всегда
-возвращает `kIOReturnExclusiveAccess`), а DriverKit-энтайтлмент для захвата
-устройства Apple обычным разработчикам не выдаёт. Зато **сами дескрипторы
-читаются свободно**, без `open` и без прав: конфигурация целиком через
-`GetConfigurationDescriptorPtr`, HID report descriptor через свойство
-`kIOHIDReportDescriptorKey`. Поэтому на Windows уезжают настоящие дескрипторы
-устройства, а не самодельные.
+This is not a convenience choice. Forwarding a USB device off macOS is impossible
+in principle: `IOHIDFamily` holds the HID interface exclusively (`USBInterfaceOpen`
+on it always returns `kIOReturnExclusiveAccess`), and Apple does not hand the
+DriverKit entitlement for claiming a device to ordinary developers. The
+**descriptors themselves, however, are freely readable**, with no `open` and no
+privileges: the full configuration via `GetConfigurationDescriptorPtr`, and the HID
+report descriptor via the `kIOHIDReportDescriptorKey` property. So what travels to
+Windows is the device's real descriptors, not homemade ones.
 
-### Несколько устройств и произвольный HID
+### Multiple devices and arbitrary HID
 
-Номер устройства — от 0 до 3, то есть до четырёх штук одновременно. Ограничение
-не техническое, а осознанное: каждое устройство это отдельный виртуальный USB на
-Windows и отдельный поток репортов, а игр, различающих больше четырёх
-контроллеров, практически нет.
+The device number runs from 0 to 3, so up to four devices at once. That limit is
+deliberate rather than technical: each device means a separate virtual USB device
+on Windows and a separate stream of reports, and there are essentially no games
+that tell more than four controllers apart.
 
-Номер выдаётся Mac-стороной при подключении и держится за физическим устройством,
-пока оно воткнуто. После отключения номер освобождается и может достаться
-другому. Windows обязан различать устройства только по этому номеру: серийных
-номеров у большинства геймпадов нет, а `locationID` меняется от порта к порту.
+The number is assigned by the Mac side on attach and stays with the physical device
+for as long as it is plugged in. Once it detaches, the number is released and may
+go to another device. Windows must distinguish devices by that number and nothing
+else: most gamepads have no serial number, and `locationID` changes from port to
+port.
 
-Пробрасывается **любое HID-устройство**, а не только DualSense: рули, педали,
-HOTAS, клавиатуры, мыши. Для этого в канале нет ничего специфичного для PS5 —
-`DEV_ATTACH` несёт настоящие дескрипторы, а `DEV_IN` и `DEV_OUT` переносят
-репорты как есть, не заглядывая внутрь. Разбор содержимого нужен только тем
-фичам, которые хотят показать состояние в интерфейсе.
+**Any HID device** can be forwarded, not just a DualSense: wheels, pedals, HOTAS,
+keyboards, mice. Nothing in the channel is PS5-specific — `DEV_ATTACH` carries the
+real descriptors, and `DEV_IN` and `DEV_OUT` move reports through as-is without
+looking inside. Parsing the contents is only needed by features that want to show
+device state in the UI.
 
-Не-HID устройства пробросить нельзя: на macOS их держит системный драйвер, и
-`USBInterfaceOpen` на таком интерфейсе всегда возвращает
-`kIOReturnExclusiveAccess`. Обойти это можно только энтайтлментом DriverKit,
-который Apple обычным разработчикам не выдаёт.
+Non-HID devices cannot be forwarded: on macOS a system driver holds them, and
+`USBInterfaceOpen` on such an interface always returns `kIOReturnExclusiveAccess`.
+The only way around that is the DriverKit entitlement, which Apple does not hand to
+ordinary developers.
 
 ### DEV_ATTACH (type=4), Mac → Windows
 
-Отправляется при подключении устройства и повторяется раз в секунду, пока
-Windows не подтвердит. Несёт всё, что нужно приёмнику, чтобы собрать
-виртуальный USB-девайс, ни о чём больше не спрашивая.
+Sent when a device is attached and repeated once a second until Windows
+acknowledges it. It carries everything the receiver needs to assemble a virtual USB
+device without asking for anything else.
 
 ```
 | off | size | field                                   |
-|  0  |  1   | номер устройства (0..3)                 |
-|  1  |  1   | количество блоков дескрипторов, K       |
-|  2  |  …   | K блоков                                |
+|  0  |  1   | device number (0..3)                    |
+|  1  |  1   | number of descriptor blocks, K          |
+|  2  |  …   | K blocks                                |
 ```
 
-Каждый блок:
+Each block:
 
 ```
 | off | size | field                                          |
-|  0  |  1   | тип: 1=device, 2=configuration, 3=HID report,  |
-|     |      |      4=снимок feature-репорта                  |
-|  1  |  2   | длина, LE u16                                  |
-|  3  |  N   | сырые байты как отданы устройством             |
+|  0  |  1   | type: 1=device, 2=configuration, 3=HID report, |
+|     |      |       4=feature report snapshot                |
+|  1  |  2   | length, LE u16                                 |
+|  3  |  N   | raw bytes exactly as the device gave them      |
 ```
 
-У блока типа 4 первый байт данных — номер feature-репорта, дальше его содержимое.
+For a type-4 block the first data byte is the feature report number, followed by
+its contents.
 
-Feature-репорты едут вместе с дескрипторами намеренно. Windows обязан отвечать
-на `GET_REPORT` от игр и от Steam, а данные лежат на Mac; запрос-ответ через сеть
-на каждый такой вызов добавил бы задержку ровно там, где игра решает, принимать
-ли контроллер. Значения статичны в пределах сессии, поэтому снимок отдаётся
-заранее. Обязательны три: `0x20` — прошивка, `0x09` — MAC-адреса, `0x05` —
-калибровка сенсоров. Нули в `0x05` дают деление на ноль в играх, поэтому пустой
-снимок недопустим: если репорт не прочитался, устройство не пробрасывается вовсе.
+Feature reports travel alongside the descriptors on purpose. Windows has to answer
+`GET_REPORT` from games and from Steam, and the data lives on the Mac; a
+request-response over the network for every such call would add latency at exactly
+the moment a game is deciding whether to accept the controller. The values are
+static for the lifetime of the session, so the snapshot is handed over up front.
+Three are mandatory: `0x20` — firmware, `0x09` — MAC addresses, `0x05` — sensor
+calibration. Zeros in `0x05` cause a division by zero in games, so an empty
+snapshot is not acceptable: if the report cannot be read, the device is not
+forwarded at all.
 
-У DualSense это 18 + 227 + 273 = 518 байт плюс заголовки — один пакет, дробить
-не нужно. VID, PID и `bcdDevice` приёмник берёт из device-дескриптора, а не из
-отдельных полей: меньше мест, где данные могут разойтись.
+For a DualSense that is 18 + 227 + 273 = 518 bytes plus headers — one packet, no
+splitting needed. The receiver takes VID, PID and `bcdDevice` from the device
+descriptor rather than from separate fields: fewer places where the data can drift
+apart.
 
-Серийного номера у DualSense нет (`iSerial = 0`), поэтому несколько
-контроллеров различаются только номером устройства в этом поле.
+A DualSense has no serial number (`iSerial = 0`), so several controllers are
+distinguished only by the device number in this field.
 
 ### DEV_ACK (type=8), Windows → Mac, direction=1
 
-Подтверждение, что виртуальное устройство собрано и приёмник готов принимать
-`DEV_IN`. Одно поле: номер устройства, u8.
+Confirmation that the virtual device has been assembled and the receiver is ready
+for `DEV_IN`. One field: the device number, u8.
 
-Без него отправитель не знает, дошёл ли `DEV_ATTACH`. Соблазнительно считать
-подтверждением первый `DEV_OUT`, но это ловушка: игра, которая не трогает
-вибрацию и подсветку, не пришлёт ни одного `DEV_OUT`, и Mac будет вечно
-повторять 569-байтный `DEV_ATTACH` раз в секунду. Поэтому подтверждение
-отдельное и обязательное.
+Without it the sender has no idea whether `DEV_ATTACH` arrived. It is tempting to
+treat the first `DEV_OUT` as the acknowledgement, but that is a trap: a game that
+never touches rumble or the lightbar will not send a single `DEV_OUT`, and the Mac
+would repeat a 569-byte `DEV_ATTACH` once a second forever. So the acknowledgement
+is separate and mandatory.
 
-Приёмник шлёт `DEV_ACK` на каждый полученный `DEV_ATTACH`, а не только на
-первый: пакет мог потеряться, и повтор должен уметь его вылечить.
+The receiver sends `DEV_ACK` for every `DEV_ATTACH` it gets, not just the first
+one: the packet could have been lost, and the retry has to be able to cure that.
 
 ### DEV_DETACH (type=5), Mac → Windows
 
-Одно поле: номер устройства, u8. Windows отцепляет виртуальный девайс.
+One field: the device number, u8. Windows detaches the virtual device.
 
 ### DEV_IN (type=6), Mac → Windows
 
-Входной HID-репорт как есть, вместе с report id.
+An input HID report as-is, report id included.
 
 ```
 | off | size | field                    |
-|  0  |  1   | номер устройства         |
-|  1  |  4   | номер репорта, LE u32    |
+|  0  |  1   | device number            |
+|  1  |  4   | report number, LE u32    |
 |  5  |  N   | HID input report         |
 ```
 
-Счётчик отдельный от аудио и от `seq` — по нему приёмник видит пропуски. Терять
-входной репорт не страшно: следующий несёт полное состояние, поэтому
-восстанавливать пропущенные не нужно, в отличие от звука.
+The counter is separate from audio and from `seq` — it is how the receiver spots
+gaps. Losing an input report is not a problem: the next one carries the full state,
+so unlike audio there is nothing to reconstruct.
 
-DualSense по USB шлёт репорт `0x01` длиной 64 байта с частотой **250 Гц**
-(`bInterval = 6` на High Speed). Это 16 кБ/с сырых данных, то есть около
-**128 кбит/с** на контроллер — втрое больше голосового потока, но всё ещё
-немного. У DualSense Edge input идёт на 1000 Гц, а output у обеих моделей
-ограничен теми же 250 Гц.
+Over USB a DualSense sends report `0x01`, 64 bytes long, at **250 Hz**
+(`bInterval = 6` on High Speed). That is 16 kB/s of raw data, roughly
+**128 kbit/s** per controller — three times the voice stream, but still not much.
+On a DualSense Edge the input runs at 1000 Hz, while output on both models is
+capped at the same 250 Hz.
 
 ### DEV_OUT (type=7), Windows → Mac, direction=1
 
-Выходной HID-репорт: вибрация, адаптивные триггеры, подсветка.
+An output HID report: rumble, adaptive triggers, lightbar.
 
 ```
 | off | size | field                    |
-|  0  |  1   | номер устройства         |
+|  0  |  1   | device number            |
 |  1  |  N   | HID output report        |
 ```
 
-Отправляется только при изменении состояния, а не потоком: вибрация и триггеры
-меняются редко, гнать 250 пакетов в секунду в обратную сторону незачем.
+Sent only when the state changes, not as a stream: rumble and triggers change
+rarely, and there is no reason to push 250 packets a second back the other way.
 
-У DualSense это репорт `0x02` длиной 48 байт (1 байт ID + 47 по дескриптору).
-Ровно столько и надо слать — Linux дополняет до 63, но это лишнее.
+For a DualSense this is report `0x02`, 48 bytes long (1 byte of ID plus 47 per the
+descriptor). That is exactly how much to send — Linux pads it to 63, but that is
+unnecessary.
 
 
-## Надёжная передача крупных объектов
+## Reliable transfer of large objects
 
-Голос и ввод устроены так, что потерянный пакет проще выбросить, чем повторять:
-следующий всё равно несёт свежее состояние. Буфер обмена устроен наоборот —
-картинку нельзя доставить «почти». Поэтому поверх того же сокета живёт маленький
-слой с подтверждениями, общий для всех фич, которым нужна целостность.
+Voice and input are built so that a lost packet is cheaper to drop than to resend:
+the next one carries fresh state anyway. The clipboard is the opposite — you cannot
+deliver *most* of an image. So a small acknowledged layer lives on top of the same
+socket, shared by every feature that needs integrity.
 
-Он намеренно примитивен: окно фиксированного размера, повтор по таймауту, приём
-по номеру блока. Ни управления перегрузкой, ни переупорядочивания — объекты
-измеряются мегабайтами и секундами, а не гигабайтами, и городить поверх UDP
-второй TCP смысла нет.
+It is deliberately primitive: a fixed-size window, retransmit on timeout, receive by
+chunk number. No congestion control and no reordering — objects are measured in
+megabytes and seconds, not gigabytes, and building a second TCP on top of UDP is not
+worth it.
 
 ### BULK_OFFER (type=9)
 
-Предложение передать объект. Отправляется, пока не придёт `BULK_ACK` с
-`accepted = 1`, но не чаще раза в секунду и не дольше десяти попыток.
+An offer to transfer an object. Repeated until a `BULK_ACK` arrives with
+`accepted = 1`, but no more than once a second and for no more than ten attempts.
 
 ```
 | off | size | field                                        |
-|  0  |  4   | идентификатор передачи, LE u32               |
-|  4  |  1   | вид: 1=буфер обмена                          |
-|  5  |  1   | формат: 1=UTF-8 текст, 2=PNG, 3=произвольный |
-|  6  |  4   | полный размер в байтах, LE u32               |
-| 10  |  4   | число блоков, LE u32                         |
-| 14  | 32   | SHA-256 всего объекта                        |
-| 46  |  2   | длина описания, LE u16, N                    |
-| 48  |  N   | описание для интерфейса, UTF-8               |
+|  0  |  4   | transfer id, LE u32                          |
+|  4  |  1   | kind: 1=clipboard                            |
+|  5  |  1   | format: 1=UTF-8 text, 2=PNG, 3=arbitrary     |
+|  6  |  4   | total size in bytes, LE u32                  |
+| 10  |  4   | number of chunks, LE u32                     |
+| 14  | 32   | SHA-256 of the whole object                  |
+| 46  |  2   | description length, LE u16, N                |
+| 48  |  N   | description for the UI, UTF-8                |
 ```
 
-Размер ограничен 16 МиБ. Больше — это уже передача файлов, у неё будет свой вид.
+The size is capped at 16 MiB. Anything bigger is file transfer, which will get a
+kind of its own.
 
-Хеш нужен не только для проверки: получив `BULK_OFFER` с хешем того, что у него
-уже есть, приёмник отвечает `accepted = 0` и не тянет данные. Это же гасит
-петлю, когда обе стороны синхронизируют буфер друг с другом.
+The hash is not only for verification: on receiving a `BULK_OFFER` whose hash
+matches something it already has, the receiver answers `accepted = 0` and does not
+pull the data. That also kills the loop when both sides are syncing the clipboard to
+each other.
 
 ### BULK_CHUNK (type=10)
 
 ```
 | off | size | field                          |
-|  0  |  4   | идентификатор передачи, LE u32 |
-|  4  |  4   | номер блока, LE u32            |
-|  8  |  N   | данные блока                   |
+|  0  |  4   | transfer id, LE u32            |
+|  4  |  4   | chunk number, LE u32           |
+|  8  |  N   | chunk data                     |
 ```
 
-Блок — 1024 байта, кроме последнего. Размер выбран так, чтобы пакет с
-заголовком, тегом и служебными полями оставался заметно меньше типового MTU:
-фрагментация UDP по дороге через релей и туннели превращает одну потерю в потерю
-всего блока.
+A chunk is 1024 bytes, except the last one. The size is chosen so that a packet with
+its header, tag and control fields stays comfortably below a typical MTU: UDP
+fragmentation along the way through relays and tunnels turns one loss into the loss
+of the whole chunk.
 
 ### BULK_ACK (type=11)
 
-Подтверждение. Отправляется в ответ на `BULK_OFFER` и далее раз в 200 мс, пока
-передача идёт.
+The acknowledgement. Sent in response to `BULK_OFFER` and then every 200 ms for as
+long as the transfer is running.
 
 ```
 | off | size | field                                             |
-|  0  |  4   | идентификатор передачи, LE u32                    |
-|  4  |  1   | принято: 1 — тяните, 0 — не нужно                 |
-|  5  |  4   | номер первого недостающего блока, LE u32          |
-|  9  |  2   | сколько блоков перечислено дальше, LE u16, K       |
-| 11  | 4·K  | номера недостающих блоков после первого, LE u32    |
+|  0  |  4   | transfer id, LE u32                               |
+|  4  |  1   | accepted: 1 = send it, 0 = not needed             |
+|  5  |  4   | number of the first missing chunk, LE u32         |
+|  9  |  2   | how many chunk numbers follow, LE u16, K          |
+| 11  | 4·K  | numbers of missing chunks after the first, LE u32 |
 ```
 
-Отправитель повторяет только перечисленное. Список ограничен 256 номерами.
-Признака усечения в пакете нет: ровно 256 перечисленных номеров и означает
-«их может быть больше», и отправитель начинает заново с первого недостающего.
-При ровно 257 дырках это даёт лишнюю пересылку — на таком качестве связи
-выборочный повтор всё равно не выигрывает.
+The sender resends only what is listed. The list is capped at 256 numbers. There is
+no truncation flag in the packet: exactly 256 listed numbers is itself the signal
+that "there may be more", and the sender starts over from the first missing chunk.
+With exactly 257 holes that costs one redundant resend — at that link quality
+selective retransmission is not winning anyway.
 
-Когда недостающих блоков нет, в поле «номер первого недостающего» пишется число
-блоков, то есть на единицу больше последнего, а `K` равен нулю. Иначе отправитель
-принял бы это поле за настоящий номер и переслал несуществующий блок.
+When nothing is missing, the "first missing chunk" field carries the chunk count,
+that is one more than the last chunk, and `K` is zero. Otherwise the sender would
+read that field as a real chunk number and resend a chunk that does not exist.
 
 ### BULK_DONE (type=12)
 
-Одно поле: идентификатор передачи, LE u32. Приёмник шлёт его, когда объект
-собран и хеш сошёлся. Отправитель до этого держит данные в памяти.
+One field: the transfer id, LE u32. The receiver sends it once the object is
+assembled and the hash matches. Until then the sender holds the data in memory.
 
-Если хеш не сошёлся, `BULK_DONE` не отправляется, а вместо него уходит
-`BULK_ACK` со всеми блоками как недостающими. Молчаливой порчи не бывает.
-Так повторяется не более трёх раз: против отправителя, который портит данные
-одинаково, цикл иначе не кончится никогда.
+If the hash does not match, `BULK_DONE` is not sent; a `BULK_ACK` listing every
+chunk as missing goes out instead. There is no such thing as silent corruption.
+This repeats at most three times: against a sender that corrupts the data the same
+way every time, the loop would otherwise never end.
 
-Потерянный `BULK_DONE` иначе подвесил бы передачу навсегда: приёмник считает
-себя закончившим и больше ничего не шлёт, а отправитель держит данные в памяти.
-Поэтому приёмник помнит завершённые передачи 30 секунд и на любой пакет по ним
-отвечает `BULK_DONE` снова, а отправитель, отдав всё и не дождавшись ответа,
-раз в 500 мс повторяет последний блок как напоминание.
+A lost `BULK_DONE` would otherwise hang the transfer forever: the receiver considers
+itself finished and stops sending anything, while the sender keeps the data in
+memory. So the receiver remembers completed transfers for 30 seconds and answers any
+packet about them with `BULK_DONE` again, while the sender, having sent everything
+and heard nothing back, repeats the last chunk every 500 ms as a nudge.
 
-### Пределы и тайм-ауты
+### Limits and timeouts
 
 | | |
 |---|---|
-| Размер объекта | от 1 байта до 16 МиБ; пустой объект отвергается |
-| Описание | не более 256 байт, режется по границе UTF-8 |
-| Темп отправки | не более 1500 блоков в секунду |
-| Молчание отправителя | 15 с — приёмник забывает передачу |
-| Простой входящей передачи | 30 с |
+| Object size | from 1 byte to 16 MiB; an empty object is rejected |
+| Description | at most 256 bytes, truncated on a UTF-8 boundary |
+| Send rate | at most 1500 chunks per second |
+| Sender silence | 15 s — the receiver forgets the transfer |
+| Idle incoming transfer | 30 s |
 
-Темп ограничен не из вежливости: 16 МиБ это около 16 000 пакетов, и без
-ограничения одна картинка пробила бы лимит релея в 2000 пакетов в секунду и
-выбила бы заодно голос и ввод.
+The rate limit is not politeness: 16 MiB is around 16 000 packets, and without a cap
+one image would blow through the relay's limit of 2000 packets per second and take
+voice and input down with it.
 
-Повторное использование идентификатора передачи с другим хешем считается новой
-передачей, а не продолжением старой.
+Reusing a transfer id with a different hash counts as a new transfer, not a
+continuation of the old one.
 
-## Хаптика DualSense (type=13), Windows → Mac, direction=1
+## DualSense haptics (type=13), Windows → Mac, direction=1
 
-Фирменная хаптика PS5 — это не байты вибрации, а звук: контроллер выставляет по
-USB аудиоинтерфейс на 48 кГц и четыре канала, где 0–1 идут в динамик и гарнитуру,
-а 2–3 — на voice-coil актуаторы в рукоятках. Игра пишет туда обычный PCM.
+The PS5's signature haptics is not rumble bytes but sound: over USB the controller
+exposes a 48 kHz, four-channel audio interface where channels 0–1 go to the speaker
+and the headset jack, and 2–3 drive the voice-coil actuators in the grips. The game
+writes ordinary PCM there.
 
-Поэтому канал отдельный от `DEV_OUT`: там редкие команды, здесь непрерывный
-поток 384 кБ/с. Смешивать их в одном типе значило бы гонять вибрацию через
-логику, рассчитанную на «раз в секунду».
+That is why the channel is separate from `DEV_OUT`: that one carries occasional
+commands, this one a continuous 384 kB/s stream. Mixing them into one type would
+mean pushing haptics through logic designed for "once a second".
 
 ```
 | off | size | field                                   |
-|  0  |  1   | номер устройства                        |
-|  1  |  1   | каналов в блоке, всегда 2               |
-|  2  |  4   | номер блока, LE u32                     |
-|  6  |  N   | PCM, S16LE, чередующийся по каналам     |
+|  0  |  1   | device number                           |
+|  1  |  1   | channels in the block, always 2         |
+|  2  |  4   | block number, LE u32                    |
+|  6  |  N   | PCM, S16LE, channel-interleaved         |
 ```
 
-Блок — 5 мс звука, то есть 240 кадров на канал, и **только каналы 2 и 3**, те
-самые voice-coil актуаторы. Это 960 байт, что вместе с заголовком и тегом
-укладывается в MTU с запасом.
+A block is 5 ms of audio, that is 240 frames per channel, and **only channels 2 and
+3**, the voice-coil actuators. That comes to 960 bytes, which fits inside the MTU
+with room to spare along with the header and the tag.
 
-Четыре канала передавать нельзя не из экономии: 4 × 240 × 2 = 1920 байт плюс
-заголовок и тег дают 1966 — за пределом 1400, датаграмма фрагментировалась бы.
-Да и незачем: каналы 0–1 это динамик и гарнитура, а не хаптика.
+Sending four channels is not ruled out to save bandwidth: 4 × 240 × 2 = 1920 bytes
+plus header and tag makes 1966 — past the 1400 limit, so the datagram would
+fragment. And there would be no point: channels 0–1 are the speaker and the headset,
+not haptics.
 
-Тишина не передаётся вовсе. Нумерация при этом продолжает считать, поэтому
-пропуск однозначно отличим от паузы, а простой канала стоит ноль.
+Silence is not transmitted at all. The numbering keeps counting through it, so a gap
+is unambiguously distinguishable from a pause, and an idle channel costs nothing.
 
-Потерянный блок не восстанавливается: к моменту, когда повтор доедет, момент
-удара уже прошёл. Приёмник вставляет тишину — на хаптике это ощущается как
-пропуск, а не как треск.
+A lost block is not recovered: by the time a retransmission arrived, the moment of
+impact would have passed. The receiver inserts silence — on haptics that feels like
+a skipped beat rather than a crackle.
 
-Mac проигрывает полученное в сам контроллер: воткнутый по USB DualSense
-поднимается в системе как обычное устройство CoreAudio, поэтому обратный путь
-не требует ни прав, ни сырого USB.
+The Mac plays what it receives into the controller itself: a DualSense plugged in
+over USB comes up as an ordinary CoreAudio device, so the return path needs neither
+privileges nor raw USB.
 
 
-## Автопоиск хоста
+## Host discovery
 
-Связывание по QR-коду остаётся, но в домашней сети машины должны находить друг
-друга сами. Хост публикует службу `_hexbridge._udp.local.`, Mac её ищет.
+Pairing by QR code stays, but on a home network the machines should find each other
+on their own. The host publishes the `_hexbridge._udp.local.` service, and the Mac
+looks for it.
 
-Опасность очевидна: в общежитии, коворкинге или у друга в гостях в сети может
-оказаться чужой HexBridge, и подключиться к нему нельзя ни при каких
-обстоятельствах.
+The danger is obvious: in a dorm, a coworking space, or at a friend's place, there
+may be someone else's HexBridge on the network, and connecting to it must never
+happen under any circumstances.
 
-### Метка вместо имени
+### A tag instead of a name
 
-В TXT-записи публикуется не имя и не ключ, а **метка**, выведенная из общего
-ключа:
+What the TXT record publishes is neither a name nor the key, but a **tag** derived
+from the shared key:
 
 ```
 tag = base64url( SHA256("hexbridge-discovery-v1" || PSK)[0..16] )
 ```
 
-Mac подключается автоматически **только** к хосту, чья метка совпадает с меткой
-его собственного ключа. У чужого хоста ключ другой, значит и метка другая, и он
-для нас просто не существует.
+The Mac connects automatically **only** to a host whose tag matches the tag of its
+own key. Someone else's host has a different key, therefore a different tag, and as
+far as we are concerned it does not exist.
 
-Метка не выдаёт ключ: это односторонний хеш от 32 случайных байт, и обратить его
-нельзя. Она выдаёт ровно один факт — «эта пара уже связана», который наблюдателю
-в сети и так очевиден по трафику.
+The tag does not give the key away: it is a one-way hash of 32 random bytes and
+cannot be inverted. It gives away exactly one fact — "this pair is already paired" —
+which is obvious from the traffic to anyone watching the network anyway.
 
-### Пока пары ещё нет
+### Before there is a pair
 
-У неспаренного Mac ключа нет, значит и метки для сравнения нет. Такой Mac видит
-хосты в сети, но **не подключается к ним молча**: он показывает их списком, а
-чтобы связаться, всё равно нужен короткий код с экрана хоста. Автопоиск здесь
-экономит ввод адреса, но не заменяет подтверждение.
+An unpaired Mac has no key, and therefore no tag to compare against. Such a Mac sees
+the hosts on the network but **does not connect to them silently**: it lists them,
+and pairing still requires the short code from the host's screen. Discovery saves
+you typing an address here; it does not replace the confirmation.
 
-Иначе первый же чужой хост в сети стал бы «своим» — ровно то, чего допускать
-нельзя.
+Otherwise the first stranger's host on the network would become "ours" — precisely
+what must not be allowed.
 
-### Что ещё лежит в TXT
+### What else is in the TXT record
 
 ```
-v    версия протокола, целое
-port порт данных, целое
-name имя хоста для показа в списке, UTF-8
-tag  метка, см. выше
+v    protocol version, integer
+port data port, integer
+name host name to show in the list, UTF-8
+tag  the tag, see above
 ```
 
-Имя показывается только в списке при первом связывании. Опираться на него нельзя:
-его задаёт владелец хоста, и совпадение имён ничего не доказывает — решает
-только метка.
+The name is only shown in the list during first pairing. It cannot be relied on: the
+host's owner chooses it, and matching names prove nothing — only the tag decides.
 
-### Смена сети
+### Changing networks
 
-Метка не привязана к адресу, поэтому переезд хоста на другой IP не требует
-перепривязки: Mac найдёт его по метке заново. Это же покрывает случай, когда
-адрес выдан по DHCP и меняется после перезагрузки роутера — самая частая причина
-«вчера работало, сегодня нет».
+The tag is not tied to an address, so a host moving to a different IP does not
+require re-pairing: the Mac finds it again by tag. That also covers the case where
+the address comes from DHCP and changes after the router reboots — the most common
+cause of "it worked yesterday, it doesn't today".
 
-## Релей
+## Relay
 
-Релей на VPS нужен, только если прямая доставка невозможна. Он не расшифровывает
-трафик и работает так:
+The VPS relay is needed only when direct delivery is impossible. It does not decrypt
+traffic, and works like this:
 
-1. Пакет пришёл с адреса `E` в комнату `R`.
-2. `E` записывается в комнату `R` (TTL 60 с, максимум 4 адреса на комнату).
-3. Пакет пересылается всем остальным живым адресам этой комнаты байт в байт.
+1. A packet arrives from address `E` for room `R`.
+2. `E` is recorded in room `R` (TTL 60 s, at most 4 addresses per room).
+3. The packet is forwarded byte for byte to every other live address in that room.
 
-Ограничения: не более 512 комнат и 2000 пакетов/с с одного адреса — голос это
-51 пакет/с, но проброшенный геймпад добавляет ещё 250.
+Limits: no more than 512 rooms, and 2000 packets/s from a single address — voice is
+51 packets/s, but a forwarded gamepad adds another 250.
