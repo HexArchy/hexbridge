@@ -256,6 +256,7 @@
 "pairing.exchange.tooLong" = "ответ слишком длинный";
 "pairing.exchange.badPort" = "неверный порт";
 "pairing.exchange.unreadable" = "ответ не похож на HTTP";
+"config.unreadable" = "не удалось прочитать конфиг %@ — %@";
 "relay.direct.trying" = "пробую прямой путь на %@";
 "relay.direct.up" = "прямой путь работает — релей больше не в цепочке";
 "relay.direct.down" = "прямой путь замолчал — снова через релей";

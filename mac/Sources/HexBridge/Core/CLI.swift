@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import HexBridgeDiscovery
+import HexBridgeText
 
 /// Flags and the optional leading subcommand, parsed once at startup.
 struct Arguments {
@@ -225,7 +226,25 @@ enum CLI {
         let path = args.value("config").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? Config.defaultPath
 
-        var config = (try? Config.load(path)) ?? Config()
+        // A file that is not there is an ordinary first run. A file that is there and
+        // will not parse is a mistake somebody made, and continuing from an empty
+        // config turns it into a complaint about the key being the wrong length —
+        // which is the one thing that was fine.
+        //
+        // Stopping is deliberate, for the menu bar app as much as for the console.
+        // An empty config does not stay empty: the app saves itself on the next
+        // change, and that writes over the pairing key the file still holds. Under
+        // launchd this costs a restart every ten seconds with the reason in the log,
+        // and it ends the moment the file is fixed. A key nobody kept a copy of does
+        // not come back.
+        var config = Config()
+        if FileManager.default.fileExists(atPath: path.path) {
+            do {
+                config = try Config.load(path)
+            } catch {
+                fail(L.t("config.unreadable", path.path, "\(error)"))
+            }
+        }
         if let value = args.value("target") { config.target = value }
         if let value = args.value("psk") { config.psk = value }
         if let value = args.value("device") { config.inputDevice = value }

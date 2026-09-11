@@ -112,6 +112,47 @@ struct Config: Codable {
         .homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/HexBridge/config.json")
 
+    /// Decoded field by field, with every absence falling back to the default.
+    ///
+    /// The synthesised decoder does not do this: it treats a missing key as an error
+    /// even when the property has a default, and one missing key fails the whole
+    /// object. That is how a config with no `expectedLossPercent` in it — a field
+    /// nobody would think to write by hand — threw away the address and the key along
+    /// with it, and the app then complained that the key was not 32 bytes, which sent
+    /// the reader to look at the one line that was fine.
+    ///
+    /// Two fields were already `Optional` for exactly this reason, one of them with a
+    /// comment explaining the trap. This closes it for all of them, which also means a
+    /// config written by an older version keeps working when a field is added.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let fresh = Config()
+
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) throws -> T {
+            try values.decodeIfPresent(T.self, forKey: key) ?? fallback
+        }
+
+        target = try value(.target, fresh.target)
+        psk = try value(.psk, fresh.psk)
+        bitrate = try value(.bitrate, fresh.bitrate)
+        gain = try value(.gain, fresh.gain)
+        expectedLossPercent = try value(.expectedLossPercent, fresh.expectedLossPercent)
+        name = try value(.name, fresh.name)
+
+        inputDevice = try values.decodeIfPresent(String.self, forKey: .inputDevice)
+        gamepad = try values.decodeIfPresent(Bool.self, forKey: .gamepad)
+        forwardedDevices = try values.decodeIfPresent([String].self, forKey: .forwardedDevices)
+        clipboard = try values.decodeIfPresent(Bool.self, forKey: .clipboard)
+        microphone = try values.decodeIfPresent(Bool.self, forKey: .microphone)
+        theme = try values.decodeIfPresent(String.self, forKey: .theme)
+        language = try values.decodeIfPresent(String.self, forKey: .language)
+        peerName = try values.decodeIfPresent(String.self, forKey: .peerName)
+        paired = try values.decodeIfPresent(Bool.self, forKey: .paired)
+        autoUpdate = try values.decodeIfPresent(Bool.self, forKey: .autoUpdate)
+    }
+
+    init() {}
+
     static func load(_ url: URL) throws -> Config {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(Config.self, from: data)
