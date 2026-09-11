@@ -18,6 +18,37 @@ final class Sender {
     private let session: UInt32
     private let nodeName: String
 
+    // MARK: - The direct path
+    //
+    // Everything works over the relay alone. But the relay is a hop neither side
+    // needs once they can see each other, and with one on the far side of the
+    // world it is the largest delay in the chain. So when the relay says where
+    // the other end is (PROTOCOL.md, type 14), a second socket is opened straight
+    // at it and kept warm alongside the first.
+    //
+    // Nothing is taken on trust. The direct path is used only after a packet
+    // arrives over it that decrypts — a forged introduction buys an attacker a
+    // few probe packets aimed at nowhere. The relay link stays open the whole
+    // time and takes over again the moment the direct one goes quiet, so this
+    // can only make the call shorter, never break it.
+
+    /// The second socket, aimed where the relay said the other end is.
+    private var directLink: NWConnection?
+
+    /// What `directLink` was built for, so a repeated introduction is not a rebuild.
+    private var directEndpoint: NWEndpoint?
+
+    /// When something last arrived over the direct path and decrypted.
+    private var lastDirectAt: Date?
+
+    /// Whether data is going direct. Flipped on by a packet that decrypted, off
+    /// by silence.
+    private(set) var usingDirect = false
+
+    /// How long the direct path may be silent before the relay takes over. Three
+    /// missed keepalives: long enough not to flap on one lost packet.
+    private static let directGrace: TimeInterval = 3.5
+
     private var seq: UInt32 = 0
     /// Audio frames get their own counter: `seq` also covers HELLO packets, so
     /// using it for jitter-buffer ordering would look like one lost frame a second.
@@ -145,7 +176,10 @@ final class Sender {
     func stop() {
         lock.lock()
         stopped = true
+        let direct = directLink
+        directLink = nil
         lock.unlock()
+        direct?.cancel()
         connection.cancel()
     }
 
@@ -165,6 +199,7 @@ final class Sender {
 
     /// Announces us to the relay and asks the host for a PONG.
     func sendHello() {
+        tendDirectPath()
         var payload = [UInt8]()
         payload.appendLE(UInt64(Date().timeIntervalSince1970 * 1000))
         payload.append(0)  // role: sender
@@ -241,7 +276,11 @@ final class Sender {
             return
         }
 
-        connection.send(content: Data(datagram), completion: .contentProcessed { [weak self] error in
+        lock.lock()
+        let link = usingDirect ? (directLink ?? connection) : connection
+        lock.unlock()
+
+        link.send(content: Data(datagram), completion: .contentProcessed { [weak self] error in
             guard let self else { return }
             self.lock.lock()
             defer { self.lock.unlock() }
@@ -254,21 +293,42 @@ final class Sender {
         })
     }
 
-    private func receiveLoop() {
-        connection.receiveMessage { [weak self] data, _, _, error in
+    private func receiveLoop() { receiveLoop(on: connection, direct: false) }
+
+    private func receiveLoop(on link: NWConnection, direct: Bool) {
+        link.receiveMessage { [weak self] data, _, _, error in
             guard let self else { return }
             if let data, !data.isEmpty {
-                self.handle(Array(data))
+                self.handle(Array(data), direct: direct)
             }
             if error == nil {
-                self.receiveLoop()
+                self.receiveLoop(on: link, direct: direct)
             }
         }
     }
 
-    private func handle(_ datagram: [UInt8]) {
+    private func handle(_ datagram: [UInt8], direct: Bool) {
+        // The introduction is the one packet whose payload is not encrypted — it
+        // comes from the relay, which has no key. It is never a reason to trust
+        // anything, only a suggestion of where to knock.
+        if let header = Wire.Header.decode(datagram[...]), header.type == .peer, header.room == room, !direct {
+            noteCandidate(in: datagram)
+            return
+        }
+
         guard let (header, payload) = Wire.open(datagram: datagram, key: key, direction: .receiverToSender),
               header.room == room else { return }
+
+        // Something that decrypted arrived over the direct socket: the path is
+        // real, and from here the audio goes that way.
+        if direct {
+            lock.lock()
+            lastDirectAt = Date()
+            let firstTime = !usingDirect
+            usingDirect = true
+            lock.unlock()
+            if firstTime { print("hexbridge: " + L.t("relay.direct.up")) }
+        }
 
         switch header.type {
         case .pong where payload.count >= 24:
@@ -293,6 +353,98 @@ final class Sender {
         default:
             return
         }
+    }
+
+    /// Opens, or re-aims, the second socket at the address the relay named.
+    ///
+    /// The payload is `family, address, port` in the clear. Anything that does
+    /// not parse, or that names where we are already pointing, is ignored — a
+    /// repeated introduction every two seconds must not rebuild the socket.
+    private func noteCandidate(in datagram: [UInt8]) {
+        let body = Array(datagram[Wire.headerSize...])
+        guard body.count >= 3 else { return }
+
+        let width = body[0] == 4 ? 4 : (body[0] == 6 ? 16 : 0)
+        guard width > 0, body.count >= 1 + width + 2 else { return }
+
+        let raw = Array(body[1..<(1 + width)])
+        let port = UInt16(body[1 + width]) | (UInt16(body[2 + width]) << 8)
+        guard port != 0 else { return }
+
+        let text = width == 4
+            ? raw.map(String.init).joined(separator: ".")
+            : stride(from: 0, to: 16, by: 2)
+                .map { String(format: "%x", (UInt16(raw[$0]) << 8) | UInt16(raw[$0 + 1])) }
+                .joined(separator: ":")
+
+        guard let host = IPv4Address(text).map({ NWEndpoint.Host.ipv4($0) })
+            ?? IPv6Address(text).map({ NWEndpoint.Host.ipv6($0) }),
+            let endpointPort = NWEndpoint.Port(rawValue: port) else { return }
+
+        let candidate = NWEndpoint.hostPort(host: host, port: endpointPort)
+
+        lock.lock()
+        let known = directEndpoint
+        let alreadyStopped = stopped
+        lock.unlock()
+
+        guard !alreadyStopped, candidate != known, candidate != target else { return }
+
+        let link = NWConnection(to: candidate, using: Self.parameters())
+        link.stateUpdateHandler = { state in
+            // A direct path that will not open is the ordinary case, not a
+            // fault: the relay exists for exactly that. Nothing is reported.
+            if case .failed = state { link.cancel() }
+        }
+
+        lock.lock()
+        let previous = directLink
+        directLink = link
+        directEndpoint = candidate
+        lock.unlock()
+
+        previous?.cancel()
+        link.start(queue: queue)
+        receiveLoop(on: link, direct: true)
+        print("hexbridge: " + L.t("relay.direct.trying", "\(candidate)"))
+    }
+
+    /// Knocks on the direct path, and gives up on it after a silence.
+    ///
+    /// Called from the same once-a-second keepalive as the relay hello, because
+    /// it is the same job: a mapping that is not used closes, and a path nobody
+    /// has heard from is not a path.
+    private func tendDirectPath() {
+        lock.lock()
+        let link = directLink
+        let silentFor = lastDirectAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let wasUsing = usingDirect
+        if wasUsing && silentFor > Self.directGrace { usingDirect = false }
+        let dropped = wasUsing && !usingDirect
+        lock.unlock()
+
+        if dropped { print("hexbridge: " + L.t("relay.direct.down")) }
+        guard let link else { return }
+
+        // Sent over the direct socket specifically, so both ends keep a mapping
+        // open even while the audio is still going through the relay.
+        var payload = [UInt8]()
+        payload.appendLE(UInt64(Date().timeIntervalSince1970 * 1000))
+        payload.append(0)
+        let name = Array(nodeName.utf8.prefix(64))
+        payload.append(UInt8(name.count))
+        payload.append(contentsOf: name)
+
+        lock.lock()
+        let currentSeq = seq
+        seq &+= 1
+        lock.unlock()
+
+        let header = Wire.Header(type: .hello, flags: [], room: room, session: session, seq: currentSeq)
+        guard let datagram = try? Wire.seal(header: header, payload: payload, key: key, direction: .senderToReceiver) else {
+            return
+        }
+        link.send(content: Data(datagram), completion: .idempotent)
     }
 
     private func handlePong(_ payload: [UInt8]) {

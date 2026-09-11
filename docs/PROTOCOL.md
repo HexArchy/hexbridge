@@ -429,6 +429,50 @@ you typing an address here; it does not replace the confirmation.
 Otherwise the first stranger's host on the network would become "ours" — precisely
 what must not be allowed.
 
+## Leaving the relay behind
+
+A relay carries every packet of a call through a machine that may be on another
+continent. Once both ends can see each other it is a hop neither of them needs — and
+most of the time they can, because two sides that are both sending outward have both
+opened a mapping.
+
+The relay is the only party that can arrange it: it sees both public addresses, and
+neither endpoint can see its own. So every two seconds it tells each end where the
+other is.
+
+### Type 14, `PEER` — relay to both ends
+
+The one packet whose payload is **not** encrypted. It could not be otherwise: the relay
+has no key, which is the whole basis of it being safe to run on somebody else's box.
+
+```
+byte 0        address family: 4 or 6
+bytes 1…n     address, 4 or 16 bytes
+last 2 bytes  port, LE u16
+```
+
+The header is copied from a packet the room is already carrying, so the magic, version
+and room are right by construction. Flags, session and seq are zeroed: the relay has no
+session and is not part of anybody's numbering.
+
+### What each side does with it
+
+Nothing on trust. It names an address worth knocking on.
+
+* **Both ends** start sending their once-a-second keepalive to that address as well as
+  to the relay. That is the hole punch: each opens a mapping the other can use.
+* **The Mac** opens a second socket to it and moves the audio there only once a packet
+  arrives over it **that decrypts**. If the direct path is then silent for 3.5 seconds —
+  three missed keepalives — the relay takes over again. Both sockets stay open the whole
+  time, so the fallback costs nothing.
+* **The PC** already replies wherever an authenticated packet last came from, so it
+  follows automatically.
+* An introduction is only accepted from the relay the endpoint is already talking to.
+
+A forged introduction costs a few probe packets aimed at an address that will not
+answer. It cannot make either side accept data, because accepting still requires a
+packet that decrypts.
+
 ## The short-code exchange
 
 A twelve-character code cannot carry a 32-byte key, so it is a one-time ticket. The PC

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -33,6 +34,19 @@ public enum PacketType : byte
 
     /// <summary>Continuous PCM for the voice-coil actuators. Receiver to sender.</summary>
     Haptic = 13,
+
+    /// <summary>
+    /// Where the other end of this room is, as the relay sees it. Relay to both ends.
+    ///
+    /// <para>
+    /// The one type whose payload is <b>not</b> encrypted, and it could not be otherwise:
+    /// the relay is the only party that can see both public addresses and the only one
+    /// without the key. Nothing is trusted on the strength of it — it names an address to
+    /// try, and the path is only adopted once a packet arrives from there that decrypts.
+    /// A forged one costs a few probe packets aimed at nowhere.
+    /// </para>
+    /// </summary>
+    Peer = 14,
 }
 
 [Flags]
@@ -68,6 +82,32 @@ public static class Wire
         var written = Encoding.UTF8.GetBytes("hexbridge-room-v1", input);
         psk.CopyTo(input, written);
         return BinaryPrimitives.ReadUInt64LittleEndian(SHA256.HashData(input));
+    }
+
+    /// <summary>
+    /// The address inside a relay introduction, or null if this is not one.
+    ///
+    /// <para>
+    /// Type 14 is the only packet whose payload is plaintext, because the relay that
+    /// sends it has no key and could not seal it. Parsed defensively and believed about
+    /// nothing: the caller uses it to aim a keepalive, never to decide where data goes.
+    /// </para>
+    /// </summary>
+    public static IPEndPoint? PeerIntroduction(ReadOnlySpan<byte> datagram, ulong room)
+    {
+        if (datagram.Length < HeaderSize + 3) return null;
+        if (!datagram[..4].SequenceEqual(Magic)) return null;
+        if (datagram[4] != Version || datagram[5] != (byte)PacketType.Peer) return null;
+        if (BinaryPrimitives.ReadUInt64LittleEndian(datagram[8..]) != room) return null;
+
+        var body = datagram[HeaderSize..];
+        var width = body[0] switch { 4 => 4, 6 => 16, _ => 0 };
+        if (width == 0 || body.Length < 1 + width + 2) return null;
+
+        var port = BinaryPrimitives.ReadUInt16LittleEndian(body[(1 + width)..]);
+        if (port == 0) return null;
+
+        return new IPEndPoint(new IPAddress(body.Slice(1, width)), port);
     }
 
     public static void WriteHeader(Span<byte> dst, in Header header)

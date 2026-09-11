@@ -42,12 +42,23 @@ type endpoint struct {
 	// Rate limiting state, reset once per second.
 	windowStart time.Time
 	windowCount int
+
+	// When this endpoint was last told where the other end is. See introduce.go.
+	lastIntroduced time.Time
+}
+
+// introTarget is one "you two should try each other directly".
+type introTarget struct {
+	to    netip.AddrPort
+	about netip.AddrPort
 }
 
 type room struct {
 	endpoints []*endpoint
 }
 
+// route decides who a packet goes to, and who is owed an introduction to whom.
+//
 // pick returns the endpoint record for addr, creating it if the room has space.
 // It returns nil when the room is full of other live endpoints.
 func (r *room) pick(addr netip.AddrPort, now time.Time) *endpoint {
@@ -86,6 +97,10 @@ type relay struct {
 	// Counted apart from dropped: a refusal is a stranger being turned away,
 	// which is the guest list working, while a drop is usually something wrong.
 	refused atomic.Uint64
+
+	// Introductions sent. Falling to zero while two endpoints are live would
+	// mean the direct path is never being tried.
+	introduced atomic.Uint64
 }
 
 func newRelay() *relay {
@@ -93,14 +108,14 @@ func newRelay() *relay {
 }
 
 // route registers the sender and returns the peers a packet should go to.
-func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) []netip.AddrPort {
+func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) ([]netip.AddrPort, []introTarget) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	rm, ok := r.rooms[roomID]
 	if !ok {
 		if len(r.rooms) >= maxRooms {
-			return nil
+			return nil, nil
 		}
 		rm = &room{}
 		r.rooms[roomID] = rm
@@ -108,7 +123,7 @@ func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) []netip
 
 	ep := rm.pick(from, now)
 	if ep == nil {
-		return nil
+		return nil, nil
 	}
 
 	if now.Sub(ep.windowStart) >= time.Second {
@@ -117,11 +132,12 @@ func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) []netip
 	}
 	ep.windowCount++
 	if ep.windowCount > rateLimitPerSec {
-		return nil
+		return nil, nil
 	}
 	ep.lastSeen = now
 
 	peers := make([]netip.AddrPort, 0, len(rm.endpoints)-1)
+	var intros []introTarget
 	for _, other := range rm.endpoints {
 		if other == ep || other.addr == from {
 			continue
@@ -130,8 +146,17 @@ func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) []netip
 			continue
 		}
 		peers = append(peers, other.addr)
+
+		// Both ends need to hear it: a direct path only opens if each has sent
+		// something outward at the other.
+		if ep.due(now) {
+			intros = append(intros, introTarget{to: ep.addr, about: other.addr})
+		}
+		if other.due(now) {
+			intros = append(intros, introTarget{to: other.addr, about: ep.addr})
+		}
 	}
-	return peers
+	return peers, intros
 }
 
 // sweep drops rooms whose endpoints have all expired.
@@ -220,8 +245,9 @@ func main() {
 			r.sweep(now)
 			if !*quiet {
 				live, endpoints := r.stats()
-				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d refused=%d pairings=%d",
-					live, endpoints, r.forwarded.Load(), r.dropped.Load(), r.refused.Load(), meeting.count())
+				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d refused=%d introduced=%d pairings=%d",
+					live, endpoints, r.forwarded.Load(), r.dropped.Load(), r.refused.Load(),
+					r.introduced.Load(), meeting.count())
 			}
 		}
 	}()
@@ -260,7 +286,7 @@ func main() {
 			continue
 		}
 
-		peers := r.route(roomID, from, time.Now())
+		peers, intros := r.route(roomID, from, time.Now())
 		if len(peers) == 0 {
 			r.dropped.Add(1)
 			continue
@@ -272,6 +298,19 @@ func main() {
 				continue
 			}
 			r.forwarded.Add(1)
+		}
+
+		// Housekeeping, and strictly optional: everything works without it, just
+		// through one more hop than it needs to be.
+		for _, intro := range intros {
+			packet := introduction(buf[:n], intro.about)
+			if packet == nil {
+				continue
+			}
+			if _, err := conn.WriteToUDPAddrPort(packet, intro.to); err != nil {
+				continue
+			}
+			r.introduced.Add(1)
 		}
 	}
 }

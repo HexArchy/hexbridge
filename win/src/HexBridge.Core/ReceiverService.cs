@@ -227,6 +227,21 @@ public sealed class ReceiverService : IAsyncDisposable
         // read it without a lock.
         private uint _session;
         private IPEndPoint? _peer;
+
+        /// <summary>
+        /// Where the relay says the other end is, once it has said so.
+        ///
+        /// <para>
+        /// Used for one thing: sending a keepalive straight at it, so this machine's own
+        /// mapping is open when the other end tries the same. Never trusted as a source
+        /// — replies still go wherever an authenticated packet last came from, which is
+        /// the direct address only once one has actually arrived from there.
+        /// </para>
+        /// </summary>
+        private IPEndPoint? _candidate;
+
+        /// <summary>The relay, and the only address an introduction is accepted from.</summary>
+        private readonly IPEndPoint? _relayEndpoint;
         private long _lastPacketTicks;
         private bool _muted;
         private string _senderName = "";
@@ -277,6 +292,9 @@ public sealed class ReceiverService : IAsyncDisposable
             // because we sent something first.
             if (peer is not null) _peer = peer;
             _helloTarget = role == BridgeRole.Sender ? peer : relay;
+            // Only the relay may introduce anybody. An introduction from anywhere else is
+            // a stranger telling us where to send keepalives, which is not their business.
+            _relayEndpoint = relay;
         }
 
         /// <summary>
@@ -525,6 +543,19 @@ public sealed class ReceiverService : IAsyncDisposable
                 }
 
                 var datagram = buffer.AsSpan(0, result.ReceivedBytes);
+
+                // The relay's introduction is the one packet that is not encrypted, and
+                // could not be: the relay has no key. Handled before decryption, and
+                // acted on in one small way only — see _candidate.
+                if (Wire.PeerIntroduction(datagram, _room) is { } named)
+                {
+                    if (_relayEndpoint is not null && result.RemoteEndPoint.Equals(_relayEndpoint))
+                    {
+                        Volatile.Write(ref _candidate, named);
+                    }
+                    continue;
+                }
+
                 var length = Wire.Open(_aes, datagram, plaintext, _incoming, out var header);
                 if (length < 0 || header.Room != _room)
                 {
@@ -705,6 +736,19 @@ public sealed class ReceiverService : IAsyncDisposable
                     byte[] datagram;
                     lock (_aes) datagram = Wire.Seal(_aes, header, payload, _outgoing);
                     _socket.SendTo(datagram, target);
+
+                    // And the same knock straight at the other end, when the relay has
+                    // said where it is. This is the half of the hole punch that happens
+                    // here: the Mac aims at us, we aim at the Mac, and both mappings open
+                    // at once. Nothing depends on it working — if it does not, the relay
+                    // carries on carrying everything.
+                    if (Volatile.Read(ref _candidate) is { } direct && !direct.Equals(target))
+                    {
+                        var knock = new Header(PacketType.Hello, flags, _room, _ownSession, NextOwnSeq());
+                        byte[] second;
+                        lock (_aes) second = Wire.Seal(_aes, knock, payload, _outgoing);
+                        _socket.SendTo(second, direct);
+                    }
                 }
                 catch (SocketException)
                 {
