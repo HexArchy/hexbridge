@@ -78,6 +78,25 @@ Set the relay's address in the PC's Settings, under the key and relay section. F
 on the pairing screen shows the relay's address instead of the PC's local ones, and that
 is the single address to type on the Mac — whatever network either machine is on.
 
+## How fast it will carry
+
+`--rate` is the packets per second one endpoint may send, and it defaults to 20 000 —
+about 20 MB/s at this packet size. It used to be 2 000, which was sized for a voice
+call and a gamepad and is far too little now that a file rides the same socket.
+
+Raising it is not generosity. A relay that drops a chunk does not slow a transfer
+down politely: the chunk comes back as a hole in the next acknowledgement and is sent
+a second time, so a cap set too low costs more traffic than it saves. The floor is
+1 000 and the relay refuses to start below it, because one voice call and one
+forwarded gamepad already need more than that.
+
+```
+hexbridge-relay --rate 40000
+```
+
+The senders aim just under whatever this is rather than discovering it by losing
+chunks, so it is worth setting to something your VPS can actually push.
+
 ## Carrying only your own machines
 
 With no list the relay forwards for anyone who finds it. The header is plaintext by

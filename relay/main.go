@@ -27,10 +27,16 @@ const (
 	endpointTTL         = 60 * time.Second
 	sweepInterval       = 15 * time.Second
 
-	// Per-endpoint rate limit. Audio is 50 packets/s plus 1 hello/s, but a
-	// forwarded gamepad adds one packet per HID report — hundreds per second —
-	// so the cap has to clear that with room to spare.
-	rateLimitPerSec = 2000
+	// Per-endpoint rate limit, unless -rate says otherwise. Audio is 50 packets/s
+	// plus 1 hello/s and a forwarded gamepad adds one packet per HID report —
+	// hundreds per second — so the floor is a couple of thousand.
+	//
+	// The default is far above that because a file now rides the same socket, and
+	// a relay that drops chunks does not slow a transfer down politely: every
+	// dropped chunk comes back as a hole and is sent a second time, so a cap set
+	// too low costs more traffic than it saves. 20 000 packets of 1024 bytes is
+	// about 20 MB/s, which is a link worth having and still a bound.
+	defaultRatePerSec = 20000
 )
 
 var magic = [4]byte{'M', 'B', 'G', '1'}
@@ -91,6 +97,10 @@ type relay struct {
 	mu    sync.Mutex
 	rooms map[uint64]*room
 
+	// Packets per second one endpoint may send. Told to the clients too, so a
+	// sender can aim just under it rather than discovering it by losing chunks.
+	ratePerSec int
+
 	forwarded atomic.Uint64
 	dropped   atomic.Uint64
 
@@ -104,7 +114,9 @@ type relay struct {
 }
 
 func newRelay() *relay {
-	return &relay{rooms: make(map[uint64]*room)}
+	// The default matters: tests and any caller that forgets to set it must get a
+	// working relay rather than one that silently refuses everything.
+	return &relay{rooms: make(map[uint64]*room), ratePerSec: defaultRatePerSec}
 }
 
 // route registers the sender and returns the peers a packet should go to.
@@ -131,7 +143,7 @@ func (r *relay) route(roomID uint64, from netip.AddrPort, now time.Time) ([]neti
 		ep.windowCount = 0
 	}
 	ep.windowCount++
-	if ep.windowCount > rateLimitPerSec {
+	if ep.windowCount > r.ratePerSec {
 		return nil, nil
 	}
 	ep.lastSeen = now
@@ -194,6 +206,7 @@ func main() {
 	// clients' settings describes the whole relay.
 	pairListen := flag.String("pair-listen", ":47703", "TCP address for the pairing rendezvous, empty to disable")
 	rooms := flag.String("rooms", "", "room ids this relay carries, comma separated or @file; empty carries anyone")
+	rate := flag.Int("rate", defaultRatePerSec, "packets per second one endpoint may send")
 	quiet := flag.Bool("quiet", false, "suppress the periodic stats line")
 	flag.Parse()
 
@@ -224,7 +237,13 @@ func main() {
 		log.Printf("carrying %d room(s)", guests.size())
 	}
 
+	if *rate < 1000 {
+		log.Fatalf("-rate %d is below what one voice call and one gamepad already need", *rate)
+	}
+
 	r := newRelay()
+	r.ratePerSec = *rate
+	log.Printf("carrying up to %d packets/s per endpoint", r.ratePerSec)
 
 	// Pairing needs a way in that does not depend on either side accepting a
 	// connection — otherwise the one situation the relay exists for is the one
