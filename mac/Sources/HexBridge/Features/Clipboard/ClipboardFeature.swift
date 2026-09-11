@@ -64,6 +64,9 @@ final class ClipboardFeature: Feature {
             host.config.clipboard = newValue
             host.saveSoon()
             host.runtime.config = host.config
+            // This may be the only thing switched on, in which case there is no
+            // bridge yet for it to travel on.
+            host.reconcilePipeline()
             if newValue { start() } else { stop() }
         }
     }

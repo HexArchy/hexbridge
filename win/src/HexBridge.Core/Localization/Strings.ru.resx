@@ -1914,6 +1914,9 @@
   <data name="Log_Files_WriteFailed" xml:space="preserve">
     <value>файлы: файл не записан — {0}</value>
   </data>
+  <data name="Log_Files_Fast_NoKey" xml:space="preserve">
+    <value>файлы: быстрый путь закрыт, пока машины не связаны — файлам нечем шифроваться</value>
+  </data>
   <data name="Log_Files_Fast_On" xml:space="preserve">
     <value>файлы: быстрый путь слушает порт {0}</value>
   </data>

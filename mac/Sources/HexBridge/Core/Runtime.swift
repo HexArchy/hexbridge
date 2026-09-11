@@ -75,7 +75,19 @@ final class BridgeRuntime: @unchecked Sendable {
 
     // MARK: - Lifecycle
 
-    var isRunning: Bool { capture != nil }
+    /// Whether the bridge is up: a socket, a channel, and the timers that keep
+    /// them alive.
+    ///
+    /// This used to be `capture != nil` — the microphone, standing in for the
+    /// whole bridge — and everything that needed the transport asked the
+    /// microphone whether it was allowed to work. A permission macOS would not
+    /// grant, or the switch turned off, then took the clipboard, the files and
+    /// the forwarded controller with it.
+    var isRunning: Bool { sender != nil }
+
+    /// Whether the microphone in particular is being captured. Only the
+    /// microphone's own feature has any business asking.
+    var isCapturing: Bool { capture != nil }
     var deviceName: String { capture?.deviceName ?? L.t("unit.none") }
 
     /// True when the last attempt to start capture was refused by TCC.
@@ -87,6 +99,17 @@ final class BridgeRuntime: @unchecked Sendable {
     /// which stopped being a stable thing to look for the moment that text
     /// acquired a second language.
     private(set) var microphoneDenied = false
+
+    /// Why the microphone is not being captured while everything else runs.
+    /// Nil both when it is running and when nobody asked for it.
+    private(set) var captureFailure: String?
+
+    /// The backoff on retrying a capture. Every attempt at a denied microphone
+    /// puts another TCC prompt on screen, and a prompt storm is what doubling
+    /// this is for; the first interval is in seconds of UI ticks.
+    private static let firstCaptureRetry = 15
+    private var captureRetryTick = 0
+    private var captureRetryEvery = firstCaptureRetry
     var inputFormatDescription: String { capture?.inputFormatDescription ?? "—" }
 
     var muted: Bool {
@@ -146,13 +169,16 @@ final class BridgeRuntime: @unchecked Sendable {
 
         sender.start()
 
-        do {
-            try startCapture()
-        } catch {
-            // Leave nothing half-started: the UI retries by calling `start` again.
-            stop()
-            throw error
-        }
+        // The microphone is one passenger on this bridge, and it used to be the
+        // bridge itself: a capture that would not start took the socket down with
+        // it, so a denied permission — or a switch turned off — left the
+        // clipboard, the files and the forwarded controller with nothing to
+        // travel on. It is started here when it is wanted, and its failure is
+        // recorded rather than thrown.
+        captureFailure = nil
+        captureRetryTick = 0
+        captureRetryEvery = Self.firstCaptureRetry
+        if config.streamsMicrophone { attemptCapture() }
 
         let timer = DispatchSource.makeTimerSource(queue: timerQueue)
         timer.schedule(deadline: .now(), repeating: .seconds(1))
@@ -183,6 +209,7 @@ final class BridgeRuntime: @unchecked Sendable {
         bulk.reset()
         capture?.stop()
         capture = nil
+        captureFailure = nil
         // Goodbye before the socket goes: a DEV_DETACH that misses the send
         // window leaves Windows holding a virtual device until the session
         // times out three seconds later.
@@ -295,6 +322,48 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     // MARK: - Private
+
+    /// Tries the microphone and remembers how it went.
+    private func attemptCapture() {
+        do {
+            try startCapture()
+            captureFailure = nil
+        } catch {
+            captureFailure = "\(error)"
+        }
+    }
+
+    /// Called about once a second by the shell.
+    ///
+    /// The case this exists for: an agent launched by launchd puts the TCC prompt
+    /// on screen with nobody in front of it and gives up. Someone clicks Allow
+    /// minutes later, and without this nothing happens until the agent is
+    /// restarted by hand.
+    func retryCaptureIfStalled() {
+        guard sender != nil, config.streamsMicrophone, capture == nil else { return }
+
+        captureRetryTick += 1
+        guard captureRetryTick >= captureRetryEvery else { return }
+        captureRetryTick = 0
+        captureRetryEvery = min(captureRetryEvery * 2, 900)
+        attemptCapture()
+    }
+
+    /// The microphone switch, applied to a bridge that is already up. Off stops
+    /// the capture and leaves everything else crossing.
+    func wantsMicrophone(_ wanted: Bool) {
+        guard sender != nil else { return }
+        if wanted {
+            captureRetryTick = 0
+            captureRetryEvery = Self.firstCaptureRetry
+            if capture == nil { attemptCapture() }
+        } else {
+            capture?.stop()
+            capture = nil
+            captureFailure = nil
+            microphoneDenied = false
+        }
+    }
 
     private func startCapture() throws {
         guard let sender, let encoder else { throw RuntimeError.notStarted }

@@ -1914,6 +1914,9 @@
   <data name="Log_Files_WriteFailed" xml:space="preserve">
     <value>files: the file was not written — {0}</value>
   </data>
+  <data name="Log_Files_Fast_NoKey" xml:space="preserve">
+    <value>files: the fast path stays shut until the machines are paired — files would have no key to travel under</value>
+  </data>
   <data name="Log_Files_Fast_On" xml:space="preserve">
     <value>files: the fast path is listening on port {0}</value>
   </data>

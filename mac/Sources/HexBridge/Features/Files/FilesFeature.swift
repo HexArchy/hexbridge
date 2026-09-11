@@ -44,6 +44,12 @@ final class FilesFeature: Feature {
     private unowned let host: FeatureHost
     private let inbox = FileInbox()
 
+    /// Whether the macOS firewall is keeping incoming connections from this app,
+    /// which costs the fast path in one direction only: files still leave this
+    /// machine at full speed and still arrive, just the slow way. Answered off
+    /// the main thread once the listener is up, because asking runs a tool.
+    private var firewallWithholds = false
+
     /// The fast path's listener, up only while the feature is. See
     /// `FileFastPath` and docs/PROTOCOL.md, «The fast path for files».
     private var listener: FileStreamListener?
@@ -84,6 +90,9 @@ final class FilesFeature: Feature {
             host.config.files = newValue
             host.saveSoon()
             host.runtime.config = host.config
+            // This may be the only thing switched on, in which case there is no
+            // bridge yet for it to travel on.
+            host.reconcilePipeline()
             if newValue { start() } else { stop() }
         }
     }
@@ -162,6 +171,20 @@ final class FilesFeature: Feature {
         self.listener = listener
         self.listening = (plan.port, plan.room)
         listener.start()
+
+        // A listener that is up says nothing about whether anything is allowed to
+        // reach it. Off the main thread: this runs a tool, and the menu bar is
+        // not waiting on the answer.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let withheld = Firewall.withholdsIncoming()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.firewallWithholds = withheld
+                    self.status = self.derive()
+                }
+            }
+        }
     }
 
     func stop() {
@@ -492,6 +515,18 @@ final class FilesFeature: Feature {
                 tone: .ok,
                 headline: L.t(key, flight.description),
                 detail: L.percent(flight.fraction * 100, decimals: 0)
+            )
+        }
+
+        if firewallWithholds {
+            return FeatureStatus(
+                state: .live,
+                tone: .warn,
+                headline: L.t("files.firewall.headline"),
+                detail: L.t("files.firewall.detail"),
+                primaryAction: FeatureAction(title: L.t("files.action.firewall")) {
+                    NSWorkspace.shared.open(Firewall.settings)
+                }
             )
         }
 

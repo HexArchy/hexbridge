@@ -103,12 +103,22 @@ public enum FileStream {
     /// u64 padded with zeros on purpose: for any number that fits any of those
     /// three, all three produce the same bytes, so the other implementation
     /// cannot get this wrong by picking a different width.
-    public static func nonce(record: UInt64) -> AES.GCM.Nonce {
+    ///
+    /// One key seals both directions, so the single record that travels back —
+    /// the ready byte — takes its nonce from the same counter with the twelfth
+    /// byte set to `0x80`. A nonce repeated over two different plaintexts under
+    /// one key is the one mistake GCM does not forgive, and neither side has to
+    /// know the other's numbering to stay clear of it.
+    public static func nonce(record: UInt64, backwards: Bool = false) -> AES.GCM.Nonce {
         var raw = [UInt8](repeating: 0, count: 12)
         for byte in 0..<8 { raw[byte] = UInt8(truncatingIfNeeded: record >> (8 * byte)) }
+        if backwards { raw[11] = 0x80 }
         // Twelve bytes is always a valid GCM nonce.
         return try! AES.GCM.Nonce(data: raw)
     }
+
+    /// The one byte that says «somebody is really here».
+    public static let readyByte: UInt8 = 0x01
 
     /// One framed record: `length LE u32 || ciphertext || tag`.
     ///
@@ -118,10 +128,12 @@ public enum FileStream {
     /// before a record is opened, and a room somebody else wrote does not make
     /// a record open.
     public static func seal(
-        record number: UInt64, plaintext: ArraySlice<UInt8>, key: SymmetricKey
+        record number: UInt64, plaintext: ArraySlice<UInt8>, key: SymmetricKey,
+        backwards: Bool = false
     ) throws -> [UInt8] {
         guard plaintext.count <= maxRecordPlaintext else { throw StreamError.oversizedRecord }
-        let sealed = try AES.GCM.seal(plaintext, using: key, nonce: nonce(record: number))
+        let sealed = try AES.GCM.seal(
+            plaintext, using: key, nonce: nonce(record: number, backwards: backwards))
         let cipher = Array(sealed.ciphertext)
         let tag = Array(sealed.tag)
 
@@ -136,17 +148,42 @@ public enum FileStream {
     /// The plaintext of one sealed record, or nil when it does not open under
     /// this key at this number. `body` is the record without its length prefix.
     public static func open(
-        record number: UInt64, body: ArraySlice<UInt8>, key: SymmetricKey
+        record number: UInt64, body: ArraySlice<UInt8>, key: SymmetricKey,
+        backwards: Bool = false
     ) -> [UInt8]? {
         guard body.count >= tagSize, body.count - tagSize <= maxRecordPlaintext else { return nil }
         let split = body.endIndex - tagSize
         guard let box = try? AES.GCM.SealedBox(
-            nonce: nonce(record: number),
+            nonce: nonce(record: number, backwards: backwards),
             ciphertext: body[body.startIndex..<split],
             tag: body[split...]
         ),
         let plain = try? AES.GCM.open(box, using: key) else { return nil }
         return Array(plain)
+    }
+
+    // MARK: - The ready byte
+
+    /// The framed answer to an opening record: record 0 of the backwards
+    /// direction, sealing one byte.
+    public static func readyRecord(key: SymmetricKey) throws -> [UInt8] {
+        try seal(record: 0, plaintext: [readyByte][...], key: key, backwards: true)
+    }
+
+    /// Whether a framed answer is the ready byte, sealed under this key.
+    ///
+    /// Everything else — a short frame, a record that will not open, any other
+    /// plaintext — is the same answer: nobody who holds the key is there.
+    public static func isReady(frame: ArraySlice<UInt8>, key: SymmetricKey) -> Bool {
+        guard frame.count > lengthSize else { return false }
+        var length = 0
+        for byte in stride(from: lengthSize - 1, through: 0, by: -1) {
+            length = (length << 8) | Int(frame[frame.startIndex + byte])
+        }
+        guard length == frame.count - lengthSize else { return false }
+        let body = frame[(frame.startIndex + lengthSize)...]
+        guard let plain = open(record: 0, body: body, key: key, backwards: true) else { return false }
+        return plain == [readyByte]
     }
 
     // MARK: - The opening record

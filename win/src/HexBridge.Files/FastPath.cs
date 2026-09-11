@@ -70,6 +70,38 @@ public static class FastPath
     /// </summary>
     private const int MinOpeningBody = 2 + 4 + 32;
 
+    /// <summary>The byte that says «somebody is really here», and its framed size.</summary>
+    public const byte ReadyByte = 0x01;
+
+    /// <summary>Length prefix, one sealed byte, tag.</summary>
+    public const int ReadyFrameSize = LengthSize + 1 + Wire.TagSize;
+
+    /// <summary>How long the sender waits to hear it. The contract's two seconds.</summary>
+    public static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>The answer to an opening record, framed and ready to write.</summary>
+    public static byte[] ReadyRecord(AesGcm aes)
+    {
+        var frame = new byte[ReadyFrameSize];
+        Seal(aes, OpeningRecord, [ReadyByte], frame, backwards: true);
+        return frame;
+    }
+
+    /// <summary>
+    /// Whether a framed answer is the ready byte under this key. Everything else — a short
+    /// frame, a length that disagrees with it, a record that will not open, any other
+    /// plaintext — means the same thing: nobody holding the key is there.
+    /// </summary>
+    public static bool IsReady(AesGcm aes, ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length != ReadyFrameSize) return false;
+        if (BinaryPrimitives.ReadUInt32LittleEndian(frame) != ReadyFrameSize - LengthSize) return false;
+
+        Span<byte> plaintext = stackalloc byte[1];
+        if (Open(aes, OpeningRecord, frame[LengthSize..], plaintext, backwards: true) != 1) return false;
+        return plaintext[0] == ReadyByte;
+    }
+
     /// <summary>Writes the 13 plaintext bytes every connection starts with.</summary>
     public static void WritePrologue(Span<byte> dst, ulong room)
     {
@@ -134,13 +166,15 @@ public static class FastPath
     /// answers how many bytes that was. The caller's buffer must hold
     /// <see cref="LengthSize"/> + plaintext + <see cref="Wire.TagSize"/>.
     /// </summary>
-    public static int Seal(AesGcm aes, ulong record, ReadOnlySpan<byte> plaintext, Span<byte> frame)
+    public static int Seal(
+        AesGcm aes, ulong record, ReadOnlySpan<byte> plaintext, Span<byte> frame,
+        bool backwards = false)
     {
         var sealedLength = plaintext.Length + Wire.TagSize;
         BinaryPrimitives.WriteUInt32LittleEndian(frame, (uint)sealedLength);
 
         Span<byte> nonce = stackalloc byte[12];
-        Nonce(nonce, record);
+        Nonce(nonce, record, backwards);
 
         aes.Encrypt(
             nonce,
@@ -156,7 +190,9 @@ public static class FastPath
     /// open was not written by whoever holds the pairing key, and there is nothing further
     /// to be done with the connection it came on.
     /// </summary>
-    public static int Open(AesGcm aes, ulong record, ReadOnlySpan<byte> sealedRecord, Span<byte> plaintext)
+    public static int Open(
+        AesGcm aes, ulong record, ReadOnlySpan<byte> sealedRecord, Span<byte> plaintext,
+        bool backwards = false)
     {
         if (sealedRecord.Length < Wire.TagSize) return -1;
 
@@ -164,7 +200,7 @@ public static class FastPath
         if (length > plaintext.Length) return -1;
 
         Span<byte> nonce = stackalloc byte[12];
-        Nonce(nonce, record);
+        Nonce(nonce, record, backwards);
 
         try
         {
@@ -191,10 +227,18 @@ public static class FastPath
     /// same twelve bytes either width would give, so the two readings of «nonce = record
     /// number» cannot disagree on the wire.
     /// </para>
+    ///
+    /// <para>
+    /// One key seals both directions, so the record travelling backwards — the ready byte,
+    /// and nothing else ever does — sets the twelfth byte to <c>0x80</c>. A nonce repeated
+    /// over two different plaintexts under one key is the one mistake GCM does not forgive,
+    /// and this keeps the two streams apart without either side tracking the other's count.
+    /// </para>
     /// </summary>
-    private static void Nonce(Span<byte> nonce, ulong record)
+    private static void Nonce(Span<byte> nonce, ulong record, bool backwards = false)
     {
         nonce.Clear();
         BinaryPrimitives.WriteUInt64LittleEndian(nonce, record);
+        if (backwards) nonce[11] = 0x80;
     }
 }

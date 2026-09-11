@@ -240,4 +240,40 @@ struct FileStreamFramingTests {
             #expect(events.last == .end)
         }
     }
+    // MARK: - The one record that travels backwards
+
+    @Test("Готовность узнаётся только под своим ключом")
+    func readyIsRecognisedOnlyUnderItsOwnKey() throws {
+        let frame = try FileStream.readyRecord(key: Self.key)
+
+        #expect(FileStream.isReady(frame: frame[...], key: Self.key))
+
+        let stranger = SymmetricKey(data: Data(repeating: 0x5C, count: 32))
+        #expect(!FileStream.isReady(frame: frame[...], key: stranger))
+    }
+
+    /// One key seals both directions, and the same nonce over two plaintexts
+    /// under one key is the mistake GCM does not forgive. The answer takes
+    /// record 0 exactly as the opening record does, so the flag in the twelfth
+    /// byte is the only thing keeping them apart.
+    @Test("Ответ не запечатан нонсом начальной записи")
+    func theAnswerDoesNotShareTheOpeningRecordsNonce() throws {
+        let frame = try FileStream.readyRecord(key: Self.key)
+        let body = frame[(frame.startIndex + FileStream.lengthSize)...]
+
+        #expect(FileStream.open(record: 0, body: body, key: Self.key) == nil)
+        #expect(FileStream.open(record: 0, body: body, key: Self.key, backwards: true) == [0x01])
+    }
+
+    @Test("Обрезанный или чужой ответ — это не готовность")
+    func anythingShortOfTheAnswerIsNotReady() throws {
+        let frame = try FileStream.readyRecord(key: Self.key)
+
+        #expect(!FileStream.isReady(frame: frame[..<(frame.count - 1)], key: Self.key))
+        #expect(!FileStream.isReady(frame: [][...], key: Self.key))
+        // A whole record, sealed правильно, but not the byte that was agreed.
+        let wrong = try FileStream.seal(record: 0, plaintext: [0x02][...], key: Self.key, backwards: true)
+        #expect(!FileStream.isReady(frame: wrong[...], key: Self.key))
+    }
+
 }

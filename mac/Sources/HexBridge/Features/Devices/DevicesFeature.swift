@@ -47,6 +47,9 @@ final class DevicesFeature: Feature {
             // Not a pipeline change: the HID readers and the socket are
             // independent, so the switch takes effect immediately.
             host.runtime.config = host.config
+            // The readers are independent of the bridge, but what they read has
+            // to cross it: forwarding switched on alone brings it up.
+            host.reconcilePipeline()
             host.runtime.applyDeviceSetting()
             refresh()
         }

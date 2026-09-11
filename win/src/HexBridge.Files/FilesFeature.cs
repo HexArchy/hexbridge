@@ -368,8 +368,15 @@ public sealed class FilesFeature : IFeature
     /// </summary>
     private void OpenFastPath(FeatureContext context, byte[] key)
     {
-        // No usable pairing key means no transport either, so there is nothing to listen for.
-        if (key.Length == 0) return;
+        // No usable pairing key means no transport either, so there is nothing to listen
+        // for. Saying so matters: this branch once cost an evening of looking for a socket
+        // problem that was never there, because the only sign of it was the absence of a
+        // line that the working path always prints.
+        if (key.Length == 0)
+        {
+            context.Log(LogLevel.Warning, Strings.Log_Files_Fast_NoKey);
+            return;
+        }
 
         int port;
         lock (_gate) port = _fastPort;

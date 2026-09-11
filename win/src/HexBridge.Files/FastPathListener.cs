@@ -198,6 +198,14 @@ public sealed class FastPathListener : IDisposable
             return;
         }
 
+        // The moment the opening record opens, and before the file is staged: the other
+        // machine is holding the whole transfer back until it hears this, because a socket
+        // that was accepted proves only that a kernel — or a firewall standing in for one —
+        // took the connection. Nothing waits on the write; if it never leaves, the sender's
+        // own deadline says so and the file arrives the slow way instead.
+        await stream.WriteAsync(FastPath.ReadyRecord(aes), clock.Token);
+        await stream.FlushAsync(clock.Token);
+
         var started = DateTime.UtcNow;
         var staged = Stage(size, out var temp, out var id);
         var written = 0L;

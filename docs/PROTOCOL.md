@@ -568,12 +568,21 @@ The machine that would receive listens on **data port + 2** — 47704 beside the
 it falls back to the UDP channel and the transfer happens the slow way rather than not
 at all.
 
+A connection that succeeds is **not** proof that anything is listening. The macOS
+application firewall completes the handshake itself and then withholds the connection
+from an application it has not been told to allow: the sending side sees a healthy
+socket, writes a gigabyte into it over nine minutes, and learns at the end that nobody
+was ever there. That is the worst of both paths — the slow one would have delivered the
+file. So the opening record is answered, and the answer is what the sender waits for
+before committing the file.
+
 ### What crosses it
 
 ```
 magic   "MBG1", 4 bytes, then version 1
 room    LE u64, the same room the UDP header carries
 opening AES-256-GCM, nonce = 0, sealing: name length LE u16, name UTF-8, size LE u32, SHA-256
+ready   backwards: AES-256-GCM sealing one byte, 0x01
 records AES-256-GCM, nonce = record number, 1…65536 bytes of plaintext each
 end     a record whose plaintext is empty
 ```
@@ -601,6 +610,24 @@ for the same reason: something has to be readable before there is a key to read 
 Everything after is sealed under the pairing key, so a connection from somebody who
 does not hold it fails at the opening record and is dropped without a byte of the file
 being written.
+
+### The one record that travels backwards
+
+Having opened the opening record, the receiving side seals the single byte `0x01` and
+writes it back, framed exactly like any other record. It is the only thing that ever
+travels against the flow, and it says one thing: an application on the other machine
+holds this connection and could read what was sealed under the key. The sending side
+waits **two seconds** for it. No answer, a connection that ends first, a byte that is
+not `0x01`, or a record that will not open — all of them mean the same as a refused
+connection, and the file goes the UDP way. The wait costs two seconds on a path that is
+about to save minutes, and it is what stops a firewall, a half-dead process or a
+listener whose owner has gone from swallowing a whole transfer.
+
+Records travelling backwards take their nonces from the same counter, written the same
+way, with **the twelfth byte set to `0x80`**. One key seals both directions, and the
+same nonce over two different plaintexts under one key is the one mistake AES-GCM does
+not forgive; the flag keeps the two streams apart for the whole life of a connection
+without either side having to track the other's numbering.
 
 The nonce is the record number, and a record number is never reused on a connection —
 one connection carries one file. The receiving side hashes as it writes and compares

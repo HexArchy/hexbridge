@@ -24,6 +24,13 @@ enum FileFastPath {
     /// short enough that somebody watching a drop does not think it hung.
     static let connectTimeout: TimeInterval = 3
 
+    /// How long the ready byte may take. The contract's two seconds: the answer
+    /// is one sealed byte written the moment the opening record opens, so
+    /// anything slower than this is a machine that is not going to answer at
+    /// all — and waiting longer is time the slow path could have spent
+    /// delivering the file.
+    static let readyTimeout: TimeInterval = 2
+
     /// How long one write may sit unacknowledged by the kernel before the
     /// transfer is called off. Not in the contract, and not a guess at the
     /// network: it is the bound that keeps a peer which stops reading from
@@ -234,6 +241,22 @@ extension FileFastPath {
             return failure
         }
 
+        /// The one record that travels backwards, and the only proof that an
+        /// application — not just a kernel, and not a firewall answering on its
+        /// behalf — is holding the other end of this connection.
+        func readyAnswer() -> Bool {
+            let wanted = FileStream.lengthSize + 1 + FileStream.tagSize
+            let done = DispatchSemaphore(value: 0)
+            var frame: [UInt8] = []
+            connection.receive(minimumIncompleteLength: wanted, maximumLength: wanted) {
+                data, _, _, _ in
+                if let data { frame = [UInt8](data) }
+                done.signal()
+            }
+            guard done.wait(timeout: .now() + readyTimeout) != .timedOut else { return false }
+            return FileStream.isReady(frame: frame[...], key: plan.key)
+        }
+
         do {
             let digest = try hash(handle, size: size, into: &buffer)
             var head = writer.prelude()
@@ -243,6 +266,14 @@ extension FileFastPath {
             if let failure = write(head) {
                 connection.cancel()
                 return .broke(failure)
+            }
+
+            // Before a byte of the file: a connection that nobody is reading
+            // looks exactly like a healthy one from here, and the slow path
+            // would have delivered the file while this one swallowed it.
+            guard readyAnswer() else {
+                connection.cancel()
+                return .noConnection(L.t("files.fast.noAnswer", "\(plan.host)", L.integer(Int(plan.port))))
             }
 
             var offset = 0
@@ -432,7 +463,14 @@ final class FileStreamListener: @unchecked Sendable {
             }
         }
         listener.newConnectionHandler = { [weak self] connection in
-            self?.accept(connection)
+            // A listener whose owner is gone must refuse rather than leave the
+            // connection open in the backlog: the other machine would otherwise
+            // wait out its whole deadline against a socket nobody will ever read.
+            guard let self else {
+                connection.cancel()
+                return
+            }
+            self.accept(connection)
         }
 
         lock.lock()
@@ -510,6 +548,8 @@ private enum ArrivalProblem: Error, CustomStringConvertible {
 /// nothing is locked and a slow disk holds up nobody else.
 private final class Incoming {
     private let connection: NWConnection
+    /// Kept for the one record that travels backwards; the reader holds its own.
+    private let key: SymmetricKey
     private let directory: URL
     private let progress: FileStreamProgress
     private let onArrival: (URL, String, TimeInterval, Int) -> Void
@@ -537,6 +577,7 @@ private final class Incoming {
         onNote: @escaping (String) -> Void
     ) {
         self.connection = connection
+        self.key = key
         self.directory = directory
         self.progress = progress
         self.onArrival = onArrival
@@ -607,6 +648,11 @@ private final class Incoming {
     private func begin(_ opening: FileStream.Opening) throws {
         self.opening = opening
         startedAt = Date()
+        // Before the file is made, and the moment the opening record has opened:
+        // the sender is holding a gigabyte back until it hears this, and it is
+        // the only thing that tells it the difference between a machine that is
+        // listening and a firewall that answered the handshake on its behalf.
+        answerReady()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let temporary = directory.appendingPathComponent(
             "\(Bulk.partialPrefix)stream-\(UUID().uuidString)\(Bulk.partialSuffix)"
@@ -617,6 +663,14 @@ private final class Incoming {
         url = temporary
         handle = try FileHandle(forWritingTo: temporary)
         progress.note(.incoming, name: opening.name, size: Int(opening.size), moved: 0)
+    }
+
+    /// The one record that travels backwards. Nothing waits on it here — it is
+    /// sent and forgotten; if it never leaves, the sender's own deadline says so
+    /// and the file arrives the slow way instead.
+    private func answerReady() {
+        guard let frame = try? FileStream.readyRecord(key: key) else { return }
+        connection.send(content: Data(frame), completion: .contentProcessed { _ in })
     }
 
     private func store(_ block: [UInt8]) throws {

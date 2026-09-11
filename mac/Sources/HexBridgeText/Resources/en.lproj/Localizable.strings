@@ -479,6 +479,10 @@
 "files.fast.damaged" = "“%@” arrived damaged on the fast path and was not kept.";
 "files.fast.cutShort" = "the connection ended before the file did";
 "files.fast.overlong" = "more bytes arrived than the file said it holds";
+"files.firewall.headline" = "Files leave quickly, and arrive slowly";
+"files.firewall.detail" = "The macOS firewall has not been told to let anything reach HexBridge, so a file coming from the PC takes the slow channel. Allow it once and both directions run at full speed.";
+"files.action.firewall" = "Open the firewall settings";
+"files.fast.noAnswer" = "%@:%@ took the connection but nothing there answered — a firewall on that machine is the usual reason";
 "files.fast.ready" = "the fast path for files is listening on port %@";
 "files.fast.notListening" = "the fast path could not take port %@ — %@. Files will take the slow way.";
 

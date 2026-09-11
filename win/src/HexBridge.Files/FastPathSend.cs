@@ -87,6 +87,15 @@ public static class FastPathSend
 
             var opening = FastPath.Opening(name, (uint)size, hash);
             stream.Write(frame.AsSpan(0, FastPath.Seal(aes, FastPath.OpeningRecord, opening, frame)));
+            stream.Flush();
+
+            // Before a byte of the file. A connection that was accepted is not proof that
+            // anything is reading it — the macOS firewall completes the handshake itself and
+            // then keeps the connection from the application it has not been told to allow,
+            // which looks from here exactly like a healthy peer for as long as it takes to
+            // write the whole file into it. Unreachable rather than Broken: nothing of the
+            // file has gone out, so the slow path can still deliver it.
+            if (!HeardReady(socket, stream, aes)) return FastPathOutcome.Unreachable;
 
             var record = 1UL;
             while (done < size)
@@ -124,6 +133,36 @@ public static class FastPathSend
         finally
         {
             moving?.Invoke(null);
+        }
+    }
+
+    /// <summary>
+    /// Waits out the one record that travels backwards.
+    ///
+    /// <para>
+    /// Two seconds, and any shortfall means the same as a refused connection: a short read,
+    /// a close, a record that will not open, a byte that is not the one. The receive timeout
+    /// is put back afterwards so that a slow disk on the other side cannot be mistaken for a
+    /// dead peer during the transfer itself.
+    /// </para>
+    /// </summary>
+    private static bool HeardReady(Socket socket, NetworkStream stream, AesGcm aes)
+    {
+        var was = socket.ReceiveTimeout;
+        socket.ReceiveTimeout = (int)FastPath.ReadyTimeout.TotalMilliseconds;
+        try
+        {
+            var answer = new byte[FastPath.ReadyFrameSize];
+            stream.ReadExactly(answer);
+            return FastPath.IsReady(aes, answer);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            socket.ReceiveTimeout = was;
         }
     }
 

@@ -18,6 +18,7 @@ protocol FeatureHost: AnyObject {
     func note(_ text: String)
     func startPipeline()
     func stopPipeline()
+    func reconcilePipeline()
     func openPairing()
     func openLinkCheck()
 }
@@ -125,7 +126,10 @@ final class AppModel: FeatureHost {
             guard newValue != config.appLanguage else { return }
             config.language = newValue.rawValue
             L.select(newValue)
-            for feature in features { feature.refresh() }
+            // The microphone can be stalled on a permission while the bridge itself
+        // is up and carrying everything else.
+        runtime.retryCaptureIfStalled()
+        for feature in features { feature.refresh() }
             // The verdict and the six rows were worded in the old language and
             // nothing will re-run the check on its own.
             linkCheck.clear()
@@ -244,6 +248,12 @@ final class AppModel: FeatureHost {
         }
 
         for feature in features { feature.start() }
+
+        // Last, and once: each feature above starts its own half, and this is
+        // what decides whether there is a bridge for any of them to use. It was
+        // the microphone's job until switching the microphone off started taking
+        // the clipboard and the files down with it.
+        reconcilePipeline()
     }
 
     func quit() {
@@ -294,6 +304,28 @@ final class AppModel: FeatureHost {
         tick()
     }
 
+    /// Brings the bridge up or takes it down according to whether anything still
+    /// wants it.
+    ///
+    /// <para>
+    /// It used to belong to the microphone: switching the microphone off called
+    /// `stopPipeline`, which closed the socket, which left the clipboard, the
+    /// files and the forwarded controller with nothing to travel on — and a
+    /// microphone permission that macOS would not grant took all of them down
+    /// the same way. Every feature here needs the transport, so the question is
+    /// simply whether any of them is switched on.
+    /// </para>
+    func reconcilePipeline() {
+        runtime.config = config
+        let wanted = config.isConfigured && features.contains(where: \.isEnabled)
+
+        if wanted {
+            if !runtime.isRunning { startPipeline() }
+        } else if runtime.isRunning {
+            stopPipeline()
+        }
+    }
+
     func restartPipeline() {
         guard !restarting else { return }
         restarting = true
@@ -331,7 +363,7 @@ final class AppModel: FeatureHost {
     /// into "it starts working a few seconds after you click Allow".
     private func retryPipelineIfStalled() {
         guard !starting, !runtime.isRunning, config.isConfigured else { return }
-        guard features.contains(where: { $0.id == "microphone" && $0.isEnabled }) else { return }
+        guard features.contains(where: \.isEnabled) else { return }
 
         retryTick += 1
         guard retryTick >= retryEvery else { return }

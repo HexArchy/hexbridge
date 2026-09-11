@@ -65,6 +65,96 @@ public class FastPathTests
     }
 
     /// <summary>
+    /// The case that made the ready byte exist. The macOS firewall completes the handshake
+    /// itself and then keeps the connection from an application it has not been told to
+    /// allow: the sending side saw a healthy socket, wrote a gigabyte into it over nine
+    /// minutes, and found out at the end that nobody had ever been there — while the slow
+    /// path would have delivered the file.
+    /// </summary>
+    [Fact]
+    public void AConnectionNobodyAnswersCostsTwoSecondsAndNotTheFile()
+    {
+        using var mine = new TempDownloads();
+        var key = RandomNumberGenerator.GetBytes(32);
+
+        // Accepts, and then says nothing at all. Exactly what the firewall leaves behind.
+        var deaf = new TcpListener(IPAddress.Loopback, Ports.Free(tcp: true, udp: false));
+        deaf.Start();
+        try
+        {
+            var source = Path.Combine(mine.Path, "big.bin");
+            File.WriteAllBytes(source, RandomNumberGenerator.GetBytes(64 * 1024));
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var outcome = FastPathSend.Send(
+                new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)deaf.LocalEndpoint).Port),
+                key, source, "big.bin", null, CancellationToken.None);
+            clock.Stop();
+
+            // Unreachable and not Broken: nothing of the file went out, so the slow path
+            // can still carry it. That distinction is the whole point of answering early.
+            Assert.Equal(FastPathOutcome.Unreachable, outcome);
+            Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"waited {clock.Elapsed}");
+        }
+        finally
+        {
+            deaf.Stop();
+        }
+    }
+
+    /// <summary>
+    /// The other half of it: a listener that is really there answers, and answers before it
+    /// has been sent any of the file.
+    /// </summary>
+    [Fact]
+    public async Task TheOpeningRecordIsAnsweredBeforeAByteOfTheFile()
+    {
+        using var downloads = new TempDownloads();
+        var key = RandomNumberGenerator.GetBytes(32);
+
+        using var listener = new FastPathListener(IPAddress.Loopback, Ports.Free(tcp: true, udp: false), key, () => downloads.Path);
+        listener.Start();
+
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, listener.Port).WaitAsync(Patience);
+        await using var stream = client.GetStream();
+
+        using var aes = new AesGcm(key, Wire.TagSize);
+        var prologue = new byte[FastPath.PrologueSize];
+        FastPath.WritePrologue(prologue, Wire.RoomId(key));
+        await stream.WriteAsync(prologue).AsTask().WaitAsync(Patience);
+
+        var frame = new byte[FastPath.LengthSize + FastPath.MaxRecordOnWire];
+        var opening = FastPath.Opening("наводка.txt", 4, SHA256.HashData(new byte[4]));
+        await stream.WriteAsync(frame.AsMemory(0, FastPath.Seal(aes, FastPath.OpeningRecord, opening, frame)))
+            .AsTask().WaitAsync(Patience);
+
+        var answer = new byte[FastPath.ReadyFrameSize];
+        await stream.ReadExactlyAsync(answer).AsTask().WaitAsync(Patience);
+
+        Assert.True(FastPath.IsReady(aes, answer));
+    }
+
+    /// <summary>
+    /// One key seals both directions, and the same nonce over two plaintexts under one key
+    /// is the mistake GCM does not forgive. The answer takes record 0 as the opening record
+    /// does, so the only thing keeping them apart is the flag in the twelfth byte.
+    /// </summary>
+    [Fact]
+    public void TheAnswerIsNotSealedUnderTheOpeningRecordsNonce()
+    {
+        var key = RandomNumberGenerator.GetBytes(32);
+        using var aes = new AesGcm(key, Wire.TagSize);
+
+        var answer = FastPath.ReadyRecord(aes);
+
+        // Read forwards — the numbering the file itself uses — it is not a record at all.
+        var plaintext = new byte[FastPath.MaxRecordPlaintext];
+        Assert.Equal(-1, FastPath.Open(aes, FastPath.OpeningRecord, answer.AsSpan(FastPath.LengthSize), plaintext));
+        Assert.True(FastPath.IsReady(aes, answer));
+    }
+
+    /// <summary>
     /// The room in the prologue is derived from the key, so a stranger with a key of their
     /// own never gets this far. This is the case the prologue cannot catch: the right room
     /// and the wrong sealing key, which is what somebody who watched the network and copied

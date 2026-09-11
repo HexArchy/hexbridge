@@ -59,6 +59,7 @@ final class MicrophoneFeature: Feature {
         set {
             host.config.microphone = newValue
             host.saveSoon()
+            host.runtime.config = host.config
             if newValue { start() } else { stop() }
         }
     }
@@ -68,12 +69,19 @@ final class MicrophoneFeature: Feature {
         startingSince = Date()
         failure = nil
         deniedAccess = false
-        host.startPipeline()
+        // The bridge first — it may not be up at all — and then the capture on
+        // top of it, which is this feature's own half.
+        host.reconcilePipeline()
+        host.runtime.wantsMicrophone(true)
     }
 
+    /// Switching the microphone off stops the capture. Whether that also takes
+    /// the bridge down depends on whether anything else is still using it, and
+    /// that is not this feature's question to answer.
     func stop() {
         startingSince = nil
-        host.stopPipeline()
+        host.runtime.wantsMicrophone(false)
+        host.reconcilePipeline()
         refresh()
     }
 
@@ -90,7 +98,7 @@ final class MicrophoneFeature: Feature {
         isMuted = runtime.muted
         deviceName = runtime.deviceName
 
-        if runtime.isRunning {
+        if runtime.isCapturing {
             if startedAt == nil { startedAt = Date() }
             startingSince = nil
         } else {
@@ -107,7 +115,11 @@ final class MicrophoneFeature: Feature {
 
         if let transport = snapshot.error {
             failure = transport
-        } else if runtime.isRunning {
+        } else if let capture = runtime.captureFailure {
+            // The bridge is up and the microphone is not, which is now a state
+            // this app can be in: say which of the two is the one that failed.
+            failure = capture
+        } else if runtime.isCapturing {
             failure = nil
         }
         // The TCC denial is what turns a dead end into a button (§10.3), and it
@@ -205,7 +217,7 @@ final class MicrophoneFeature: Feature {
             )
         }
 
-        if !host.runtime.isRunning {
+        if !host.runtime.isCapturing {
             // §7.0: `starting` lasts up to 10 s and then becomes an error.
             if let since = startingSince, Date().timeIntervalSince(since) < 10 {
                 return FeatureStatus(state: .starting, tone: .neutral, headline: L.t("mic.starting.headline"))
