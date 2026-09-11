@@ -98,11 +98,20 @@ if (-not $port) { $port = "47702" }
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
          ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
+# Обмен коротким кодом слушает TCP на порт+1. Без этого правила связать машины
+# можно только там, где брандмауэр и так пропускает — то есть дома; на ПК с
+# публичным профилем Mac просто не достучится, а звук при этом идёт, потому что
+# для него открыт UDP. Три минуты в момент связывания — всё, что этот порт живёт.
+$exchangePort = [int]$port + 1
+
 if ($admin) {
-    Say "открываю UDP/$port в брандмауэре"
+    Say "открываю UDP/$port и TCP/$exchangePort в брандмауэре"
     Remove-NetFirewallRule -DisplayName "HexBridge" -ErrorAction SilentlyContinue
+    Remove-NetFirewallRule -DisplayName "HexBridge (связывание)" -ErrorAction SilentlyContinue
     New-NetFirewallRule -DisplayName "HexBridge" -Direction Inbound -Protocol UDP `
         -LocalPort $port -Action Allow -Profile Any | Out-Null
+    New-NetFirewallRule -DisplayName "HexBridge (связывание)" -Direction Inbound -Protocol TCP `
+        -LocalPort $exchangePort -Action Allow -Profile Any | Out-Null
 } else {
     Warn "не администратор — правило брандмауэра пропущено."
     Warn "если звук не пойдёт, перезапустите скрипт от администратора."

@@ -206,7 +206,7 @@
 "pair.title.code" = "Enter the code";
 "pair.title.check" = "Checking the link";
 "pair.title.done" = "Done";
-"pair.subtitle.choose" = "The key is made on the gaming PC. Find that PC here and type the code from its screen — nothing has to be generated on the Mac.";
+"pair.subtitle.choose" = "The key is made on the gaming PC. Type the code from its screen and its address here — nothing has to be generated on the Mac.";
 "pair.subtitle.code" = "Type the twelve characters HexBridge is showing on the PC screen, and the address of the PC on the network.";
 "pair.subtitle.check" = "Six checks in a row. Each one says what works and what does not.";
 
@@ -217,7 +217,7 @@
 
 
 "pair.code.section" = "Short code";
-"pair.code.text" = "The twelve characters from the PC screen. The address can be typed by hand if the PC did not turn up on its own.";
+"pair.code.text" = "The twelve characters from the PC screen, and its address. Works when the PC is on another network too.";
 "pair.code.enter" = "Enter the code";
 "pair.code.fromScreen" = "Code from the PC screen";
 "pair.code.address" = "Address of the PC on the network";

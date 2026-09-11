@@ -994,6 +994,9 @@
   <data name="Pairing_Step2_Line1" xml:space="preserve">
     <value>Откройте HexBridge на второй машине и введите этот код.</value>
   </data>
+  <data name="Pairing_Caption_RemoteAddress" xml:space="preserve">
+    <value>Это адреса в сети, куда включён сам ПК. Если Mac в другой сети — введите на нём внешний адрес этого ПК и откройте на нём UDP {0} и TCP {1}.</value>
+  </data>
   <data name="Pairing_Section_ThisAddress" xml:space="preserve">
     <value>АДРЕС ЭТОГО ПК</value>
   </data>
@@ -1121,10 +1124,10 @@
     <value>Код действует ещё {0}</value>
   </data>
   <data name="Pairing_Discovery_Unavailable" xml:space="preserve">
-    <value>Автопоиск недоступен: {0}. Код и QR работают как обычно.</value>
+    <value>Автопоиск недоступен: {0}. Код работает как обычно.</value>
   </data>
   <data name="Pairing_Discovery_Ok" xml:space="preserve">
-    <value>Mac найдёт этот ПК сам — выберите его в списке и введите код с этого экрана.</value>
+    <value>Если Mac в этой же сети, он найдёт этот ПК сам — останется выбрать его и ввести код.</value>
   </data>
   <data name="Pairing_Browse_Unavailable" xml:space="preserve">
     <value>Автопоиск недоступен: {0}. Введите адрес второй машины вручную.</value>

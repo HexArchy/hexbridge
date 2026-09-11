@@ -58,12 +58,18 @@ code from its screen.
 
 That's it. You get a menu bar icon on the Mac and a tray icon on Windows.
 
-Pairing happens once. After that the Mac finds the PC on its own — by a tag
-derived from the shared key rather than by hostname — so an IP change after a
-router reboot fixes itself without your involvement. The Mac will never connect to
-someone else's HexBridge on the same network: a different PC has a different key,
+Pairing happens once. On one network the Mac then finds the PC on its own — by a
+tag derived from the shared key rather than by hostname — so an IP change after a
+router reboot fixes itself without your involvement, and the Mac will never connect
+to someone else's HexBridge on that network: a different PC has a different key,
 therefore a different tag. Details in [docs/PROTOCOL.md](docs/PROTOCOL.md), under
 "Host discovery".
+
+A PC somewhere else entirely works just as well, and is a normal way to use this —
+you give the Mac its address once. Pairing needs UDP `47702` and TCP `47703` open
+to it; the installer opens both, and a router in front of the PC needs them
+forwarded. The key itself is never exposed by this: the pairing answer is sealed
+with the code you type, so it is safe across any network.
 
 Both sides check for updates once a day and install only with your consent; one
 switch in Settings turns that off ([docs/UPDATES.md](docs/UPDATES.md)).

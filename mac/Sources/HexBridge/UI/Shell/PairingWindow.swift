@@ -125,23 +125,20 @@ struct PairingWindow: View {
 
     // MARK: - Step 1: how
 
-    /// Two ways in, and they are the same way: find the PC, then type the code
-    /// off its screen.
+    /// The code first, the network search second.
     ///
-    /// There used to be a third, listed first — paste the `hexbridge://` link
-    /// from the PC. The PC showed that link as a QR code, and the QR is gone,
-    /// so the most prominent path on this screen led somewhere that no longer
-    /// exists. Links opened from elsewhere still work; the app handles the URL
+    /// The search only ever finds a PC on this same network, and a PC being
+    /// streamed from somewhere else is a normal way to use this — leading with
+    /// it put an empty list at the top of the screen for everybody it cannot
+    /// help. Typing the code works either way, so that is the offer.
+    ///
+    /// There used to be a third way, listed first: paste the `hexbridge://`
+    /// link from the PC. The PC showed that link as a QR code, and the QR is
+    /// gone, so the most prominent path here led somewhere that no longer
+    /// exists. Links opened from elsewhere still work — the app handles the URL
     /// scheme, which never needed a text field here.
     private var chooser: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
-            Card {
-                VStack(alignment: .leading, spacing: Space.sm) {
-                    SectionLabel(text: L.t("pair.discovery.section"))
-                    discoveryBody
-                }
-            }
-
             Card {
                 VStack(alignment: .leading, spacing: Space.sm) {
                     SectionLabel(text: L.t("pair.code.section"))
@@ -150,7 +147,14 @@ struct PairingWindow: View {
                         .foregroundStyle(palette.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(L.t("pair.code.enter")) { step = .code }
-                        .buttonStyle(.dsSecondary)
+                        .buttonStyle(.dsPrimary)
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: Space.sm) {
+                    SectionLabel(text: L.t("pair.discovery.section"))
+                    discoveryBody
                 }
             }
         }

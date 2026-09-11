@@ -210,6 +210,19 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
     /// to know which.
     /// </summary>
     [ObservableProperty] private string _thisAddress = "";
+
+    /// <summary>
+    /// What to do when the Mac is somewhere else entirely — which is not an edge case:
+    /// streaming to a machine on another network is one of the things this is for. Names
+    /// both ports, because the sound and the pairing use different ones and only the
+    /// sound's is opened by the installer on its own.
+    /// </summary>
+    public string RemoteAddressNote =>
+        // Raw, not Loc.Integer: a port is an identifier, and «47 702» is not a port.
+        Loc.F(Strings.Pairing_Caption_RemoteAddress, _dataPort, PairingPayload.ExchangePort(_dataPort));
+
+    /// <summary>The data port the note talks about, kept from the last time a code was made.</summary>
+    private int _dataPort = 47702;
     [ObservableProperty] private bool _isDiscovering;
     [ObservableProperty] private string _machineName = Environment.MachineName;
 
@@ -676,6 +689,8 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         var addresses = MulticastDns.LocalAddresses().Select(a => a.ToString()).ToArray();
         var host = addresses.FirstOrDefault() ?? "127.0.0.1";
         ThisAddress = addresses.Length > 0 ? string.Join("   ", addresses) : host;
+        _dataPort = port;
+        OnPropertyChanged(nameof(RemoteAddressNote));
 
         var payload = PairingPayload.Create(host, port, MachineName);
         Uri = payload.ToUri();

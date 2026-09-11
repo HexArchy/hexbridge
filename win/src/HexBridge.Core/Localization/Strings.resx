@@ -994,6 +994,9 @@
   <data name="Pairing_Step2_Line1" xml:space="preserve">
     <value>Open HexBridge on the second machine and type this code.</value>
   </data>
+  <data name="Pairing_Caption_RemoteAddress" xml:space="preserve">
+    <value>These are the addresses on the network this PC is plugged into. If the Mac is on a different one, type this PC's external address there and open UDP {0} and TCP {1} to it.</value>
+  </data>
   <data name="Pairing_Section_ThisAddress" xml:space="preserve">
     <value>THIS PC'S ADDRESS</value>
   </data>
@@ -1121,10 +1124,10 @@
     <value>The code is good for another {0}</value>
   </data>
   <data name="Pairing_Discovery_Unavailable" xml:space="preserve">
-    <value>Discovery is not available: {0}. The code and the QR work as usual.</value>
+    <value>Discovery is not available: {0}. The code works as usual.</value>
   </data>
   <data name="Pairing_Discovery_Ok" xml:space="preserve">
-    <value>The Mac finds this PC by itself — pick it in the list and type the code from this screen.</value>
+    <value>If the Mac is on this same network it finds this PC by itself — pick it and type the code.</value>
   </data>
   <data name="Pairing_Browse_Unavailable" xml:space="preserve">
     <value>Discovery is not available: {0}. Type the address of the other machine by hand.</value>

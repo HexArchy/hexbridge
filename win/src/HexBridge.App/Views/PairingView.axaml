@@ -111,10 +111,14 @@
             </StackPanel>
 
             <!-- The Mac asks for an address as well as a code, and until now this screen
-                 never said one: the QR carried it. -->
+                 never said one: the QR carried it. These are the addresses this machine
+                 has on the network it is plugged into, which is the answer only when both
+                 machines are on that same network — said plainly underneath, because a PC
+                 being streamed from somewhere else is a normal way to use this. -->
             <StackPanel Spacing="4">
               <TextBlock Classes="section" Text="{l:Tr Pairing_Section_ThisAddress}" />
               <SelectableTextBlock Classes="mono" FontSize="15" Text="{Binding ThisAddress}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RemoteAddressNote}" />
             </StackPanel>
 
             <TextBlock Classes="caption" Text="{Binding DiscoveryText}" />
