@@ -244,6 +244,7 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
                 Loc.Rate((received - lastCount) / 5.0).PadLeft(8),
                 peak,
                 Loc.Count(mic?.Decoded ?? 0),
+                Loc.Count(mic?.Rebuilt ?? 0),
                 Loc.Count(mic?.Concealed ?? 0),
                 Loc.Count(mic?.Depth ?? 0),
                 Loc.Count(mic?.DroppedLate ?? 0),

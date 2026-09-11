@@ -48,6 +48,9 @@ public sealed record MicrophoneState : FeatureState
     public long Received { get; init; }
     public long Decoded { get; init; }
     public long Concealed { get; init; }
+
+    /// <summary>Gaps filled from the following packet rather than from nothing. See MicWaveProvider.</summary>
+    public long Rebuilt { get; init; }
     public long DroppedLate { get; init; }
     public long Underruns { get; init; }
 

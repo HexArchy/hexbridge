@@ -1922,7 +1922,7 @@ When this computer shares its microphone:
     <value>sent {0}  {1}  frames {2}  frame {3}  at the other end: arrived {4}, lost {5}  rtt {6}</value>
   </data>
   <data name="Cli_Stats_Received" xml:space="preserve">
-    <value>arrived {0}  {1}  decoded {2}  reconstructed {3}  buffer {4}  late {5}  underruns {6}</value>
+    <value>arrived {0}  {1}  decoded {2}  rebuilt {3}  filled in {4}  buffer {5}  late {6}  underruns {7}</value>
   </data>
   <data name="Cli_Stats_Feature" xml:space="preserve">
     <value>  [{0}: {1}]</value>

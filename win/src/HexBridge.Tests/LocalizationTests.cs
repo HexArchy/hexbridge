@@ -113,7 +113,9 @@ public class LocalizationTests
     [Fact]
     public void Every_template_formats_without_throwing()
     {
-        object?[] arguments = ["a", "b", "c", "d", "e", "f", "g"];
+        // Long enough for the widest template plus room to grow: running out of these
+        // reads as a broken string rather than as a short fixture, which cost a minute.
+        object?[] arguments = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
         foreach (var key in Keys(English))
         {
             foreach (var culture in new[] { English, Russian })

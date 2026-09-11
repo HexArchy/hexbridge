@@ -65,7 +65,7 @@ public class MicrophoneTests
     }
 
     [Fact]
-    public void AMissingFrameIsConcealedRatherThanSkipped()
+    public void AMissingFrameIsFilledRatherThanSkipped()
     {
         var provider = new MicWaveProvider(jitterMs: 60, maxJitterMs: 240, gain: 1.0f);
         var encoder = Encoder();
@@ -80,7 +80,64 @@ public class MicrophoneTests
         var buffer = new byte[FrameSamples * 2 * sizeof(float)];
         for (var i = 0; i < 8; i++) provider.Read(buffer);
 
-        Assert.True(provider.Concealed > 0, "пропуск не был скрыт");
+        // Either road out of the gap is fine; skipping it is not, because that shortens
+        // the timeline and every later frame plays early.
+        Assert.True(provider.Rebuilt + provider.Concealed > 0, "пропуск не был заполнен");
+    }
+
+    /// <summary>
+    /// The gap is filled from the packet *after* it, which is where Opus puts its
+    /// redundancy. The counter cannot promise redundancy was present — the decoder falls
+    /// back to concealment silently when it is not — so what is pinned here is that the
+    /// successor is used at all, rather than the buffer reaching for an empty packet while
+    /// the next frame sits right there.
+    /// </summary>
+    [Fact]
+    public void TheFrameAfterTheGapIsWhatFillsIt()
+    {
+        var provider = new MicWaveProvider(jitterMs: 60, maxJitterMs: 240, gain: 1.0f);
+        var encoder = Encoder();
+
+        for (var i = 0; i < 8; i++)
+        {
+            if (i == 3) continue;
+            provider.Push((uint)i, EncodeTone(encoder, i));
+        }
+
+        var buffer = new byte[FrameSamples * 2 * sizeof(float)];
+        for (var i = 0; i < 8; i++) provider.Read(buffer);
+
+        Assert.True(provider.Rebuilt > 0, "кадр после пропуска не был использован");
+        Assert.Equal(0, provider.Concealed);
+    }
+
+    /// <summary>
+    /// A link that keeps running dry gets a deeper buffer, up to the configured ceiling.
+    ///
+    /// This is what makes the difference between a LAN and a PC being streamed from
+    /// somewhere else: with a fixed depth, playback restarts at the same shallow point
+    /// after every stall and runs dry again on the next one.
+    /// </summary>
+    [Fact]
+    public void UnderrunsDeepenTheBufferAndCalmDoesNot()
+    {
+        var provider = new MicWaveProvider(jitterMs: 60, maxJitterMs: 240, gain: 1.0f);
+        var encoder = Encoder();
+        var buffer = new byte[FrameSamples * 2 * sizeof(float)];
+
+        var started = provider.TargetDepth;
+        Assert.Equal(3, started);
+
+        // Three frames in, five frames read: the buffer runs dry and says so.
+        for (var round = 0; round < 3; round++)
+        {
+            for (var i = 0; i < 3; i++) provider.Push((uint)(round * 8 + i), EncodeTone(encoder, i));
+            for (var i = 0; i < 5; i++) provider.Read(buffer);
+        }
+
+        Assert.True(provider.Underruns > 0, "буфер не опустошался — тест не проверяет то, что должен");
+        Assert.True(provider.TargetDepth > started, "буфер не углубился после недоборов");
+        Assert.True(provider.TargetDepth <= 12, "буфер вырос выше потолка 240 мс");
     }
 
     [Fact]

@@ -1922,7 +1922,7 @@
     <value>отправлено {0}  {1}  кадров {2}  пакет {3}  на той стороне: принято {4}, потеряно {5}  rtt {6}</value>
   </data>
   <data name="Cli_Stats_Received" xml:space="preserve">
-    <value>принято {0}  {1}  декодировано {2}  скрыто {3}  буфер {4}  поздних {5}  недоборов {6}</value>
+    <value>принято {0}  {1}  декодировано {2}  достроено {3}  скрыто {4}  буфер {5}  поздних {6}  недоборов {7}</value>
   </data>
   <data name="Cli_Stats_Feature" xml:space="preserve">
     <value>  [{0}: {1}]</value>

@@ -113,7 +113,13 @@ public sealed class MicrophoneFeature : IFeature
             if (provider is null) return default;
             return new DeliveryStats(
                 Interlocked.Read(ref provider.Received),
-                Interlocked.Read(ref provider.Concealed) + Interlocked.Read(ref provider.DroppedLate));
+                // Rebuilt counts here too: a frame the decoder reconstructed is still a
+                // frame the network did not deliver, and this number is what the Mac shows
+                // as loss. Leaving it out would make a worsening link look like a
+                // improving one the moment redundancy started earning its keep.
+                Interlocked.Read(ref provider.Concealed)
+                + Interlocked.Read(ref provider.Rebuilt)
+                + Interlocked.Read(ref provider.DroppedLate));
         }
     }
 
@@ -155,6 +161,7 @@ public sealed class MicrophoneFeature : IFeature
             Received = received,
             Decoded = Interlocked.Read(ref provider.Decoded),
             Concealed = Interlocked.Read(ref provider.Concealed),
+            Rebuilt = Interlocked.Read(ref provider.Rebuilt),
             DroppedLate = Interlocked.Read(ref provider.DroppedLate),
             Underruns = Interlocked.Read(ref provider.Underruns),
             Peak = provider.LastPeak,
