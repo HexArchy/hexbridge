@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -120,14 +121,21 @@ public sealed partial class UsbIpAttacher(string? explicitPath, Action<LogLevel,
     /// WSK event-callback path added in 0.9.8.0 for exactly this shape of traffic: small
     /// packets, hundreds a second.
     /// </summary>
-    public async Task<bool> AttachAsync(string busId, string host, CancellationToken token)
+    /// <param name="serverPort">
+    /// Where the server actually ended up. Passed with the client's global
+    /// <c>--tcp-port</c>, which has to come before the subcommand: the standard 3240 is
+    /// often taken by usbip-win2's own <c>usbipd</c> service, and this end steps aside
+    /// rather than fighting it for a number neither of us needs.
+    /// </param>
+    public async Task<bool> AttachAsync(string busId, string host, int serverPort, CancellationToken token)
     {
         var client = ClientPath;
         if (client is null) return false;
         if (_ports.ContainsKey(busId)) return true;
 
         var result = await RunAsync(client,
-            ["attach", "--receive-mode=low-latency", "-r", host, "-b", busId], token).ConfigureAwait(false);
+            ["--tcp-port", serverPort.ToString(CultureInfo.InvariantCulture),
+             "attach", "--receive-mode=low-latency", "-r", host, "-b", busId], token).ConfigureAwait(false);
 
         if (result.ExitCode != 0)
         {

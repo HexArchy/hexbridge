@@ -1287,8 +1287,8 @@
   <data name="Check_Detail_Fingerprint" xml:space="preserve">
     <value>fingerprint {0}</value>
   </data>
-  <data name="Check_Detail_KeyMismatch" xml:space="preserve">
-    <value>the keys do not match — this PC has {0}</value>
+  <data name="Check_Detail_KeyUnproven" xml:space="preserve">
+    <value>nothing to compare against yet — this PC has {0}</value>
   </data>
   <data name="Check_Detail_NoOutput" xml:space="preserve">
     <value>no device found — install Steam or VB-Audio Virtual Cable</value>
@@ -1312,7 +1312,7 @@
     <value>forwarding is off</value>
   </data>
   <data name="Check_Detail_NoDriver" xml:space="preserve">
-    <value>the driver is not installed</value>
+    <value>the driver is not installed — there is a button on the Devices page</value>
   </data>
   <data name="Check_Detail_Forwarded" xml:space="preserve">
     <value>device forwarded</value>
@@ -1775,6 +1775,9 @@
   </data>
   <data name="Log_Clip_OwnerWindowFailed" xml:space="preserve">
     <value>clipboard: the owner window was not created</value>
+  </data>
+  <data name="Log_UsbIp_PortMoved" xml:space="preserve">
+    <value>usbip: port {0} is taken, listening on {1} — the client is told so explicitly</value>
   </data>
   <data name="Log_UsbIp_Listening" xml:space="preserve">
     <value>usbip: the server is listening on {0}</value>

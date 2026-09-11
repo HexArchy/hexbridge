@@ -99,10 +99,20 @@ public static class PairingChecks
     /// <summary>
     /// 3. The two machines are holding the same key.
     ///
-    /// This cannot be measured from one side — the proof is that packets are being
-    /// accepted at all, since a wrong key makes them fail their tag and vanish. So the
-    /// line reports the fingerprint for the user to compare by eye (§10.3), and calls a
-    /// key that is not a key what it is.
+    /// <para>
+    /// This cannot be measured from one side. A wrong key makes packets fail their tag
+    /// and vanish, so packets being accepted <em>is</em> the proof — and the line passes
+    /// on that, with the fingerprint for the user to compare by eye (§10.3).
+    /// </para>
+    ///
+    /// <para>
+    /// Nothing accepted proves nothing, and this used to call it a mismatch. It is the
+    /// line right after «no packets are arriving», so the reader was told twice about one
+    /// fact and the second telling named the wrong culprit — sending somebody to
+    /// regenerate a key that was never wrong and to break a link that worked. It happened
+    /// to exactly one person before this was fixed, and pressing the button again passed.
+    /// Unproven is now what it says.
+    /// </para>
     /// </summary>
     public static CheckOutcome Keys(string? psk, bool packetsAccepted)
     {
@@ -111,7 +121,7 @@ public static class PairingChecks
 
         return packetsAccepted
             ? CheckOutcome.Pass(Loc.F(Strings.Check_Detail_Fingerprint, fingerprint))
-            : CheckOutcome.Fail(Loc.F(Strings.Check_Detail_KeyMismatch, fingerprint));
+            : CheckOutcome.Skip(Loc.F(Strings.Check_Detail_KeyUnproven, fingerprint));
     }
 
     /// <summary>4. The receiver found somewhere to play the audio.</summary>

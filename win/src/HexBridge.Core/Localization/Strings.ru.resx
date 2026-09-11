@@ -1287,8 +1287,8 @@
   <data name="Check_Detail_Fingerprint" xml:space="preserve">
     <value>отпечаток {0}</value>
   </data>
-  <data name="Check_Detail_KeyMismatch" xml:space="preserve">
-    <value>ключи не совпадают — на этом ПК {0}</value>
+  <data name="Check_Detail_KeyUnproven" xml:space="preserve">
+    <value>пока не с чем сверить — на этом ПК {0}</value>
   </data>
   <data name="Check_Detail_NoOutput" xml:space="preserve">
     <value>устройство не найдено — установите Steam или VB-Audio Virtual Cable</value>
@@ -1312,7 +1312,7 @@
     <value>проброс выключен</value>
   </data>
   <data name="Check_Detail_NoDriver" xml:space="preserve">
-    <value>драйвер не установлен</value>
+    <value>драйвер не установлен — кнопка на странице «Устройства»</value>
   </data>
   <data name="Check_Detail_Forwarded" xml:space="preserve">
     <value>устройство проброшено</value>
@@ -1775,6 +1775,9 @@
   </data>
   <data name="Log_Clip_OwnerWindowFailed" xml:space="preserve">
     <value>буфер обмена: окно-владелец не создалось</value>
+  </data>
+  <data name="Log_UsbIp_PortMoved" xml:space="preserve">
+    <value>usbip: порт {0} занят, слушаю {1} — клиенту он передаётся явно</value>
   </data>
   <data name="Log_UsbIp_Listening" xml:space="preserve">
     <value>usbip: сервер слушает {0}</value>

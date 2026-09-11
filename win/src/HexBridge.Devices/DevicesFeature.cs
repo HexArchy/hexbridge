@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 
 using HexBridge.Localization;
 
@@ -103,6 +104,64 @@ public sealed class DevicesFeature : IFeature
         ? Strings.Feature_Dev_Unavailable
         : null;
 
+    /// <summary>
+    /// How many ports past the configured one to try before giving up.
+    ///
+    /// usbip-win2 installs a <c>usbipd</c> service of its own, and that service listens on
+    /// 3240 — the same port this server wants, and the one the whole USB/IP world defaults
+    /// to. Installing the driver therefore broke the very feature the driver is for, with
+    /// "an attempt was made to access a socket in a way forbidden by its access
+    /// permissions" and nothing a person could do about it short of stopping a service
+    /// they had just been told to install.
+    ///
+    /// Nothing requires the standard port here: both ends of this conversation are ours,
+    /// on loopback, and the client is told where to look with <c>--tcp-port</c>. So we step
+    /// aside rather than fight for it.
+    /// </summary>
+    private const int PortsToTry = 16;
+
+    /// <summary>
+    /// Binds the server, stepping past ports somebody else is already holding.
+    ///
+    /// A port explicitly asked for with a non-zero number is still tried first, and the
+    /// log says which one it ended up on — a setting that is quietly ignored is worse
+    /// than a port that is busy.
+    /// </summary>
+    private void Bind(UsbIpServer server, FeatureContext context)
+    {
+        Exception? last = null;
+
+        for (var offset = 0; offset < PortsToTry; offset++)
+        {
+            var attempt = new IPEndPoint(_listen.Address, _listen.Port == 0 ? 0 : _listen.Port + offset);
+            try
+            {
+                server.Start(attempt);
+                if (offset > 0)
+                {
+                    context.Log(LogLevel.Warning,
+                        Loc.F(Strings.Log_UsbIp_PortMoved, _listen.Port, attempt.Port));
+                }
+                return;
+            }
+            catch (SocketException ex)
+            {
+                // Busy, or refused by an access rule — Windows answers the second with
+                // WSAEACCES rather than "in use", and both mean the same thing to us.
+                last = ex;
+                if (_listen.Port == 0) break;
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                break;
+            }
+        }
+
+        throw new InvalidOperationException(
+            Loc.F(Strings.Feature_Dev_PortBusy, _listen, last?.Message ?? ""), last);
+    }
+
     public void Start(FeatureContext context)
     {
         _listen = ReceiverConfig.ParseEndpoint(context.Config.UsbIpListen, 3240);
@@ -112,15 +171,7 @@ public sealed class DevicesFeature : IFeature
         Interlocked.Exchange(ref _rejected, 0);
 
         var server = new UsbIpServer(Exported, context.Log);
-        try
-        {
-            server.Start(_listen);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                Loc.F(Strings.Feature_Dev_PortBusy, _listen, ex.Message), ex);
-        }
+        Bind(server, context);
 
         lock (_gate)
         {
@@ -387,14 +438,17 @@ public sealed class DevicesFeature : IFeature
         }
 
         var busId = device.Info.BusId;
-        var host = _listen.Address.ToString();
+        // The endpoint the server actually took, not the one that was asked for: they
+        // differ whenever something else was already holding the port.
+        var bound = server.LocalEndPoint ?? _listen;
+        var host = bound.Address.ToString();
         for (var attempt = 0; attempt < 3 && !cancel.IsCancellationRequested; attempt++)
         {
             if (server.IsImported(busId)) return;
 
             try
             {
-                if (await attacher.AttachAsync(busId, host, cancel.Token).ConfigureAwait(false)) return;
+                if (await attacher.AttachAsync(busId, host, bound.Port, cancel.Token).ConfigureAwait(false)) return;
             }
             catch (OperationCanceledException)
             {

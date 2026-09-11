@@ -113,16 +113,19 @@ public class PairingChecksTests
     }
 
     [Fact]
-    public void AKeyThatHasAcceptedNothingIsReportedAsAMismatch()
+    public void AKeyThatHasAcceptedNothingIsUnprovenRatherThanWrong()
     {
-        // A wrong key makes packets fail their tag and disappear, so «nothing accepted» is
-        // the only evidence one side has. The fingerprint goes out with it so the user can
-        // compare the two screens (§10.3).
+        // This used to be reported as a mismatch, and that was an accusation made from no
+        // evidence: it is the line directly after «no packets are arriving», so the same
+        // one fact was told twice and the second telling named the wrong culprit. Somebody
+        // reading it would regenerate a key that was never wrong. The fingerprint still
+        // goes out, because comparing the two screens by eye is the only real check there
+        // is from one side (§10.3).
         var psk = ReceiverConfig.GenerateKey();
         var outcome = PairingChecks.Keys(psk, packetsAccepted: false);
 
-        Assert.Equal(CheckState.Failed, outcome.State);
-        Assert.Contains("не совпадают", outcome.Detail, StringComparison.Ordinal);
+        Assert.Equal(CheckState.Skipped, outcome.State);
+        Assert.DoesNotContain("не совпадают", outcome.Detail, StringComparison.Ordinal);
         Assert.Contains(PairingPayload.FingerprintOfPsk(psk)!, outcome.Detail, StringComparison.Ordinal);
     }
 
@@ -280,7 +283,10 @@ public class PairingChecksTests
         var outcome = PairingChecks.Controller(true, driverInstalled: false, attached: true, "DualSense");
 
         Assert.Equal(CheckState.Failed, outcome.State);
-        Assert.Equal("драйвер не установлен", outcome.Detail);
+        Assert.StartsWith("драйвер не установлен", outcome.Detail, StringComparison.Ordinal);
+        // And says where the button is: a line that only names the problem leaves the
+        // reader on a screen that cannot solve it.
+        Assert.Contains("Устройства", outcome.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
