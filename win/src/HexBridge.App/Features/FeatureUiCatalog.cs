@@ -1,6 +1,7 @@
 using HexBridge.App.ViewModels;
 using HexBridge.Clipboard;
 using HexBridge.Devices;
+using HexBridge.Files;
 using HexBridge.Microphone;
 
 namespace HexBridge.App.Features;
@@ -17,6 +18,7 @@ public static class FeatureUiCatalog
         () => new MicrophoneUiModule(),
         () => new DevicesUiModule(),
         () => new ClipboardUiModule(),
+        () => new FilesUiModule(),
     ];
 
     /// <summary>
@@ -34,11 +36,17 @@ public static class FeatureUiCatalog
     public static IReadOnlyList<IFeatureUiModule> For(IEnumerable<IFeature> features)
     {
         var available = Factories.Select(factory => factory()).ToDictionary(module => module.FeatureId);
-        return [.. features
-            .Select(feature => feature.Id)
-            .Distinct(StringComparer.Ordinal)
-            .Select(available.GetValueOrDefault)
-            .OfType<IFeatureUiModule>()];
+        var chosen = new List<IFeatureUiModule>();
+
+        foreach (var feature in features)
+        {
+            if (!available.TryGetValue(feature.Id, out var module)) continue;
+
+            module.Attach(feature);
+            if (!chosen.Contains(module)) chosen.Add(module);
+        }
+
+        return chosen;
     }
 }
 
@@ -92,4 +100,26 @@ public sealed class ClipboardUiModule : IFeatureUiModule
 
     public void Apply(ReceiverSnapshot snapshot) =>
         Clipboard.Apply(snapshot.Feature<ClipboardState>(FeatureId));
+}
+
+/// <summary>The files page: one drop target, what is moving, and what has landed.</summary>
+public sealed class FilesUiModule : IFeatureUiModule
+{
+    public string FeatureId => "files";
+
+    public FilesViewModel Files { get; } = new();
+
+    public IEnumerable<FeaturePage> CreatePages() => [new FeaturePage("Tab_Files", Files)];
+
+    /// <summary>
+    /// The one page in the app that asks its feature for something rather than only
+    /// reading a snapshot: a file has to be read and offered, and only the feature can.
+    /// </summary>
+    public void Attach(IFeature feature)
+    {
+        if (feature is FilesFeature files) Files.Attach(files);
+    }
+
+    public void Apply(ReceiverSnapshot snapshot) =>
+        Files.Apply(snapshot.Feature<FilesState>(FeatureId));
 }

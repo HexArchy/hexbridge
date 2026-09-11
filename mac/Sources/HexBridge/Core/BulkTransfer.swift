@@ -313,18 +313,29 @@ final class BulkChannel: @unchecked Sendable {
     /// channel, and with a single slot whichever feature started last would silently
     /// take delivery of the other's objects — and clear it again on the way out.
     /// Each observer filters by kind.
-    private var deliveryObservers: [Int: (BulkDelivery) -> Void] = [:]
+    private var deliveryObservers: [Int: (kind: BulkKind, handle: (BulkDelivery) -> Void)] = [:]
     private var nextObserver = 1
 
-    /// Registers an observer and returns the token to remove it with.
+    /// Registers an observer for one kind, and returns the token to remove it with.
+    ///
+    /// The kind is declared rather than filtered for inside the handler, because the
+    /// channel needs to know it too: an object of a kind nobody is waiting for must be
+    /// turned away at the offer instead of being pulled across and dropped.
     @discardableResult
-    func observeDeliveries(_ handler: @escaping (BulkDelivery) -> Void) -> Int {
+    func observeDeliveries(of kind: BulkKind, _ handler: @escaping (BulkDelivery) -> Void) -> Int {
         lock.lock()
         defer { lock.unlock() }
         let token = nextObserver
         nextObserver += 1
-        deliveryObservers[token] = handler
+        deliveryObservers[token] = (kind, handler)
         return token
+    }
+
+    /// Whether anything is waiting for this kind. Caller must not hold `lock`.
+    private func listening(for kind: BulkKind) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return deliveryObservers.values.contains { $0.kind == kind }
     }
 
     func removeDeliveryObserver(_ token: Int) {
@@ -335,9 +346,9 @@ final class BulkChannel: @unchecked Sendable {
 
     private func announce(_ delivery: BulkDelivery) {
         lock.lock()
-        let observers = Array(deliveryObservers.values)
+        let observers = deliveryObservers.values.filter { $0.kind == delivery.kind }
         lock.unlock()
-        for observer in observers { observer(delivery) }
+        for observer in observers { observer.handle(delivery) }
     }
 
     /// An outgoing transfer ended. Called outside the channel's lock.
@@ -506,6 +517,18 @@ final class BulkChannel: @unchecked Sendable {
         // The whole loop-breaker, and the reason the contract puts a hash in the
         // offer at all: if we already hold these exact bytes, nothing has to cross
         // the wire.
+        // Nobody is waiting for this kind — the feature that would take it is switched
+        // off. Refusing at the offer costs one packet; accepting costs the whole object,
+        // which is then discarded, while the other end watches a transfer it thinks
+        // succeeded.
+        if !listening(for: offer.kind) {
+            deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
+                transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
+            )))
+            onNote?("bulk: nothing here is waiting for that, not pulling it")
+            return
+        }
+
         if owns?(offer.kind, offer.hash) == true {
             deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
                 transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []

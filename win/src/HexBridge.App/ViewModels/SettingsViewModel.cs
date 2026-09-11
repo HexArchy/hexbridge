@@ -146,6 +146,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Off by default, and the view says out loud what turning it on means.</summary>
     [ObservableProperty] private bool _clipboard;
 
+    /// <summary>The same: off until asked for, because a file that arrives is written.</summary>
+    [ObservableProperty] private bool _files;
+
     [ObservableProperty] private bool _usbIpAutoAttach = true;
     [ObservableProperty] private string _usbIpListen = "127.0.0.1:3240";
     [ObservableProperty] private string _usbIpPath = "";
@@ -208,6 +211,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         LatencyMs = config.LatencyMs;
         Gamepad = config.Gamepad;
         Clipboard = config.Clipboard;
+        Files = config.Files;
         UsbIpAutoAttach = config.UsbIpAutoAttach;
         UsbIpListen = config.UsbIpListen;
         UsbIpPath = config.UsbIpPath ?? "";
@@ -257,6 +261,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         config.LatencyMs = LatencyMs;
         config.Gamepad = Gamepad;
         config.Clipboard = Clipboard;
+        config.Files = Files;
         config.UsbIpAutoAttach = UsbIpAutoAttach;
         config.UsbIpListen = string.IsNullOrWhiteSpace(UsbIpListen) ? "127.0.0.1:3240" : UsbIpListen.Trim();
         config.UsbIpPath = string.IsNullOrWhiteSpace(UsbIpPath) ? null : UsbIpPath.Trim();

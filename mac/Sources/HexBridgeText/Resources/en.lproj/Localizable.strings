@@ -418,6 +418,46 @@
 "clip.item.image" = "image, %@";
 "clip.item.data" = "data, %@";
 
+/* MARK: - Files */
+
+"files.title" = "Files";
+"files.summary" = "Drop a file on the menu bar window and it turns up in the Downloads folder on the gaming PC. What comes the other way is written to Downloads here.";
+
+"files.off.headline" = "File transfer is off";
+"files.off.detail" = "Nothing leaves this Mac, and nothing that arrives is written to disk.";
+"files.off.emptyText" = "Files move in neither direction while this is off.";
+"files.action.turnOn" = "Turn file transfer on";
+
+"files.unconfigured.headline" = "File transfer is not set up";
+
+"files.waiting.headline" = "Waiting for the stream to start";
+"files.waiting.detail" = "Files travel on the same channel as the sound. Until that channel is up, there is nowhere to send them.";
+
+"files.sending.headline" = "Sending: %@";
+"files.receiving.headline" = "Receiving: %@";
+"files.live.headline" = "Ready for files";
+
+"files.drop" = "Drop a file here, or click to choose one";
+"files.drop.active" = "Let go to send it";
+"files.drop.help" = "Send a file to the gaming PC";
+"files.choose.message" = "Choose the file to send to the gaming PC";
+"files.choose.prompt" = "Send";
+
+"files.progress.blocks" = "%@ of %@";
+"files.section.arrived" = "Arrived";
+"files.last.none" = "Nothing has arrived yet.";
+"files.last.line" = "%@ — arrived %@.";
+"files.savedTo" = "Everything that arrives is written to the Downloads folder. A name already taken there gets a number, so nothing is written over.";
+"files.reveal" = "Show in Finder";
+"files.reveal.accessibility" = "Show %@ in Finder";
+
+"files.error.tooLarge" = "This file is larger than %@, which is as much as the link carries in one go.";
+"files.error.folder" = "A folder cannot be sent on its own. Compress it first and send the archive.";
+"files.error.noLink" = "There is no link to the gaming PC, so the file stayed here.";
+"files.error.noRoom" = "The file could not be written to the Downloads folder.";
+"files.error.notDelivered" = "%@ did not get to the gaming PC.";
+"files.error.refused" = "“%@” was turned down: file transfer is switched off on the other machine";
+
 /* MARK: - Devices */
 
 "dev.title" = "Devices";
@@ -537,7 +577,7 @@
 "runtime.error.notStarted" = "the stream is not running";
 "sender.error.descriptorTooBig" = "the description of the device does not fit in one packet";
 "bulk.error.empty" = "there is nothing to send: the object is empty";
-"bulk.error.tooLarge" = "the object is larger than 16 MB — that is file transfer, not a clipboard";
+"bulk.error.tooLarge" = "the object is larger than 64 MB, which is as much as this link carries in one go";
 
 "devices.error.subscribe" = "USB plug and unplug events could not be subscribed to";
 "devices.error.open" = "“%@” could not be opened";

@@ -160,6 +160,19 @@
           </StackPanel>
         </Border>
 
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="section" Text="{l:Tr Settings_Section_Files}" />
+
+            <CheckBox IsChecked="{Binding Files}" Content="{l:Tr Settings_Check_Files}" />
+
+            <!-- Where files land and what happens to a name already taken. Both are
+                 questions somebody asks once, before they switch this on. -->
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="{l:Tr Settings_Caption_Files}" />
+          </StackPanel>
+        </Border>
+
         <!--
           The microphone this machine reads. The mirror image of «ВЫВОД ЗВУКА» below, and
           only one of the two is ever on screen: a machine either has a microphone to give

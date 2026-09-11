@@ -16,7 +16,11 @@ public enum BulkOutcome
     /// <summary>The receiver assembled the object and the hash matched.</summary>
     Delivered,
 
-    /// <summary>The receiver already had this exact object and asked us not to send it.</summary>
+    /// <summary>
+    /// The other side answered «не надо». Either it already holds these exact bytes, or
+    /// nothing over there is listening for this kind — the contract has one field for both
+    /// and the answer to each is the same: do not send it.
+    /// </summary>
     AlreadyThere,
 
     /// <summary>Ten offers, no answer.</summary>
@@ -88,8 +92,29 @@ public sealed class BulkChannel
     /// <summary>
     /// «Этот объект у меня уже есть». The contract makes this the answer to a duplicate
     /// offer *and* the thing that stops two machines syncing each other in a circle.
+    ///
+    /// <para>
+    /// It takes the kind because the channel is shared: the clipboard knows what is on the
+    /// clipboard and nothing about the Downloads folder, and a hash is only meaningful to
+    /// the feature the object belongs to. Answering «yes» for somebody else's kind would
+    /// refuse a transfer nobody has.
+    /// </para>
     /// </summary>
-    public Func<byte[], bool>? Owns { get; set; }
+    public Func<BulkKind, byte[], bool>? Owns { get; set; }
+
+    /// <summary>
+    /// Whether anything on this machine is waiting for a kind at all.
+    ///
+    /// <para>
+    /// Without it, an offer of a kind nobody subscribes to is accepted like any other: the
+    /// whole object crosses the network, is acknowledged, and is then dropped because there
+    /// is no one to hand it to. Somebody who switched file transfer off would go on paying
+    /// for every file the other machine sends, and the other machine would show each one as
+    /// delivered. Null means «take everything», which is what a channel with no features
+    /// wired to it should do.
+    /// </para>
+    /// </summary>
+    public Func<BulkKind, bool>? Wanted { get; set; }
 
     /// <summary>An object arrived whole and verified. Raised outside the channel's lock.</summary>
     public event Action<BulkDelivery>? Delivered;
@@ -172,6 +197,31 @@ public sealed class BulkChannel
     }
 
     /// <summary>
+    /// Drops what one feature has in flight and leaves every other kind alone. Turning the
+    /// clipboard off must not tear the file somebody is watching arrive off the wire.
+    ///
+    /// <para>
+    /// The record of finished transfers is kept whatever the kind: it holds ids, not
+    /// objects, and it is the only thing that can answer a lost BULK_DONE for the kinds
+    /// that are still running.
+    /// </para>
+    /// </summary>
+    public void Reset(BulkKind kind)
+    {
+        lock (_gate)
+        {
+            foreach (var (id, transfer) in _outgoing.ToArray())
+            {
+                if (transfer.Offer.Kind == kind) _outgoing.Remove(id);
+            }
+            foreach (var (id, incoming) in _incoming.ToArray())
+            {
+                if (incoming.Kind == kind) _incoming.Remove(id);
+            }
+        }
+    }
+
+    /// <summary>
     /// The peer is not the one we were talking to a moment ago — it restarted, or it has
     /// only just appeared.
     ///
@@ -236,9 +286,19 @@ public sealed class BulkChannel
         if (offer.Size == 0 || offer.Size > Bulk.MaxObjectSize) return;
         if (offer.ChunkCount != Bulk.ChunkCountFor(offer.Size)) return;
 
+        // Turned down before a single chunk is asked for. «Не надо» is the only no the
+        // contract has, and it is the right one: the sender stops, keeps its bytes, and is
+        // not left waiting for an ack that is never coming.
+        if (Wanted?.Invoke(offer.Kind) == false)
+        {
+            _send(PacketType.BulkAck, BulkCodec.WriteAck(new BulkAck(offer.TransferId, false, 0, [])));
+            Note?.Invoke(Loc.F(Strings.Log_Bulk_Unwanted, Describe(offer)));
+            return;
+        }
+
         // The whole loop-breaker, and the reason the contract puts a hash in the offer at
         // all: if we already hold these exact bytes, nothing has to cross the wire.
-        if (Owns?.Invoke(offer.Hash) == true)
+        if (Owns?.Invoke(offer.Kind, offer.Hash) == true)
         {
             _send(PacketType.BulkAck, BulkCodec.WriteAck(new BulkAck(offer.TransferId, false, 0, [])));
             Note?.Invoke(Loc.F(Strings.Log_Bulk_Have, Describe(offer)));

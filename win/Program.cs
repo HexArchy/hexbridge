@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using HexBridge;
 using HexBridge.Clipboard;
 using HexBridge.Devices;
+using HexBridge.Files;
 using HexBridge.Localization;
 using HexBridge.Microphone;
 
@@ -103,11 +104,19 @@ if (!config.TryGetKey(out _, out _))
 // Both halves of the microphone are registered and the role decides which one starts. They
 // share an id and a state record, so everything downstream — the stats line included — is
 // written once.
+
+// The one channel every feature that needs delivery guarantees shares. It claims the four
+// bulk packet types on their behalf, because the host routes a type to exactly one feature
+// and both of the two below would ask for the same four.
+var bulk = new BulkHost();
+
 await using var receiver = new ReceiverService(
     new MicrophoneFeature(),
     new MicrophoneCaptureFeature(),
     new DevicesFeature(),
-    new ClipboardFeature());
+    bulk,
+    new ClipboardFeature(bulk),
+    new FilesFeature(bulk));
 receiver.Log += entry =>
 {
     if (entry.Level == LogLevel.Error) Console.Error.WriteLine(entry.Message);
@@ -258,6 +267,10 @@ static async Task StatsLoop(ReceiverService receiver, CancellationToken token)
         {
             if (feature.Id is "microphone" or "" ) continue;
             if (feature.Status is FeatureStatus.Disabled or FeatureStatus.Stopped) continue;
+            // A feature with nothing to say says nothing. The shared transfer channel is
+            // the one that never has: what it carries is reported by whichever feature the
+            // object belongs to, and twice is once too many on a line this narrow.
+            if (feature.Headline.Length == 0) continue;
             line += Loc.F(Strings.Cli_Stats_Feature, feature.Title, feature.Headline);
         }
 

@@ -97,6 +97,7 @@ final class AppModel: FeatureHost {
             MicrophoneFeature(host: self),
             DevicesFeature(host: self),
             ClipboardFeature(host: self),
+            FilesFeature(host: self),
         ]
     }
 

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using HexBridge.App.Features;
 using HexBridge.Clipboard;
 using HexBridge.Devices;
+using HexBridge.Files;
 using HexBridge.Microphone;
 
 using HexBridge.Localization;
@@ -22,16 +23,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private static readonly TimeSpan Tick = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>
+    /// The one reliable channel, shared by every feature that needs delivery guarantees.
+    /// It claims the four bulk packet types on their behalf: the host routes a type to
+    /// exactly one feature, and both the clipboard and files would ask for the same four.
+    /// </summary>
+    private readonly BulkHost _bulk = new();
+
     // The composition root: the one place in the app that names a feature. Everything
     // below works off IFeature and IFeatureUiModule, so a third feature adds a class and
     // one entry here and in FeatureUiCatalog, and changes nothing else.
     // Both halves of the microphone are registered; the role decides which one starts.
     // They share an id, so the pages below are built once and serve either.
-    private readonly ReceiverService _receiver = new(
-        new MicrophoneFeature(),
-        new MicrophoneCaptureFeature(),
-        new DevicesFeature(),
-        new ClipboardFeature());
+    private readonly ReceiverService _receiver;
 
     private readonly IReadOnlyList<IFeatureUiModule> _modules;
     private readonly DispatcherTimer _timer;
@@ -112,6 +116,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public MainViewModel(string? configPath = null)
     {
+        _receiver = new ReceiverService(
+            new MicrophoneFeature(),
+            new MicrophoneCaptureFeature(),
+            new DevicesFeature(),
+            _bulk,
+            new ClipboardFeature(_bulk),
+            new FilesFeature(_bulk));
+
         _configPath = configPath ?? ReceiverConfig.ResolvedPath();
         ConfigPathText = _configPath;
         _ui = AppSettings.Load();
@@ -321,6 +333,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var probe = next.Clone();
         probe.Clipboard = previous.Clipboard;
+        probe.Files = previous.Files;
         probe.Gamepad = previous.Gamepad;
 
         return JsonSerializer.Serialize(probe) == JsonSerializer.Serialize(previous);

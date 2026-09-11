@@ -26,14 +26,18 @@ public class ReconcileTests
         Haptics = false,
     };
 
-    private static ClipboardFeature Clipboard() =>
-        new(_ => new FakeClipboardSurface());
+    /// <summary>The clipboard and the shared channel its packets now arrive on.</summary>
+    private static IFeature[] Clipboard()
+    {
+        var bulk = new BulkHost();
+        return [bulk, new ClipboardFeature(bulk, _ => new FakeClipboardSurface())];
+    }
 
     [Fact]
     public async Task TurningTheClipboardOnLeavesTheGamepadAlone()
     {
         var devices = new DevicesFeature();
-        await using var receiver = new ReceiverService(devices, Clipboard());
+        await using var receiver = new ReceiverService([devices, .. Clipboard()]);
 
         await receiver.StartAsync(Config(clipboard: false, gamepad: true));
         try
@@ -58,7 +62,7 @@ public class ReconcileTests
     public async Task TurningAFeatureOffStopsOnlyThatOne()
     {
         var devices = new DevicesFeature();
-        await using var receiver = new ReceiverService(devices, Clipboard());
+        await using var receiver = new ReceiverService([devices, .. Clipboard()]);
 
         await receiver.StartAsync(Config(clipboard: true, gamepad: true));
         try

@@ -275,7 +275,7 @@ public class ClipboardSyncTests
         public Node(Action<PacketType, ReadOnlyMemory<byte>> send)
         {
             Sync = new ClipboardSync(Surface);
-            Channel = new BulkChannel(send) { Owns = Sync.Owns };
+            Channel = new BulkChannel(send) { Owns = (_, hash) => Sync.Owns(hash) };
             Channel.Delivered += _arrivals.Enqueue;
             Channel.Finished += result =>
             {

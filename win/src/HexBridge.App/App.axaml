@@ -23,6 +23,7 @@
     <DataTemplate DataType="vm:QualityViewModel"><views:QualityView /></DataTemplate>
     <DataTemplate DataType="vm:DevicesViewModel"><views:DevicesView /></DataTemplate>
     <DataTemplate DataType="vm:ClipboardViewModel"><views:ClipboardView /></DataTemplate>
+    <DataTemplate DataType="vm:FilesViewModel"><views:FilesView /></DataTemplate>
     <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
     <DataTemplate DataType="vm:LogViewModel"><views:LogView /></DataTemplate>
   </Application.DataTemplates>

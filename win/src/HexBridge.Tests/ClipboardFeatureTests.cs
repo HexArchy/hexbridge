@@ -26,20 +26,25 @@ public class ClipboardFeatureTests
     };
 
     [Fact]
-    public void TheClipboardClaimsTheFourBulkTypesAndNothingElse()
+    public void TheFourBulkTypesAreClaimedByTheChannelAndNotByTheClipboard()
     {
-        var feature = new ClipboardFeature();
+        var bulk = new BulkHost();
+        var feature = new ClipboardFeature(bulk);
 
         Assert.Equal(
             [PacketType.BulkOffer, PacketType.BulkChunk, PacketType.BulkAck, PacketType.BulkDone],
-            feature.HandledTypes);
-        Assert.Empty(feature.HandledTypes.Intersect(new MicrophoneFeature().HandledTypes));
+            bulk.HandledTypes);
+
+        // The clipboard asks for nothing of its own. Two features cannot claim one packet
+        // type, and the clipboard and files would both have to claim these four.
+        Assert.Empty(feature.HandledTypes);
+        Assert.Empty(bulk.HandledTypes.Intersect(new MicrophoneFeature().HandledTypes));
     }
 
     [Fact]
     public void TheClipboardIsOptionalAndOffInAFreshConfig()
     {
-        var feature = new ClipboardFeature();
+        var feature = new ClipboardFeature(new BulkHost());
 
         Assert.True(feature.IsOptional);
         // The whole privacy position in one assertion: a config nobody has edited does not
@@ -51,7 +56,8 @@ public class ClipboardFeatureTests
     [Fact]
     public async Task ADisabledClipboardStillHasAPageToShow()
     {
-        await using var receiver = new ReceiverService(new ClipboardFeature(_ => new FakeClipboardSurface()));
+        var bulk = new BulkHost();
+        await using var receiver = new ReceiverService(bulk, new ClipboardFeature(bulk, _ => new FakeClipboardSurface()));
         await receiver.StartAsync(Config(clipboard: false));
         await Task.Delay(300);
 
@@ -187,7 +193,8 @@ public class ClipboardFeatureTests
             var config = Config();
             Assert.True(config.TryGetKey(out var key, out _));
 
-            var receiver = new ReceiverService(new ClipboardFeature(_ => surface));
+            var bulk = new BulkHost();
+            var receiver = new ReceiverService(bulk, new ClipboardFeature(bulk, _ => surface));
             var log = new List<string>();
             receiver.Log += entry => { lock (log) log.Add(entry.Message); };
             await receiver.StartAsync(config);

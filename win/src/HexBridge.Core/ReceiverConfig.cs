@@ -81,6 +81,25 @@ public sealed class ReceiverConfig
     public bool Clipboard { get; set; }
 
     /// <summary>
+    /// Send and take files, in both directions. **On**, unlike the clipboard.
+    ///
+    /// <para>
+    /// The clipboard is off because it sends your own data out continuously and unasked,
+    /// and what sits on a clipboard is often a password. Files go the other way: one
+    /// leaves only because somebody dropped it, and one that arrives is written to
+    /// Downloads and never opened. That is a smaller footprint than the microphone, which
+    /// is on, and the two machines are already holding one key between them.
+    /// </para>
+    ///
+    /// <para>
+    /// It is also the difference between the feature working and appearing broken. Off on
+    /// one of the two machines means a file dropped on the other goes nowhere, and the
+    /// person is left looking for a switch on a screen that is not in front of them.
+    /// </para>
+    /// </summary>
+    public bool Files { get; set; } = true;
+
+    /// <summary>
     /// HD haptics: serve the controller's audio function alongside its HID interface, so the
     /// PCM a game writes to the voice-coil actuators reaches the Mac.
     ///

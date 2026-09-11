@@ -258,6 +258,9 @@
   <data name="Tab_Clipboard" xml:space="preserve">
     <value>Буфер обмена</value>
   </data>
+  <data name="Tab_Files" xml:space="preserve">
+    <value>Файлы</value>
+  </data>
   <data name="Tab_Settings" xml:space="preserve">
     <value>Настройки</value>
   </data>
@@ -605,6 +608,48 @@
   <data name="Clipboard_Item_Data" xml:space="preserve">
     <value>данные, {0}</value>
   </data>
+  <data name="Files_Headline_Off" xml:space="preserve">
+    <value>Передача файлов выключена</value>
+  </data>
+  <data name="Files_Sub_Off" xml:space="preserve">
+    <value>Включите её в настройках</value>
+  </data>
+  <data name="Files_Drop_Title" xml:space="preserve">
+    <value>Перетащите сюда файл</value>
+  </data>
+  <data name="Files_Drop_Hint" xml:space="preserve">
+    <value>По одному файлу, до {0} МиБ</value>
+  </data>
+  <data name="Files_Button_Pick" xml:space="preserve">
+    <value>Выбрать файл</value>
+  </data>
+  <data name="Files_Button_Folder" xml:space="preserve">
+    <value>Открыть папку</value>
+  </data>
+  <data name="Files_Picker_Title" xml:space="preserve">
+    <value>Выберите файл для отправки</value>
+  </data>
+  <data name="Files_Label_Folder" xml:space="preserve">
+    <value>Файлы попадают в</value>
+  </data>
+  <data name="Files_Metric_Sent" xml:space="preserve">
+    <value>Файлов отправлено</value>
+  </data>
+  <data name="Files_Metric_Received" xml:space="preserve">
+    <value>Файлов получено</value>
+  </data>
+  <data name="Files_Section_Arrived" xml:space="preserve">
+    <value>ПРИШЕДШИЕ ФАЙЛЫ</value>
+  </data>
+  <data name="Files_Empty" xml:space="preserve">
+    <value>Пока ничего не пришло</value>
+  </data>
+  <data name="Files_Transfer_Out" xml:space="preserve">
+    <value>Отправляем: {0}</value>
+  </data>
+  <data name="Files_Transfer_In" xml:space="preserve">
+    <value>Принимаем: {0}</value>
+  </data>
 
   <!-- Log page -->
   <data name="Log_Section" xml:space="preserve">
@@ -719,6 +764,15 @@
   </data>
   <data name="Settings_Check_Clipboard" xml:space="preserve">
     <value>Общий буфер обмена со второй машиной</value>
+  </data>
+  <data name="Settings_Section_Files" xml:space="preserve">
+    <value>ФАЙЛЫ</value>
+  </data>
+  <data name="Settings_Check_Files" xml:space="preserve">
+    <value>Отправлять и принимать файлы</value>
+  </data>
+  <data name="Settings_Caption_Files" xml:space="preserve">
+    <value>Пришедший файл попадает в папку загрузок под собственным именем — ничего в ней не перезаписывается.</value>
   </data>
   <data name="Settings_Section_Capture" xml:space="preserve">
     <value>ЗАХВАТ ЗВУКА</value>
@@ -1358,6 +1412,12 @@
   <data name="Feature_Clipboard_Title" xml:space="preserve">
     <value>Буфер обмена</value>
   </data>
+  <data name="Feature_Files_Title" xml:space="preserve">
+    <value>Файлы</value>
+  </data>
+  <data name="Feature_Bulk_Title" xml:space="preserve">
+    <value>Передачи</value>
+  </data>
   <data name="Feature_Mic_Stopped" xml:space="preserve">
     <value>Остановлено</value>
   </data>
@@ -1465,6 +1525,30 @@
   </data>
   <data name="Feature_Clip_WindowsOnly" xml:space="preserve">
     <value>общий буфер обмена доступен только на Windows</value>
+  </data>
+  <data name="Feature_Files_Stopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="Feature_Files_Refused" xml:space="preserve">
+    <value>«{0}» не принят: на второй машине передача файлов выключена</value>
+  </data>
+  <data name="Feature_Files_Failed" xml:space="preserve">
+    <value>Не работает</value>
+  </data>
+  <data name="Feature_Files_Waiting" xml:space="preserve">
+    <value>Готово к файлам</value>
+  </data>
+  <data name="Feature_Files_Live" xml:space="preserve">
+    <value>Файлы ходят</value>
+  </data>
+  <data name="Feature_Files_Transferring" xml:space="preserve">
+    <value>Передаём</value>
+  </data>
+  <data name="Feature_Files_Detail_Empty" xml:space="preserve">
+    <value>Перетащите файл на эту страницу — он появится на другой машине</value>
+  </data>
+  <data name="Feature_Files_Detail_Last" xml:space="preserve">
+    <value>Последний файл: {0}</value>
   </data>
 
   <!-- Audio devices -->
@@ -1625,6 +1709,18 @@
   <data name="Err_Bulk_TooBig" xml:space="preserve">
     <value>объект больше {1} МиБ ({0})</value>
   </data>
+  <data name="Err_Bulk_NotRunning" xml:space="preserve">
+    <value>пока HexBridge остановлен, отправлять некуда</value>
+  </data>
+  <data name="Err_Files_Gone" xml:space="preserve">
+    <value>файла {0} больше нет</value>
+  </data>
+  <data name="Err_Files_Outside" xml:space="preserve">
+    <value>имя {0} уводит из папки</value>
+  </data>
+  <data name="Err_Files_NoName" xml:space="preserve">
+    <value>свободного имени рядом с {0} не осталось</value>
+  </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>порт {0} занят другой службой — {1}</value>
   </data>
@@ -1713,9 +1809,6 @@
   <data name="Log_FeatureRollback" xml:space="preserve">
     <value>hexbridge: «{0}» при откате: {1}</value>
   </data>
-  <data name="Log_FeatureStopFailed" xml:space="preserve">
-    <value>hexbridge: «{0}» при остановке: {1}</value>
-  </data>
   <data name="Log_RelayDeposit" xml:space="preserve">
     <value>связывание: код оставлен на релее {0} (ответ {1})</value>
   </data>
@@ -1769,6 +1862,27 @@
   </data>
   <data name="Log_Bulk_Describe" xml:space="preserve">
     <value>{0} {1}</value>
+  </data>
+  <data name="Log_Bulk_Unwanted" xml:space="preserve">
+    <value>передачи: отклонено — {0} здесь никто не ждёт</value>
+  </data>
+  <data name="Log_Bulk_Tick" xml:space="preserve">
+    <value>передачи: {0}</value>
+  </data>
+  <data name="Log_Files_On" xml:space="preserve">
+    <value>файлы: включены — приходящие файлы кладутся в {0}</value>
+  </data>
+  <data name="Log_Files_Sending" xml:space="preserve">
+    <value>файлы: отправляем {0}, {1}</value>
+  </data>
+  <data name="Log_Files_Sent" xml:space="preserve">
+    <value>файлы: {0} дошёл до другой машины</value>
+  </data>
+  <data name="Log_Files_Received" xml:space="preserve">
+    <value>файлы: пришёл — {0}, {1}</value>
+  </data>
+  <data name="Log_Files_WriteFailed" xml:space="preserve">
+    <value>файлы: файл не записан — {0}</value>
   </data>
   <data name="Log_Clip_On" xml:space="preserve">
     <value>буфер обмена: включён — содержимое буфера уходит на другую машину</value>

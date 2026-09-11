@@ -37,6 +37,8 @@ sending side, for a reason spelled out under [Limitations](#limitations).
 |---|---|---|
 | **Microphone** | Audio from the Mac arrives on the PC and shows up to games and Discord as a normal microphone | A virtual audio cable — [VB-Cable](https://vb-audio.com/Cable/) is the one to install |
 | **DualSense** | A controller plugged into the Mac appears on the PC as a genuine PS5 gamepad | The [usbip-win2](https://github.com/vadimgrn/usbip-win2) driver, signed by Microsoft |
+| **Clipboard** | Copy on one machine, paste on the other — text and images | Nothing; off until you switch it on |
+| **Files** | Drop a file on either window and it lands in the other machine's Downloads | Nothing |
 
 The features are independent: run only the microphone, only the gamepad, or both.
 

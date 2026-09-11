@@ -249,7 +249,7 @@ public class BulkTransferTests
         var hash = SHA256.HashData(payload);
 
         // Exactly the contract's loop breaker: the receiver recognises the hash.
-        pair.B.Owns = candidate => candidate.SequenceEqual(hash);
+        pair.B.Owns = (_, candidate) => candidate.SequenceEqual(hash);
 
         pair.A.Offer(BulkKind.Clipboard, BulkFormat.Png, payload, "снимок", pair.Now, out _);
         pair.Run(seconds: 3);

@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="using:HexBridge.App"
+             xmlns:vm="using:HexBridge.App.ViewModels"
+             x:Class="HexBridge.App.Views.FilesView"
+             x:DataType="vm:FilesViewModel"
+             DragDrop.AllowDrop="True">
+
+  <!-- Transparent rather than nothing: an element with no background is not hit-tested,
+       and a page a file is dragged over has to be something for the pointer to be over. -->
+  <ScrollViewer Padding="24" Background="Transparent">
+    <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch">
+
+      <Border Classes="status"
+              Classes.ok="{Binding IsGood}"
+              Classes.warn="{Binding IsWaiting}"
+              Classes.bad="{Binding IsBad}">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="display" Text="{Binding Headline}" />
+          <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Subline}" />
+        </StackPanel>
+      </Border>
+
+      <!--
+        The whole page is the drop target — a window somebody is dragging a file at is not
+        a window they are aiming carefully in. The card is where the aim is drawn, and the
+        button beside it is the same action for the people who never drag anything.
+      -->
+      <Border Classes="card" IsVisible="{Binding IsOn}">
+        <StackPanel Spacing="12" HorizontalAlignment="Center">
+          <TextBlock Classes="section" HorizontalAlignment="Center" Text="{l:Tr Files_Drop_Title}" />
+          <TextBlock Classes="caption" HorizontalAlignment="Center" Text="{Binding DropHint}" />
+          <Button Classes="primary" HorizontalAlignment="Center"
+                  Content="{l:Tr Files_Button_Pick}"
+                  Click="OnPick" />
+        </StackPanel>
+      </Border>
+
+      <!-- The bar only. What is moving and which way is the headline above it. -->
+      <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}" Height="6"
+                   IsVisible="{Binding IsTransferring}" />
+
+      <Border Classes="alert bad"
+              IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="body" TextWrapping="Wrap" Text="{Binding Error}" />
+      </Border>
+
+      <UniformGrid Columns="2" IsVisible="{Binding IsOn}">
+        <Border Classes="tile" Margin="0,0,8,0">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="{l:Tr Files_Metric_Sent}" />
+            <TextBlock Classes="metric" Text="{Binding SentText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="tile">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="{l:Tr Files_Metric_Received}" />
+            <TextBlock Classes="metric" Text="{Binding ReceivedText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Border Classes="card" IsVisible="{Binding IsOn}">
+        <StackPanel Spacing="12">
+          <TextBlock Classes="section" Text="{l:Tr Files_Section_Arrived}" />
+
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     IsVisible="{Binding !HasArrived}"
+                     Text="{l:Tr Files_Empty}" />
+
+          <ItemsControl ItemsSource="{Binding Arrived}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ArrivedRow">
+                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
+                  <TextBlock Grid.Column="0" Classes="body" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                  <TextBlock Grid.Column="1" Classes="caption" Margin="12,0,0,0" Text="{Binding SizeText}" />
+                  <TextBlock Grid.Column="2" Classes="caption" Margin="12,0,0,0" Text="{Binding TimeText}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- The folder is written out as well as opened: a shell that refuses to open
+               it must not turn «where did it go» into a dead end. -->
+          <StackPanel Spacing="6">
+            <TextBlock Classes="label" Text="{l:Tr Files_Label_Folder}" />
+            <SelectableTextBlock Classes="caption" Text="{Binding Folder}" />
+            <Button Classes="ghost" HorizontalAlignment="Left"
+                    Content="{l:Tr Files_Button_Folder}"
+                    Command="{Binding OpenFolderCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

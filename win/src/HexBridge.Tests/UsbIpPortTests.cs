@@ -49,7 +49,7 @@ public class UsbIpPortTests
 
 
     [Fact]
-    public void TheFeatureStartsEvenWhenItsPortIsHeld()
+    public async Task TheFeatureStartsEvenWhenItsPortIsHeld()
     {
         var wanted = Ports.Free();
         using var squatter = Squat(wanted);
@@ -65,7 +65,7 @@ public class UsbIpPortTests
         }
         finally
         {
-            feature.StopAsync().GetAwaiter().GetResult();
+            await feature.StopAsync();
         }
     }
 
@@ -76,7 +76,7 @@ public class UsbIpPortTests
     // that matters; the length of it is arithmetic.
 
     [Fact]
-    public void AFreePortIsTakenAsAsked()
+    public async Task AFreePortIsTakenAsAsked()
     {
         var wanted = Ports.Free();
 
@@ -88,7 +88,7 @@ public class UsbIpPortTests
         }
         finally
         {
-            feature.StopAsync().GetAwaiter().GetResult();
+            await feature.StopAsync();
         }
     }
 }

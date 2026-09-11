@@ -173,11 +173,13 @@ public class BridgeLoopbackTests
         var psk = ReceiverConfig.GenerateKey();
         var port = Ports.Free();
 
+        var bulk = new BulkHost();
         await using var host = new ReceiverService(
             new MicrophoneFeature(),
             new MicrophoneCaptureFeature(),
             new DevicesFeature(),
-            new ClipboardFeature(_ => new FakeClipboardSurface()));
+            bulk,
+            new ClipboardFeature(bulk, _ => new FakeClipboardSurface()));
 
         var taking = new ReceiverConfig
         {
@@ -293,18 +295,22 @@ public class BridgeLoopbackTests
             var receiverClipboard = new FakeClipboardSurface();
             var senderClipboard = new FakeClipboardSurface();
 
+            var receivingBulk = new BulkHost();
             var receiver = new ReceiverService(
                 new MicrophoneFeature(),
                 new MicrophoneCaptureFeature(),
                 new DevicesFeature(),
-                new ClipboardFeature(_ => receiverClipboard));
+                receivingBulk,
+                new ClipboardFeature(receivingBulk, _ => receiverClipboard));
             receiver.Log += entry => Note("принимает", entry);
 
+            var sendingBulk = new BulkHost();
             var sender = new ReceiverService(
                 new MicrophoneFeature(),
                 new MicrophoneCaptureFeature(),
                 new DevicesFeature(),
-                new ClipboardFeature(_ => senderClipboard));
+                sendingBulk,
+                new ClipboardFeature(sendingBulk, _ => senderClipboard));
             sender.Log += entry => Note("отдаёт", entry);
 
             await receiver.StartAsync(receiverConfig);

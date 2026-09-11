@@ -38,6 +38,13 @@ public interface IFeatureUiModule
 
     IEnumerable<FeaturePage> CreatePages();
 
+    /// <summary>
+    /// The feature itself, handed over once at startup. Only a module with something to ask
+    /// of its feature needs it — a page that sends a file has to have something to send it
+    /// with, and reaching for the receiver from a view model is how a shell stops being one.
+    /// </summary>
+    void Attach(IFeature feature) { }
+
     /// <summary>Called on the UI tick, ten times a second.</summary>
     void Apply(ReceiverSnapshot snapshot);
 

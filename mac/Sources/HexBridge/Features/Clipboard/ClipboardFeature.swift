@@ -77,8 +77,7 @@ final class ClipboardFeature: Feature {
         // The channel calls these from the socket queue, so everything they touch
         // is either `ClipboardSync` (locked) or a hop back to the main actor.
         bulk.owns = { [sync] kind, hash in kind == .clipboard && sync.owns(hash) }
-        deliveryToken = bulk.observeDeliveries { [weak self] delivery in
-            guard delivery.kind == .clipboard else { return }
+        deliveryToken = bulk.observeDeliveries(of: .clipboard) { [weak self] delivery in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.accept(delivery) }
             }
@@ -134,7 +133,10 @@ final class ClipboardFeature: Feature {
         if up, !pipelineWasUp { sync.forgetPeer() }
         pipelineWasUp = up
 
-        flight = host.runtime.bulk.progress().first
+        // By kind, not `.first`: file transfer rides the same channel, and a
+        // progress bar in this card that is drawing somebody else's transfer is
+        // worse than no progress bar at all.
+        flight = host.runtime.bulk.progress().first { $0.kind == .clipboard }
 
         pollTick += 1
         if pollTick >= Self.pollTicks {

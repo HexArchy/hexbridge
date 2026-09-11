@@ -1,6 +1,7 @@
 using System.Text.Json;
 using HexBridge.Clipboard;
 using HexBridge.Devices;
+using HexBridge.Files;
 using HexBridge.Microphone;
 
 namespace HexBridge.Tests;
@@ -101,22 +102,25 @@ public class RoleTests
         // both by design.
         Assert.Empty(new MicrophoneCaptureFeature().HandledTypes);
 
+        var bulk = new BulkHost();
         var host = new ReceiverService(
             new MicrophoneFeature(),
             new MicrophoneCaptureFeature(),
             new DevicesFeature(),
-            new ClipboardFeature());
+            bulk,
+            new ClipboardFeature(bulk),
+            new FilesFeature(bulk));
 
-        Assert.Equal(4, host.Features.Count);
+        Assert.Equal(6, host.Features.Count);
     }
 
     [Fact]
     public void TheClipboardIsTheSameFeatureInBothRoles()
     {
-        IFeature clipboard = new ClipboardFeature();
+        IFeature clipboard = new ClipboardFeature(new BulkHost());
 
         // It was written symmetrically and has to stay that way: one class, both directions,
-        // the same four packet types, and a switch that reads the same in either role.
+        // one shared channel underneath, and a switch that reads the same in either role.
         Assert.True(clipboard.IsEnabled(new ReceiverConfig { Role = BridgeRole.Receiver, Clipboard = true }));
         Assert.True(clipboard.IsEnabled(new ReceiverConfig { Role = BridgeRole.Sender, Clipboard = true }));
         Assert.False(clipboard.IsEnabled(new ReceiverConfig { Role = BridgeRole.Sender }));

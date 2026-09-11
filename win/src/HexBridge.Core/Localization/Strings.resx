@@ -258,6 +258,9 @@
   <data name="Tab_Clipboard" xml:space="preserve">
     <value>Clipboard</value>
   </data>
+  <data name="Tab_Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
   <data name="Tab_Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
@@ -605,6 +608,48 @@
   <data name="Clipboard_Item_Data" xml:space="preserve">
     <value>data, {0}</value>
   </data>
+  <data name="Files_Headline_Off" xml:space="preserve">
+    <value>File transfer is off</value>
+  </data>
+  <data name="Files_Sub_Off" xml:space="preserve">
+    <value>Turn it on in the settings</value>
+  </data>
+  <data name="Files_Drop_Title" xml:space="preserve">
+    <value>Drop a file here</value>
+  </data>
+  <data name="Files_Drop_Hint" xml:space="preserve">
+    <value>One file at a time, up to {0} MiB</value>
+  </data>
+  <data name="Files_Button_Pick" xml:space="preserve">
+    <value>Choose a file</value>
+  </data>
+  <data name="Files_Button_Folder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="Files_Picker_Title" xml:space="preserve">
+    <value>Choose a file to send</value>
+  </data>
+  <data name="Files_Label_Folder" xml:space="preserve">
+    <value>Files land in</value>
+  </data>
+  <data name="Files_Metric_Sent" xml:space="preserve">
+    <value>Files sent</value>
+  </data>
+  <data name="Files_Metric_Received" xml:space="preserve">
+    <value>Files received</value>
+  </data>
+  <data name="Files_Section_Arrived" xml:space="preserve">
+    <value>ARRIVED FILES</value>
+  </data>
+  <data name="Files_Empty" xml:space="preserve">
+    <value>Nothing has arrived yet</value>
+  </data>
+  <data name="Files_Transfer_Out" xml:space="preserve">
+    <value>Sending: {0}</value>
+  </data>
+  <data name="Files_Transfer_In" xml:space="preserve">
+    <value>Receiving: {0}</value>
+  </data>
 
   <!-- Log page -->
   <data name="Log_Section" xml:space="preserve">
@@ -719,6 +764,15 @@
   </data>
   <data name="Settings_Check_Clipboard" xml:space="preserve">
     <value>Share the clipboard with the other machine</value>
+  </data>
+  <data name="Settings_Section_Files" xml:space="preserve">
+    <value>FILES</value>
+  </data>
+  <data name="Settings_Check_Files" xml:space="preserve">
+    <value>Send and take files</value>
+  </data>
+  <data name="Settings_Caption_Files" xml:space="preserve">
+    <value>A file that arrives is written to the Downloads folder under a name of its own — nothing there is ever written over.</value>
   </data>
   <data name="Settings_Section_Capture" xml:space="preserve">
     <value>SOUND IN</value>
@@ -1358,6 +1412,12 @@
   <data name="Feature_Clipboard_Title" xml:space="preserve">
     <value>Clipboard</value>
   </data>
+  <data name="Feature_Files_Title" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="Feature_Bulk_Title" xml:space="preserve">
+    <value>Transfers</value>
+  </data>
   <data name="Feature_Mic_Stopped" xml:space="preserve">
     <value>Stopped</value>
   </data>
@@ -1465,6 +1525,30 @@
   </data>
   <data name="Feature_Clip_WindowsOnly" xml:space="preserve">
     <value>the shared clipboard is a Windows-only feature</value>
+  </data>
+  <data name="Feature_Files_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Feature_Files_Refused" xml:space="preserve">
+    <value>"{0}" was turned down: file transfer is switched off on the other machine</value>
+  </data>
+  <data name="Feature_Files_Failed" xml:space="preserve">
+    <value>Not working</value>
+  </data>
+  <data name="Feature_Files_Waiting" xml:space="preserve">
+    <value>Ready for files</value>
+  </data>
+  <data name="Feature_Files_Live" xml:space="preserve">
+    <value>Files are getting through</value>
+  </data>
+  <data name="Feature_Files_Transferring" xml:space="preserve">
+    <value>Carrying it across</value>
+  </data>
+  <data name="Feature_Files_Detail_Empty" xml:space="preserve">
+    <value>Drop a file on this page — it will turn up on the other machine</value>
+  </data>
+  <data name="Feature_Files_Detail_Last" xml:space="preserve">
+    <value>Last file: {0}</value>
   </data>
 
   <!-- Audio devices -->
@@ -1625,6 +1709,18 @@
   <data name="Err_Bulk_TooBig" xml:space="preserve">
     <value>the item is over {1} MiB ({0})</value>
   </data>
+  <data name="Err_Bulk_NotRunning" xml:space="preserve">
+    <value>there is nowhere to send it while HexBridge is stopped</value>
+  </data>
+  <data name="Err_Files_Gone" xml:space="preserve">
+    <value>there is no file {0} any more</value>
+  </data>
+  <data name="Err_Files_Outside" xml:space="preserve">
+    <value>the name {0} leads out of the folder</value>
+  </data>
+  <data name="Err_Files_NoName" xml:space="preserve">
+    <value>there is no free name left beside {0}</value>
+  </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>port {0} is held by another service — {1}</value>
   </data>
@@ -1713,9 +1809,6 @@
   <data name="Log_FeatureRollback" xml:space="preserve">
     <value>hexbridge: “{0}” while backing out: {1}</value>
   </data>
-  <data name="Log_FeatureStopFailed" xml:space="preserve">
-    <value>hexbridge: “{0}” while stopping: {1}</value>
-  </data>
   <data name="Log_RelayDeposit" xml:space="preserve">
     <value>pairing: the code was left with the relay {0} (answered {1})</value>
   </data>
@@ -1769,6 +1862,27 @@
   </data>
   <data name="Log_Bulk_Describe" xml:space="preserve">
     <value>{0} {1}</value>
+  </data>
+  <data name="Log_Bulk_Unwanted" xml:space="preserve">
+    <value>transfers: turned down — nothing here is waiting for {0}</value>
+  </data>
+  <data name="Log_Bulk_Tick" xml:space="preserve">
+    <value>transfers: {0}</value>
+  </data>
+  <data name="Log_Files_On" xml:space="preserve">
+    <value>files: on — arriving files are written to {0}</value>
+  </data>
+  <data name="Log_Files_Sending" xml:space="preserve">
+    <value>files: sending {0}, {1}</value>
+  </data>
+  <data name="Log_Files_Sent" xml:space="preserve">
+    <value>files: {0} reached the other machine</value>
+  </data>
+  <data name="Log_Files_Received" xml:space="preserve">
+    <value>files: arrived — {0}, {1}</value>
+  </data>
+  <data name="Log_Files_WriteFailed" xml:space="preserve">
+    <value>files: the file was not written — {0}</value>
   </data>
   <data name="Log_Clip_On" xml:space="preserve">
     <value>clipboard: on — what is copied here goes to the other machine</value>

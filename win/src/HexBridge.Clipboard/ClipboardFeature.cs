@@ -7,9 +7,10 @@ namespace HexBridge.Clipboard;
 /// <summary>
 /// The shared clipboard: copy on the Mac, paste on this PC, and the other way round.
 ///
-/// It owns no transport of its own. Everything that has to arrive intact goes through
-/// <see cref="BulkChannel"/>, which is the contract's reliable layer and knows nothing about
-/// clipboards; this class only decides what to hand it and what to do with what comes back.
+/// It owns no transport of its own. Everything that has to arrive intact goes through the
+/// clipboard's lane on <see cref="BulkHost"/>, which is the contract's reliable layer shared
+/// with every other feature that needs it and knows nothing about clipboards; this class
+/// only decides what to hand it and what to do with what comes back.
 ///
 /// Off unless asked for, and it stays that way. The clipboard is where passwords live for the
 /// few seconds between a manager and a login form, and a feature that ships enabled would send
@@ -20,26 +21,18 @@ namespace HexBridge.Clipboard;
 /// </summary>
 public sealed class ClipboardFeature : IFeature
 {
-    /// <summary>
-    /// All four bulk types, because both roles live here: we offer objects and we accept
-    /// them. The day a second feature wants reliable delivery, the channel moves up into the
-    /// host and the routing goes with it — nothing in this file would have to change.
-    /// </summary>
-    private static readonly PacketType[] Types =
-        [PacketType.BulkOffer, PacketType.BulkChunk, PacketType.BulkAck, PacketType.BulkDone];
-
     /// <summary>The clipboard is polled this often. Under a change it costs one counter read.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
 
-    /// <summary>The bulk layer's own clock: its ack is every 200 ms and its chunks are paced.</summary>
+    /// <summary>How often the worker wakes. Short enough that an arrival is applied at once.</summary>
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(20);
 
+    private readonly BulkLane _lane;
     private readonly Func<Action<LogLevel, string>, IClipboardSurface> _surfaceFactory;
     private readonly ConcurrentQueue<BulkDelivery> _arrivals = new();
     private readonly object _gate = new();
 
     private FeatureContext? _context;
-    private BulkChannel? _channel;
     private ClipboardSync? _sync;
     private IClipboardSurface? _surface;
     private Thread? _worker;
@@ -52,16 +45,25 @@ public sealed class ClipboardFeature : IFeature
     private BulkDirection? _lastDirection;
     private DateTime? _lastAt;
 
-    public ClipboardFeature() : this(DefaultSurface) { }
+    public ClipboardFeature(BulkHost bulk) : this(bulk, DefaultSurface) { }
 
     /// <summary>Test seam: the surface is the only part of this feature that touches Windows.</summary>
-    public ClipboardFeature(Func<Action<LogLevel, string>, IClipboardSurface> surfaceFactory) =>
+    public ClipboardFeature(BulkHost bulk, Func<Action<LogLevel, string>, IClipboardSurface> surfaceFactory)
+    {
+        _lane = bulk.Lane(BulkKind.Clipboard);
         _surfaceFactory = surfaceFactory;
+    }
 
     public string Id => "clipboard";
     public string Title => Strings.Feature_Clipboard_Title;
     public bool IsOptional => true;
-    public IReadOnlyList<PacketType> HandledTypes => Types;
+
+    /// <summary>
+    /// None. The bulk types are claimed by <see cref="BulkHost"/>, which owns the one
+    /// channel and hands this feature the clipboard's share of it — two features cannot
+    /// claim one packet type, and both of the ones that need reliable delivery would.
+    /// </summary>
+    public IReadOnlyList<PacketType> HandledTypes => [];
 
     /// <summary>Off in a fresh config, and only on because somebody said so.</summary>
     public bool IsEnabled(ReceiverConfig config) => config.Clipboard;
@@ -70,16 +72,12 @@ public sealed class ClipboardFeature : IFeature
     {
         var surface = _surfaceFactory(context.Log);
         var sync = new ClipboardSync(surface);
-        var channel = new BulkChannel(context.Send)
-        {
-            Owns = sync.Owns,
-        };
-        channel.Delivered += _arrivals.Enqueue;
-        channel.Finished += OnFinished;
-        channel.Note += note => context.Log(LogLevel.Info, note);
+        _lane.Owns = sync.Owns;
+        _lane.Delivered += _arrivals.Enqueue;
+        _lane.Finished += OnFinished;
 
         var cancel = new CancellationTokenSource();
-        var worker = new Thread(() => Run(sync, channel, context, cancel.Token))
+        var worker = new Thread(() => Run(sync, context, cancel.Token))
         {
             IsBackground = true,
             Name = "hexbridge.clipboard",
@@ -94,7 +92,6 @@ public sealed class ClipboardFeature : IFeature
             _context = context;
             _surface = surface;
             _sync = sync;
-            _channel = channel;
             _cancel = cancel;
             _worker = worker;
             _fault = null;
@@ -123,9 +120,15 @@ public sealed class ClipboardFeature : IFeature
             _cancel = null;
             _worker = null;
             _surface = null;
-            _channel = null;
             _sync = null;
         }
+
+        // Off the lane first: an object that arrives after this belongs to nobody, and the
+        // host says so rather than queueing it for a worker that is on its way out.
+        _lane.Owns = null;
+        _lane.Delivered -= _arrivals.Enqueue;
+        _lane.Finished -= OnFinished;
+        _lane.Reset();
 
         cancel?.Cancel();
         // Bounded: the worker only ever sleeps for a tick, and a clipboard held open by
@@ -138,25 +141,21 @@ public sealed class ClipboardFeature : IFeature
         return Task.CompletedTask;
     }
 
+    /// <summary>Never called: the bulk types belong to <see cref="BulkHost"/>.</summary>
     public void OnPacket(in Header header, ReadOnlySpan<byte> payload)
     {
-        var channel = Volatile.Read(ref _channel);
-        channel?.OnPacket(header.Type, payload, DateTime.UtcNow);
     }
 
     /// <summary>
-    /// The sender restarted. Half-transferred objects belong to a session that is gone, and
-    /// what the peer holds is anybody's guess again — but our own clipboard is still ours.
+    /// The other machine restarted. What is half-transferred is the channel's business and
+    /// the host takes care of it; what the peer holds is anybody's guess again, and our own
+    /// clipboard is still ours.
     /// </summary>
-    public void OnSessionReset()
-    {
-        Volatile.Read(ref _channel)?.PeerRestarted();
-        Volatile.Read(ref _sync)?.ForgetPeer();
-    }
+    public void OnSessionReset() => Volatile.Read(ref _sync)?.ForgetPeer();
 
     public FeatureState CaptureState()
     {
-        BulkChannel? channel;
+        ClipboardSync? sync;
         string? fault;
         long sent, received;
         string? lastDescription;
@@ -165,7 +164,7 @@ public sealed class ClipboardFeature : IFeature
 
         lock (_gate)
         {
-            channel = _channel;
+            sync = _sync;
             fault = _fault;
             sent = _sent;
             received = _received;
@@ -174,7 +173,7 @@ public sealed class ClipboardFeature : IFeature
             lastAt = _lastAt;
         }
 
-        if (channel is null)
+        if (sync is null)
         {
             return new ClipboardState
             {
@@ -185,7 +184,7 @@ public sealed class ClipboardFeature : IFeature
             };
         }
 
-        var flight = channel.Progress().FirstOrDefault();
+        var flight = _lane.Progress().FirstOrDefault();
         var moved = sent + received;
 
         return new ClipboardState
@@ -218,10 +217,10 @@ public sealed class ClipboardFeature : IFeature
 
     /// <summary>
     /// The one thread that touches the clipboard, so nothing else has to think about
-    /// apartments. It also drives the bulk clock, which keeps every timeout in the transfer
-    /// layer on a thread that cannot be blocked by the socket.
+    /// apartments. Nothing else runs on it: the transfer layer's clock used to, and a
+    /// clipboard held open by another application stopped every timeout in it.
     /// </summary>
-    private void Run(ClipboardSync sync, BulkChannel channel, FeatureContext context, CancellationToken token)
+    private void Run(ClipboardSync sync, FeatureContext context, CancellationToken token)
     {
         var nextPoll = DateTime.UtcNow;
 
@@ -236,15 +235,13 @@ public sealed class ClipboardFeature : IFeature
                 if (now >= nextPoll)
                 {
                     nextPoll = now + PollInterval;
-                    Publish(sync.Poll(), channel, context, now);
+                    Publish(sync.Poll(), context, now);
                 }
-
-                channel.Tick(now);
             }
             catch (Exception ex)
             {
-                // A clipboard that misbehaves must not take the thread — and with it every
-                // timeout in the transfer layer — down with it.
+                // A clipboard that misbehaves must not take this thread down with it: what
+                // is already on the wire keeps moving, and the page says what went wrong.
                 lock (_gate) _fault = ex.Message;
                 context.Log(LogLevel.Error, Loc.F(Strings.Log_Clip, ex.Message));
             }
@@ -255,8 +252,6 @@ public sealed class ClipboardFeature : IFeature
 
     private void Accept(ClipboardSync sync, BulkDelivery delivery, FeatureContext context)
     {
-        if (delivery.Kind != BulkKind.Clipboard) return;
-
         var item = new ClipboardItem(delivery.Format, delivery.Bytes);
         sync.Apply(item);
 
@@ -270,11 +265,11 @@ public sealed class ClipboardFeature : IFeature
         context.Log(LogLevel.Info, Loc.F(Strings.Log_Clip_Received, item.Describe()));
     }
 
-    private void Publish(ClipboardItem? item, BulkChannel channel, FeatureContext context, DateTime now)
+    private void Publish(ClipboardItem? item, FeatureContext context, DateTime now)
     {
         if (item is null) return;
 
-        channel.Offer(BulkKind.Clipboard, item.Format, item.Bytes, item.Describe(), now, out var error);
+        _lane.Offer(item.Format, item.Bytes, item.Describe(), now, out var error);
         if (error is not null) context.Log(LogLevel.Warning, Loc.F(Strings.Log_Clip, error));
     }
 

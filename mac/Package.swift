@@ -72,9 +72,19 @@ let package = Package(
             name: "HexBridgePairing",
             path: "Sources/HexBridgePairing"
         ),
+        // The name on an incoming file is written by the other machine and then
+        // handed to the filesystem, which makes it the same kind of decision as
+        // the two above and gives it the same kind of home. A name that still
+        // carries a path writes outside Downloads and a name that matches
+        // something already there destroys it — both are reachable from a test
+        // here and neither is reachable inside the app.
+        .target(
+            name: "HexBridgeFiles",
+            path: "Sources/HexBridgeFiles"
+        ),
         .executableTarget(
             name: "HexBridge",
-            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgePairing", "HexBridgeText", "Sparkle"],
+            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgeFiles", "HexBridgePairing", "HexBridgeText", "Sparkle"],
             path: "Sources/HexBridge",
             linkerSettings: [.unsafeFlags(["-Xlinker", "\(opusPrefix)/lib/libopus.a"])]
         ),
@@ -82,6 +92,11 @@ let package = Package(
             name: "HexBridgeDiscoveryTests",
             dependencies: ["HexBridgeDiscovery"],
             path: "Tests/HexBridgeDiscoveryTests"
+        ),
+        .testTarget(
+            name: "HexBridgeFilesTests",
+            dependencies: ["HexBridgeFiles"],
+            path: "Tests/HexBridgeFilesTests"
         ),
         .testTarget(
             name: "HexBridgePairingTests",

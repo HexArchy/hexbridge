@@ -38,6 +38,19 @@ struct Config: Codable {
     /// a settings page.
     var clipboard: Bool?
 
+    /// File transfer. Optional for the same reason as `gamepad`, and defaulting
+    /// to **on**, unlike the clipboard next to it: a file only ever leaves this
+    /// Mac because somebody dropped one, and a file that arrives is written to
+    /// Downloads and nothing else — never opened, never run. The microphone,
+    /// which is on by default, gives the other machine considerably more.
+    ///
+    /// Off would also be worse than it looks. With the feature off nothing
+    /// observes deliveries of this kind, so a file sent from the PC would still
+    /// cross the wire in full, be acknowledged, and then be dropped on the
+    /// floor — «it said it was sent and it is not here» is not a state worth
+    /// shipping.
+    var files: Bool?
+
     /// Microphone feature switch. Optional for the same reason as `gamepad`,
     /// and defaulting to **on**: every config written before the feature list
     /// existed described a machine that was streaming audio.
@@ -77,6 +90,9 @@ struct Config: Codable {
 
     /// Off unless asked for. See `clipboard`.
     var sharesClipboard: Bool { clipboard ?? false }
+
+    /// On unless asked otherwise. See `files`.
+    var transfersFiles: Bool { files ?? true }
 
     var appTheme: AppTheme { theme.flatMap(AppTheme.init(rawValue:)) ?? .system }
 
@@ -143,6 +159,7 @@ struct Config: Codable {
         gamepad = try values.decodeIfPresent(Bool.self, forKey: .gamepad)
         forwardedDevices = try values.decodeIfPresent([String].self, forKey: .forwardedDevices)
         clipboard = try values.decodeIfPresent(Bool.self, forKey: .clipboard)
+        files = try values.decodeIfPresent(Bool.self, forKey: .files)
         microphone = try values.decodeIfPresent(Bool.self, forKey: .microphone)
         theme = try values.decodeIfPresent(String.self, forKey: .theme)
         language = try values.decodeIfPresent(String.self, forKey: .language)
