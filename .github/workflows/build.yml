@@ -154,6 +154,12 @@ jobs:
       # arm64 рядом с amd64: релей ставят и на ARM-хостинг, а собрать обе
       # архитектуры здесь стоит минуту и избавляет сервер от выбора.
       - uses: docker/build-push-action@v6
+        env:
+          # build-push-action uploads a "build record" artifact of its own. The publish
+          # job downloads every artifact of the run, and that one is not a thing it can
+          # unpack — it failed the release with "artifact download failed after 5
+          # retries", which reads like a network fault and is not one.
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: relay
           platforms: linux/amd64,linux/arm64
