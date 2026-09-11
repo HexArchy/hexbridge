@@ -78,6 +78,29 @@ Set the relay's address in the PC's Settings, under the key and relay section. F
 on the pairing screen shows the relay's address instead of the PC's local ones, and that
 is the single address to type on the Mac — whatever network either machine is on.
 
+## Carrying only your own machines
+
+With no list the relay forwards for anyone who finds it. The header is plaintext by
+design, so a stranger can pick any room id and use a public VPS as a free forwarder.
+There is no amplification in that — one packet in, one packet out, and only to an
+endpoint already in the same room — and each endpoint is rate limited, but none of that
+makes the box theirs to use.
+
+`--rooms` closes it:
+
+```
+hexbridge-relay --rooms 1122334455667788
+hexbridge-relay --rooms @/etc/hexbridge/rooms      # one per line, # for comments
+```
+
+The room id is on the PC, in Settings under the key and relay section. It is derived
+from the pre-shared key and gives nothing of the key away, so it is safe to put in a
+command line or a config file. The relay still cannot read a byte of what it carries;
+this is a guest list, not a lock.
+
+A relay started with a list it cannot parse — or an empty file — refuses to start rather
+than falling back to carrying everybody.
+
 ## Why not go through the existing Hysteria2
 
 Hysteria2 on UDP/443 is a proxy for client traffic, and there is no reason to route

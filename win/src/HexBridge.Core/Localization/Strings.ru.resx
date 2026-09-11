@@ -657,6 +657,12 @@
   <data name="Settings_Caption_Psk" xml:space="preserve">
     <value>Ровно тот же ключ должен стоять на второй машине.</value>
   </data>
+  <data name="Settings_Label_Room" xml:space="preserve">
+    <value>Комната на релее</value>
+  </data>
+  <data name="Settings_Caption_Room" xml:space="preserve">
+    <value>Выводится из ключа и ключа не выдаёт. Передайте её релею — «--rooms» — и он будет обслуживать только вас: без списка релей с публичным адресом пересылает всем подряд.</value>
+  </data>
   <data name="Settings_Label_Relay" xml:space="preserve">
     <value>Релей</value>
   </data>

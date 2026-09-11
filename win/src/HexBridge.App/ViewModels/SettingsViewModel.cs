@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -199,6 +200,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         InputGain = config.InputGain;
         StartMuted = config.StartMuted;
         Psk = config.Psk;
+        OnPropertyChanged(nameof(RoomId));
         Relay = config.Relay ?? "";
         JitterMs = config.JitterMs;
         MaxJitterMs = config.MaxJitterMs;
@@ -316,11 +318,40 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The id this pair of machines shows up as on a relay, so the relay can be told to
+    /// carry them and nobody else.
+    ///
+    /// <para>
+    /// Derived from the key, never from anything the relay is given: it is eight bytes of
+    /// a hash and cannot be worked back into the key. An open relay on a public address is
+    /// a free forwarder for whoever finds it, and this is the one thing a person needs in
+    /// order to close it — so it is on screen next to the relay's own field rather than
+    /// buried in a document.
+    /// </para>
+    /// </summary>
+    public string RoomId
+    {
+        get
+        {
+            try
+            {
+                return Wire.RoomId(Convert.FromBase64String(Psk.Trim())).ToString("x16", CultureInfo.InvariantCulture);
+            }
+            catch (Exception)
+            {
+                // No key yet, or a half-typed one. The field above already says so.
+                return Strings.Common_Empty;
+            }
+        }
+    }
+
     [RelayCommand]
     private void GeneratePsk()
     {
         Psk = ReceiverConfig.GenerateKey();
         PskRevealed = true;
+        OnPropertyChanged(nameof(RoomId));
     }
 
     [RelayCommand]

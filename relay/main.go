@@ -82,6 +82,10 @@ type relay struct {
 
 	forwarded atomic.Uint64
 	dropped   atomic.Uint64
+
+	// Counted apart from dropped: a refusal is a stranger being turned away,
+	// which is the guest list working, while a drop is usually something wrong.
+	refused atomic.Uint64
 }
 
 func newRelay() *relay {
@@ -164,8 +168,14 @@ func main() {
 	// Same +1 convention the PC uses for its own exchange, so one number in the
 	// clients' settings describes the whole relay.
 	pairListen := flag.String("pair-listen", ":47703", "TCP address for the pairing rendezvous, empty to disable")
+	rooms := flag.String("rooms", "", "room ids this relay carries, comma separated or @file; empty carries anyone")
 	quiet := flag.Bool("quiet", false, "suppress the periodic stats line")
 	flag.Parse()
+
+	guests, err := parseAllowlist(*rooms)
+	if err != nil {
+		log.Fatalf("bad -rooms: %v", err)
+	}
 
 	addr, err := net.ResolveUDPAddr("udp", *listen)
 	if err != nil {
@@ -183,6 +193,11 @@ func main() {
 	_ = conn.SetWriteBuffer(1 << 20)
 
 	log.Printf("hexbridge-relay listening on %s", conn.LocalAddr())
+	if guests.open() {
+		log.Printf("no -rooms given: this relay carries anybody who finds it")
+	} else {
+		log.Printf("carrying %d room(s)", guests.size())
+	}
 
 	r := newRelay()
 
@@ -204,9 +219,9 @@ func main() {
 		for now := range ticker.C {
 			r.sweep(now)
 			if !*quiet {
-				rooms, endpoints := r.stats()
-				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d pairings=%d",
-					rooms, endpoints, r.forwarded.Load(), r.dropped.Load(), meeting.count())
+				live, endpoints := r.stats()
+				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d refused=%d pairings=%d",
+					live, endpoints, r.forwarded.Load(), r.dropped.Load(), r.refused.Load(), meeting.count())
 			}
 		}
 	}()
@@ -240,6 +255,11 @@ func main() {
 		}
 
 		roomID := binary.LittleEndian.Uint64(buf[8:16])
+		if !guests.permits(roomID) {
+			r.refused.Add(1)
+			continue
+		}
+
 		peers := r.route(roomID, from, time.Now())
 		if len(peers) == 0 {
 			r.dropped.Add(1)

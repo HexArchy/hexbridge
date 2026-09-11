@@ -101,6 +101,13 @@
                   <TextBlock Classes="caption"
                              Text="{l:Tr Settings_Caption_Relay}" />
                 </StackPanel>
+
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="label" Text="{l:Tr Settings_Label_Room}" />
+                  <SelectableTextBlock Classes="mono" Text="{Binding RoomId}" />
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="{l:Tr Settings_Caption_Room}" />
+                </StackPanel>
               </StackPanel>
             </Expander>
           </StackPanel>

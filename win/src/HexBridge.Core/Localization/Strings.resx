@@ -657,6 +657,12 @@
   <data name="Settings_Caption_Psk" xml:space="preserve">
     <value>Exactly the same key has to be set on the other machine.</value>
   </data>
+  <data name="Settings_Label_Room" xml:space="preserve">
+    <value>Room on the relay</value>
+  </data>
+  <data name="Settings_Caption_Room" xml:space="preserve">
+    <value>Derived from the key and giving nothing of it away. Hand it to the relay — "--rooms" — and it will carry only you: with no list, a relay on a public address forwards for whoever finds it.</value>
+  </data>
   <data name="Settings_Label_Relay" xml:space="preserve">
     <value>Relay</value>
   </data>
