@@ -157,12 +157,29 @@ public sealed class ReceiverConfig
     /// migration that loses the file it was migrating is worse than no migration, and the
     /// old copy costs nothing to leave where it lies.
     /// </summary>
-    private static string Resolve()
+    /// <summary>
+    /// The path to actually use, having first brought an older config forward.
+    ///
+    /// <para>
+    /// Everything that needs the config asks for this rather than <see cref="DefaultPath"/>.
+    /// Doing the migration inside <see cref="Load"/> was not enough: every caller passes an
+    /// explicit path — the console receiver computes it, the app takes it from the command
+    /// line — so the migration never ran, and an upgrade started from an empty config with
+    /// the key sitting untouched in the old folder. That is the exact failure this was
+    /// written to prevent, and it took a run on a real machine to notice.
+    /// </para>
+    /// </summary>
+    public static string ResolvedPath() => Resolve(DefaultPath, LegacyPaths());
+
+    /// <summary>
+    /// The same decision against paths a test can hand in, because the real one writes to
+    /// the user's own application data and a test must not.
+    /// </summary>
+    internal static string Resolve(string wanted, IEnumerable<string> legacyPaths)
     {
-        var wanted = DefaultPath;
         if (File.Exists(wanted)) return wanted;
 
-        foreach (var legacy in LegacyPaths())
+        foreach (var legacy in legacyPaths)
         {
             try
             {
@@ -185,7 +202,7 @@ public sealed class ReceiverConfig
 
     public static ReceiverConfig Load(string? path = null)
     {
-        path ??= Resolve();
+        path ??= ResolvedPath();
         if (!File.Exists(path)) return new ReceiverConfig();
         return JsonSerializer.Deserialize<ReceiverConfig>(File.ReadAllText(path)) ?? new ReceiverConfig();
     }

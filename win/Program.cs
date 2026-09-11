@@ -55,7 +55,7 @@ switch (subcommand)
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-var configPath = Flag("config") ?? ReceiverConfig.DefaultPath;
+var configPath = Flag("config") ?? ReceiverConfig.ResolvedPath();
 var config = ReceiverConfig.Load(configPath);
 
 if (Flag("role") is { } roleFlag)

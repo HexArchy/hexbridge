@@ -111,7 +111,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public MainViewModel(string? configPath = null)
     {
-        _configPath = configPath ?? ReceiverConfig.DefaultPath;
+        _configPath = configPath ?? ReceiverConfig.ResolvedPath();
         ConfigPathText = _configPath;
         _ui = AppSettings.Load();
         _config = ReceiverConfig.Load(_configPath);
