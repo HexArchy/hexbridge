@@ -27,8 +27,19 @@ public class BridgeLoopbackTests
     {
         await using var link = await Link.OpenAsync();
 
+        // The loudest frame seen while waiting, not after. PeakHold is drained by the read
+        // — that is what makes it a hold — so every poll of the snapshot takes it away,
+        // and asking again afterwards asks about whatever sliver of time has passed since
+        // the last question. That sliver can easily be silence while the jitter buffer is
+        // filling, and then this test fails having heard the tone perfectly well.
+        var loudest = 0f;
+
         await link.Until(
-            () => link.Playing?.Decoded > 25,
+            () =>
+            {
+                if (link.Playing is { } sample) loudest = Math.Max(loudest, sample.PeakHold);
+                return link.Playing?.Decoded > 25;
+            },
             () => $"звук не дошёл; {link.Describe()}");
 
         var playing = link.Playing!;
@@ -36,7 +47,7 @@ public class BridgeLoopbackTests
 
         // The tone is sent at half scale. Opus rings a little either side of that, so the
         // assertion is «слышно и не искажено», not an exact number.
-        Assert.InRange(playing.PeakHold, 0.2f, 1.0f);
+        Assert.InRange(Math.Max(loudest, playing.PeakHold), 0.2f, 1.0f);
         Assert.Equal(0, playing.DroppedLate);
 
         // And the sending end knows it arrived, which is a different fact: it means PONG
