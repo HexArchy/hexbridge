@@ -185,6 +185,41 @@ public class FastPathTests
         Assert.Empty(Directory.GetFiles(downloads.Path));
     }
 
+    /// <summary>
+    /// A relay forwards datagrams; this is a stream. Two machines that can only reach each
+    /// other through one keep the slow path, and they are not made to spend the three-second
+    /// deadline finding that out once per file.
+    /// </summary>
+    [Fact]
+    public async Task AFileGoesStraightToTheSlowPathWhenTheLinkRunsThroughARelay()
+    {
+        using var downloads = new TempDownloads();
+        using var mine = new TempDownloads();
+
+        var config = DataPortBehind(Ports.Free(tcp: true, udp: false));
+        config.Relay = "203.0.113.7:47702";
+
+        var log = new List<string>();
+        var feature = new FilesFeature(new BulkHost(), () => downloads.Path);
+        feature.Start(Context(config, log));
+
+        try
+        {
+            var source = Path.Combine(mine.Path, "notes.txt");
+            File.WriteAllText(source, "через релей это не поедет");
+
+            Assert.Equal(Strings.Err_Bulk_NotRunning, feature.Send(source));
+        }
+        finally
+        {
+            await feature.StopAsync();
+        }
+
+        // The reason in the log is the real one, not «nobody answered» — nobody was asked.
+        Assert.Contains(Loc.F(Strings.Log_Files_Fast_Relayed, "notes.txt"), log);
+        Assert.DoesNotContain(Loc.F(Strings.Log_Files_Fast_Fallback, "notes.txt"), log);
+    }
+
     [Fact]
     public async Task TheListenerGivesThePortBackWhenTheFeatureStops()
     {

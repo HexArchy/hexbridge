@@ -424,6 +424,16 @@ public sealed class FilesFeature : IFeature
         // for a file and another for everything else.
         if (size <= 0) return FastPathOutcome.Unreachable;
 
+        // A relay forwards datagrams and this is a stream, so there is nothing to try: the
+        // address a relayed pair knows about each other is the relay's, and dialling it
+        // would be three seconds spent learning what the contract already says. Checked
+        // before anything else here, so the reason in the log is the real one.
+        if (!string.IsNullOrWhiteSpace(context.Config.Relay))
+        {
+            context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Fast_Relayed, name));
+            return FastPathOutcome.Unreachable;
+        }
+
         byte[] key;
         int port;
         FastPathListener? ours;
@@ -436,8 +446,10 @@ public sealed class FilesFeature : IFeature
             token = _sending?.Token ?? new CancellationToken(canceled: true);
         }
 
-        if (key.Length == 0) return FastPathOutcome.Unreachable;
-        if (context.Peer is not { } peer) return FastPathOutcome.Unreachable;
+        // Nothing to seal with, or nobody heard from yet. Both end the same way as a
+        // connection nobody answered, and are said out loud for the same reason: a file that
+        // suddenly takes minutes instead of seconds must not do so in silence.
+        if (key.Length == 0 || context.Peer is not { } peer) return Fallback(context, name);
 
         var where = new IPEndPoint(peer.Address, port);
 
@@ -448,7 +460,7 @@ public sealed class FilesFeature : IFeature
         // folder while the other machine got nothing at all.
         if (ours is not null && ours.Port == where.Port && IPAddress.IsLoopback(where.Address))
         {
-            return FastPathOutcome.Unreachable;
+            return Fallback(context, name);
         }
 
         var started = DateTime.UtcNow;
@@ -472,8 +484,7 @@ public sealed class FilesFeature : IFeature
                 break;
 
             case FastPathOutcome.Unreachable:
-                context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Fast_Fallback, name));
-                break;
+                return Fallback(context, name);
 
             case FastPathOutcome.Broken:
                 // The sentence the user reads is the caller's to write; it is the caller
@@ -482,6 +493,16 @@ public sealed class FilesFeature : IFeature
         }
 
         return outcome;
+    }
+
+    /// <summary>
+    /// The one place «this file is going the slow way» is said, so that every reason for it
+    /// says so — including the ones that never got as far as a socket.
+    /// </summary>
+    private static FastPathOutcome Fallback(FeatureContext context, string name)
+    {
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Fast_Fallback, name));
+        return FastPathOutcome.Unreachable;
     }
 
     /// <summary>What the fast path has on the wire, in either direction. Null means nothing.</summary>

@@ -1929,6 +1929,9 @@
   <data name="Log_Files_Fast_Fallback" xml:space="preserve">
     <value>файлы: по быстрому пути никто не ответил, поэтому {0} пойдёт медленным</value>
   </data>
+  <data name="Log_Files_Fast_Relayed" xml:space="preserve">
+    <value>файлы: релей быстрый путь не потянет, поэтому {0} пойдёт медленным</value>
+  </data>
   <data name="Log_Files_Fast_Unsealed" xml:space="preserve">
     <value>файлы: соединение по быстрому пути сброшено — его первая запись не запечатана общим ключом</value>
   </data>

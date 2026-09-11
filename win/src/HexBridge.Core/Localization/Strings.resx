@@ -1929,6 +1929,9 @@
   <data name="Log_Files_Fast_Fallback" xml:space="preserve">
     <value>files: nothing answered on the fast path, so {0} goes the slow way</value>
   </data>
+  <data name="Log_Files_Fast_Relayed" xml:space="preserve">
+    <value>files: a relay cannot carry the fast path, so {0} goes the slow way</value>
+  </data>
   <data name="Log_Files_Fast_Unsealed" xml:space="preserve">
     <value>files: a connection on the fast path was dropped — its opening record was not sealed with the pairing key</value>
   </data>

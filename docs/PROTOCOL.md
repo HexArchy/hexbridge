@@ -585,7 +585,12 @@ not fit in two. The nonce is the record number written **little-endian across al
 twelve bytes**, so that a reader padding a u32 and a reader padding a u64 arrive at the
 same value. No record carries associated data. The opening record is number 0, data
 records follow from 1, and the empty record takes the number after the last of them.
-The name is cut to 255 bytes, extension kept, before it is sealed.
+The name is at most 255 bytes so that a reader can size a buffer for it, and each
+side may cut it shorter before sealing — Windows cuts to 200, leaving room for the
+` (2)` the never-overwrite rule appends afterwards without going back over the
+filesystem's own limit. Nothing rests on the number: the side receiving sanitises and
+numbers the name whatever arrives, because a name off a network is not to be trusted
+in the first place.
 
 None of that is interesting, and all of it is the kind of thing two implementations
 settle differently and discover months later, so it is written down rather than left to
