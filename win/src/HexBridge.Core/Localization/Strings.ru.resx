@@ -1698,6 +1698,15 @@
   <data name="Log_Relay" xml:space="preserve">
     <value>hexbridge: регистрируюсь на релее {0}</value>
   </data>
+  <data name="Log_FeatureSwitchedOn" xml:space="preserve">
+    <value>«{0}» включено — остальное не трогали</value>
+  </data>
+  <data name="Log_FeatureSwitchedOff" xml:space="preserve">
+    <value>«{0}» выключено — остальное не трогали</value>
+  </data>
+  <data name="Log_FeatureStopFailed" xml:space="preserve">
+    <value>«{0}» не остановилось чисто: {1}</value>
+  </data>
   <data name="Log_FeatureStartFailed" xml:space="preserve">
     <value>hexbridge: «{0}» не запущено: {1}</value>
   </data>

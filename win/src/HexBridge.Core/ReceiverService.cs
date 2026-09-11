@@ -140,6 +140,33 @@ public sealed class ReceiverService : IAsyncDisposable
     }
 
     /// <summary>Releases the port and every feature. Safe to call when already stopped.</summary>
+    /// <summary>
+    /// Brings the running features into line with a new config, without touching the socket
+    /// or any feature whose switch did not move.
+    ///
+    /// <para>
+    /// Saving a setting used to stop and start everything. That is right for the socket and
+    /// wrong for the rest: turning the clipboard on tore down the virtual USB device, Windows
+    /// saw the controller detach, and it did not come back until the cable was pulled and put
+    /// in again. Somebody changing one checkbox should not lose their gamepad.
+    /// </para>
+    ///
+    /// <para>
+    /// Only switches. A feature whose own settings changed still needs a real restart,
+    /// because a running one holds the config it was started with — the caller decides
+    /// which of the two happened.
+    /// </para>
+    /// </summary>
+    public async Task ReconcileFeaturesAsync(ReceiverConfig next)
+    {
+        Run? run;
+        lock (_gate) run = _run;
+        if (run is null) return;
+
+        await run.ReconcileAsync(next).ConfigureAwait(false);
+        Updated?.Invoke(Snapshot);
+    }
+
     public async Task StopAsync()
     {
         Run? run;
@@ -342,8 +369,55 @@ public sealed class ReceiverService : IAsyncDisposable
             }
         }
 
+        /// <summary>Every feature this run was handed, started or not.</summary>
+        private IFeature[] _known = [];
+
+        /// <summary>
+        /// Starts what has just been switched on and stops what has just been switched off.
+        ///
+        /// Anything already running is left strictly alone — that is the entire point.
+        /// </summary>
+        public async Task ReconcileAsync(ReceiverConfig next)
+        {
+            foreach (var feature in _known.ToArray())
+            {
+                var wanted = feature.IsEnabled(next);
+                var running = _started.Contains(feature);
+                if (wanted == running) continue;
+
+                if (wanted)
+                {
+                    StartFeatures(next, [feature]);
+                    _owner.Emit(LogLevel.Info, Loc.F(Strings.Log_FeatureSwitchedOn, feature.Title));
+                    continue;
+                }
+
+                try
+                {
+                    await feature.StopAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _owner.Emit(LogLevel.Warning, Loc.F(Strings.Log_FeatureStopFailed, feature.Title, ex.Message));
+                }
+
+                _started.Remove(feature);
+                foreach (var type in feature.HandledTypes) _routes.Remove(type);
+                _disabled[feature.Id] = new FeatureState
+                {
+                    Id = feature.Id,
+                    Title = feature.Title,
+                    Status = FeatureStatus.Disabled,
+                    Headline = Strings.Feature_Disabled,
+                };
+                _owner.Emit(LogLevel.Info, Loc.F(Strings.Log_FeatureSwitchedOff, feature.Title));
+            }
+        }
+
         private void StartFeatures(ReceiverConfig config, IFeature[] features)
         {
+            if (_known.Length == 0) _known = features;
+
             var context = new FeatureContext(
                 config,
                 (level, message) => _owner.Emit(level, message),
@@ -353,6 +427,9 @@ public sealed class ReceiverService : IAsyncDisposable
 
             foreach (var feature in features)
             {
+                _disabled.Remove(feature.Id);
+                _startFaults.Remove(feature.Id);
+
                 if (!feature.IsEnabled(config))
                 {
                     // A feature that cannot work here at all says so in its own words. The

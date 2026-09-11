@@ -1698,6 +1698,15 @@
   <data name="Log_Relay" xml:space="preserve">
     <value>hexbridge: registering with the relay {0}</value>
   </data>
+  <data name="Log_FeatureSwitchedOn" xml:space="preserve">
+    <value>"{0}" switched on — nothing else was touched</value>
+  </data>
+  <data name="Log_FeatureSwitchedOff" xml:space="preserve">
+    <value>"{0}" switched off — nothing else was touched</value>
+  </data>
+  <data name="Log_FeatureStopFailed" xml:space="preserve">
+    <value>"{0}" did not stop cleanly: {1}</value>
+  </data>
   <data name="Log_FeatureStartFailed" xml:space="preserve">
     <value>hexbridge: “{0}” did not start: {1}</value>
   </data>

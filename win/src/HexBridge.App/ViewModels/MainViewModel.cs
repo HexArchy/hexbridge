@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -309,6 +310,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (!Pairing.IsOpen) _discovery.Stop();
     }
 
+    /// <summary>
+    /// Whether two configs differ only in which features are switched on.
+    ///
+    /// Compared by taking the new one, putting the old switches back, and asking whether
+    /// anything is left — rather than by listing the fields that matter, which is a list
+    /// that would go stale the first time somebody added a setting.
+    /// </summary>
+    private static bool OnlySwitchesChanged(ReceiverConfig previous, ReceiverConfig next)
+    {
+        var probe = next.Clone();
+        probe.Clipboard = previous.Clipboard;
+        probe.Gamepad = previous.Gamepad;
+
+        return JsonSerializer.Serialize(probe) == JsonSerializer.Serialize(previous);
+    }
+
     [RelayCommand]
     private async Task RestartAsync()
     {
@@ -410,13 +427,26 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         _ui.Save();
 
+        var previous = _config;
         _config = next;
         Settings.MarkSaved(next);
         Log.Add(LogLevel.Info, Strings.Log_SettingsSaved);
 
-        // Applying settings means rebinding the socket and the device, so only restart
-        // something that was actually running.
-        if (_receiver.IsRunning) await RestartAsync();
+        if (!_receiver.IsRunning) return;
+
+        // A restart rebinds the socket and rebuilds the virtual USB device, which Windows
+        // sees as the controller being unplugged — and it did not always come back without
+        // the cable being pulled. Somebody switching the clipboard on should not pay that.
+        // So a change that is nothing but feature switches is applied to those features
+        // alone; anything else is a real restart, because a running feature holds the
+        // config it was started with.
+        if (OnlySwitchesChanged(previous, next))
+        {
+            await RunGuarded(() => _receiver.ReconcileFeaturesAsync(next));
+            return;
+        }
+
+        await RestartAsync();
     }
 
     /// <summary>
