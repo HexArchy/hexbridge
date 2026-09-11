@@ -273,7 +273,7 @@ An offer to transfer an object. Repeated until a `BULK_ACK` arrives with
 | 48  |  N   | description for the UI, UTF-8                |
 ```
 
-The size is capped at 16 MiB. Anything bigger is file transfer, which will get a
+The size is capped at 64 MiB. Anything bigger is file transfer, which will get a
 kind of its own.
 
 The hash is not only for verification: on receiving a `BULK_OFFER` whose hash
@@ -339,13 +339,13 @@ and heard nothing back, repeats the last chunk every 500 ms as a nudge.
 
 | | |
 |---|---|
-| Object size | from 1 byte to 16 MiB; an empty object is rejected |
+| Object size | from 1 byte to 64 MiB; an empty object is rejected |
 | Description | at most 256 bytes, truncated on a UTF-8 boundary |
 | Send rate | at most 1500 chunks per second |
 | Sender silence | 15 s — the receiver forgets the transfer |
 | Idle incoming transfer | 30 s |
 
-The rate limit is not politeness: 16 MiB is around 16 000 packets, and without a cap
+The rate limit is not politeness: 64 MiB is around 65 000 packets, and without a cap
 one image would blow through the relay's limit of 2000 packets per second and take
 voice and input down with it.
 

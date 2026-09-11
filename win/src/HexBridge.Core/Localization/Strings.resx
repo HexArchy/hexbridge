@@ -1608,7 +1608,7 @@
     <value>nothing to carry: the item is empty</value>
   </data>
   <data name="Err_Bulk_TooBig" xml:space="preserve">
-    <value>the item is over 16 MiB ({0}) — that is file transfer</value>
+    <value>the item is over {1} MiB ({0})</value>
   </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>port {0} is held by another service — {1}</value>

@@ -10,6 +10,9 @@ namespace HexBridge;
 public enum BulkKind : byte
 {
     Clipboard = 1,
+
+    /// <summary>A file somebody dropped on the other machine's window.</summary>
+    File = 2,
 }
 
 /// <summary>How to interpret the bytes. Anything outside this list travels as <see cref="Opaque"/>.</summary>
@@ -31,8 +34,17 @@ public static class Bulk
     /// 24-byte header, the 16-byte tag and the 8 bytes of chunk framing.</summary>
     public const int ChunkSize = 1024;
 
-    /// <summary>16 MiB. Anything larger is file transfer, which will get a kind of its own.</summary>
-    public const int MaxObjectSize = 16 * 1024 * 1024;
+    /// <summary>
+    /// 64 MiB. The channel paces at about 1.5 MB/s, so that is three quarters of a minute
+    /// at the top end — long, but a length somebody watching a progress bar can live with.
+    /// Both ends hold the whole object in memory while it travels, which is the real
+    /// reason there is a ceiling at all.
+    ///
+    /// <para>Must match <c>Bulk.maxObjectSize</c> on the Mac: the receiving side refuses an
+    /// offer larger than its own ceiling, so a mismatch is a transfer that silently never
+    /// happens in one direction.</para>
+    /// </summary>
+    public const int MaxObjectSize = 64 * 1024 * 1024;
 
     /// <summary>How many missing chunk numbers a single ack may list after the first one.</summary>
     public const int MaxMissingListed = 256;

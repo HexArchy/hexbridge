@@ -128,7 +128,11 @@ public sealed class BulkChannel
         }
         if (bytes.Length > Bulk.MaxObjectSize)
         {
-            error = Loc.F(Strings.Err_Bulk_TooBig, Loc.F(Strings.Unit_Mebibytes, bytes.Length / (1024 * 1024)));
+            // The ceiling is spelled out from the constant, not typed into the string:
+            // the two had already drifted apart once.
+            error = Loc.F(Strings.Err_Bulk_TooBig,
+                Loc.F(Strings.Unit_Mebibytes, bytes.Length / (1024 * 1024)),
+                Bulk.MaxObjectSize / (1024 * 1024));
             return null;
         }
 

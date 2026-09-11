@@ -18,6 +18,11 @@ import SwiftUI
 @Observable
 @MainActor
 final class ClipboardFeature: Feature {
+    /// Handles for this feature's slots on the shared bulk channel, so stopping the
+    /// clipboard takes only its own observers off and leaves a file mid-flight alone.
+    private var deliveryToken: Int?
+    private var finishToken: Int?
+
     let id = "clipboard"
     var title: String { L.t("clip.title") }
     let symbolName = "doc.on.clipboard"
@@ -71,14 +76,15 @@ final class ClipboardFeature: Feature {
         let bulk = host.runtime.bulk
         // The channel calls these from the socket queue, so everything they touch
         // is either `ClipboardSync` (locked) or a hop back to the main actor.
-        bulk.owns = { [sync] hash in sync.owns(hash) }
-        bulk.onDelivered = { [weak self] delivery in
+        bulk.owns = { [sync] kind, hash in kind == .clipboard && sync.owns(hash) }
+        deliveryToken = bulk.observeDeliveries { [weak self] delivery in
             guard delivery.kind == .clipboard else { return }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.accept(delivery) }
             }
         }
-        bulk.onFinished = { [weak self] result in
+        finishToken = bulk.observeFinished { [weak self] result in
+            guard result.kind == .clipboard else { return }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.finish(result) }
             }
@@ -99,11 +105,16 @@ final class ClipboardFeature: Feature {
         // "already have it, do not send". With the feature off we must not pull
         // somebody's clipboard across the wire, and a refusal is the only thing
         // the acknowledgement can say.
-        bulk.owns = { _ in true }
-        bulk.onDelivered = nil
-        bulk.onFinished = nil
-        bulk.onNote = nil
-        bulk.reset()
+        // "Already have it, do not send" — for the clipboard only. With the feature
+        // off we must not pull somebody's clipboard across, and a refusal is all the
+        // acknowledgement can say; a file arriving at the same time is none of its
+        // business.
+        bulk.owns = { kind, _ in kind == .clipboard }
+        if let deliveryToken { bulk.removeDeliveryObserver(deliveryToken) }
+        if let finishToken { bulk.removeFinishObserver(finishToken) }
+        deliveryToken = nil
+        finishToken = nil
+        bulk.reset(kind: .clipboard)
         flight = nil
         status = derive()
     }

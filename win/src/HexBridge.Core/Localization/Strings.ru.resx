@@ -1608,7 +1608,7 @@
     <value>нечего передавать: объект пуст</value>
   </data>
   <data name="Err_Bulk_TooBig" xml:space="preserve">
-    <value>объект больше 16 МиБ ({0}) — это уже передача файлов</value>
+    <value>объект больше {1} МиБ ({0})</value>
   </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>порт {0} занят другой службой — {1}</value>

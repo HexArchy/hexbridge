@@ -7,6 +7,8 @@ import HexBridgeText
 /// packet types.
 enum BulkKind: UInt8 {
     case clipboard = 1
+    /// A file somebody dropped on the other machine's window.
+    case file = 2
 }
 
 /// How to interpret the bytes. Anything else travels as `opaque`.
@@ -25,8 +27,11 @@ enum Bulk {
     /// 24-byte header, the 16-byte tag and the 8 bytes of chunk framing.
     static let chunkSize = 1024
 
-    /// 16 MiB. Anything larger is file transfer, which will get a kind of its own.
-    static let maxObjectSize = 16 * 1024 * 1024
+    /// 64 MiB. The channel paces at about 1.5 MB/s, so that is three quarters of a
+    /// minute at the top end — long, but a length somebody watching a progress bar
+    /// can live with. Both ends hold the whole object in memory while it travels,
+    /// which is the real reason there is a ceiling at all.
+    static let maxObjectSize = 64 * 1024 * 1024
 
     /// How many missing chunk numbers a single ack may list after the first one.
     static let maxMissingListed = 256
@@ -294,13 +299,74 @@ final class BulkChannel: @unchecked Sendable {
     /// «Этот объект у меня уже есть». The contract makes this the answer to a
     /// duplicate offer *and* the thing that stops two machines syncing each
     /// other in a circle.
-    var owns: (([UInt8]) -> Bool)?
+    /// "We already hold these exact bytes, do not send them."
+    ///
+    /// Asked with the kind, because the answer differs by feature: a clipboard that
+    /// already holds the text should refuse it, and a file always has to arrive. A
+    /// feature that is switched off answers for its own kind and for nothing else.
+    var owns: ((BulkKind, [UInt8]) -> Bool)?
 
     /// An object arrived whole and verified. Called outside the channel's lock.
-    var onDelivered: ((BulkDelivery) -> Void)?
+    /// Everything that arrived whole, to whoever asked to hear about it.
+    ///
+    /// A list rather than one closure: the clipboard and file transfer both ride this
+    /// channel, and with a single slot whichever feature started last would silently
+    /// take delivery of the other's objects — and clear it again on the way out.
+    /// Each observer filters by kind.
+    private var deliveryObservers: [Int: (BulkDelivery) -> Void] = [:]
+    private var nextObserver = 1
+
+    /// Registers an observer and returns the token to remove it with.
+    @discardableResult
+    func observeDeliveries(_ handler: @escaping (BulkDelivery) -> Void) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        let token = nextObserver
+        nextObserver += 1
+        deliveryObservers[token] = handler
+        return token
+    }
+
+    func removeDeliveryObserver(_ token: Int) {
+        lock.lock()
+        deliveryObservers.removeValue(forKey: token)
+        lock.unlock()
+    }
+
+    private func announce(_ delivery: BulkDelivery) {
+        lock.lock()
+        let observers = Array(deliveryObservers.values)
+        lock.unlock()
+        for observer in observers { observer(delivery) }
+    }
 
     /// An outgoing transfer ended. Called outside the channel's lock.
-    var onFinished: ((BulkResult) -> Void)?
+    /// Outgoing transfers that ended, however they ended. A list for the same reason
+    /// as the delivery observers: two features share this channel.
+    private var finishObservers: [Int: (BulkResult) -> Void] = [:]
+
+    @discardableResult
+    func observeFinished(_ handler: @escaping (BulkResult) -> Void) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        let token = nextObserver
+        nextObserver += 1
+        finishObservers[token] = handler
+        return token
+    }
+
+    func removeFinishObserver(_ token: Int) {
+        lock.lock()
+        finishObservers.removeValue(forKey: token)
+        lock.unlock()
+    }
+
+    private func announce(_ result: BulkResult) {
+        lock.lock()
+        let observers = Array(finishObservers.values)
+        lock.unlock()
+        for observer in observers { observer(result) }
+    }
 
     /// Diagnostics, one line per interesting event. Called outside the lock.
     var onNote: ((String) -> Void)?
@@ -351,6 +417,18 @@ final class BulkChannel: @unchecked Sendable {
         finished.removeAll()
         credit = 0
         lastTick = nil
+        lock.unlock()
+    }
+
+    /// Drops only what belongs to one feature.
+    ///
+    /// A feature being switched off must not cancel the other one's transfer, and
+    /// switching the clipboard off in the middle of a file arriving is an ordinary
+    /// thing for somebody to do.
+    func reset(kind: BulkKind) {
+        lock.lock()
+        outgoing = outgoing.filter { $0.value.offer.kind != kind }
+        incoming = incoming.filter { $0.value.kind != kind }
         lock.unlock()
     }
 
@@ -428,7 +506,7 @@ final class BulkChannel: @unchecked Sendable {
         // The whole loop-breaker, and the reason the contract puts a hash in the
         // offer at all: if we already hold these exact bytes, nothing has to cross
         // the wire.
-        if owns?(offer.hash) == true {
+        if owns?(offer.kind, offer.hash) == true {
             deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
                 transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
             )))
@@ -490,7 +568,7 @@ final class BulkChannel: @unchecked Sendable {
 
         for packet in packets { deliver(packet.0, packet.1) }
         if let note { onNote?(note) }
-        if let delivery { onDelivered?(delivery) }
+        if let delivery { announce(delivery) }
     }
 
     private func handle(ack: BulkAck, now: Date) {
@@ -510,7 +588,7 @@ final class BulkChannel: @unchecked Sendable {
         }
         lock.unlock()
 
-        if let result { onFinished?(result) }
+        if let result { announce(result) }
     }
 
     private func handleDone(_ transferID: UInt32) {
@@ -518,7 +596,7 @@ final class BulkChannel: @unchecked Sendable {
         let transfer = outgoing.removeValue(forKey: transferID)
         lock.unlock()
 
-        if let transfer { onFinished?(transfer.result(.delivered)) }
+        if let transfer { announce(transfer.result(.delivered)) }
     }
 
     // MARK: - Clock
@@ -551,7 +629,7 @@ final class BulkChannel: @unchecked Sendable {
 
         for packet in packets { deliver(packet.0, packet.1) }
         for note in notes { onNote?(note) }
-        for result in results { onFinished?(result) }
+        for result in results { announce(result) }
     }
 
     /// Caller holds `lock`.

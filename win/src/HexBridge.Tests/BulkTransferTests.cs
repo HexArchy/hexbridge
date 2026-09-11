@@ -30,7 +30,7 @@ public class BulkTransferTests
     public void TheConstantsMatchTheContract()
     {
         Assert.Equal(1024, Bulk.ChunkSize);
-        Assert.Equal(16 * 1024 * 1024, Bulk.MaxObjectSize);
+        Assert.Equal(64 * 1024 * 1024, Bulk.MaxObjectSize);
         Assert.Equal(256, Bulk.MaxMissingListed);
         Assert.Equal(10, Bulk.MaxOfferAttempts);
         Assert.Equal(TimeSpan.FromSeconds(1), Bulk.OfferInterval);
@@ -159,7 +159,7 @@ public class BulkTransferTests
         Assert.Equal(1u, Bulk.ChunkCountFor(1));
         Assert.Equal(1u, Bulk.ChunkCountFor(1024));
         Assert.Equal(2u, Bulk.ChunkCountFor(1025));
-        Assert.Equal(16384u, Bulk.ChunkCountFor(Bulk.MaxObjectSize));
+        Assert.Equal(65536u, Bulk.ChunkCountFor(Bulk.MaxObjectSize));
 
         Assert.Equal(1024, Bulk.ChunkLength(2500, 0));
         Assert.Equal(1024, Bulk.ChunkLength(2500, 1));
@@ -477,7 +477,7 @@ public class BulkTransferTests
     }
 
     [Fact]
-    public void SixteenMebibytesIsTheLastSizeThatFits()
+    public void TheCeilingIsTheLastSizeThatFits()
     {
         var pair = new Pair();
 
@@ -487,12 +487,12 @@ public class BulkTransferTests
 
         var tooBig = pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, new byte[Bulk.MaxObjectSize + 1], "перебор", pair.Now, out var error);
         Assert.Null(tooBig);
-        Assert.Contains("16 МиБ", error);
+        Assert.Contains("64 МиБ", error);
 
         // The one that fits is offered with the chunk count the contract implies.
         var offer = pair.SentToB.Single(p => p.type == PacketType.BulkOffer);
         Assert.True(BulkCodec.TryReadOffer(offer.payload, out var read));
-        Assert.Equal(16384u, read.ChunkCount);
+        Assert.Equal(65536u, read.ChunkCount);
         Assert.Equal((uint)Bulk.MaxObjectSize, read.Size);
     }
 
