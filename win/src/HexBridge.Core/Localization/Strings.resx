@@ -498,6 +498,21 @@
   <data name="Devices_Attach_Hint" xml:space="preserve">
     <value>If it did not attach by itself, this command does the same thing by hand:</value>
   </data>
+  <data name="Devices_Cap_Attached" xml:space="preserve">
+    <value>Windows has it</value>
+  </data>
+  <data name="Devices_Cap_NotAttached" xml:space="preserve">
+    <value>Windows has not taken it yet</value>
+  </data>
+  <data name="Devices_Cap_Force" xml:space="preserve">
+    <value>Adaptive triggers and rumble</value>
+  </data>
+  <data name="Devices_Cap_Haptics" xml:space="preserve">
+    <value>HD haptics</value>
+  </data>
+  <data name="Devices_Cap_NothingSentYet" xml:space="preserve">
+    <value>Triggers, rumble and lighting share one channel, and light up as soon as a game uses them.</value>
+  </data>
   <data name="Devices_Kind_Hid" xml:space="preserve">
     <value>HID device</value>
   </data>

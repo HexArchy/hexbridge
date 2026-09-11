@@ -16,6 +16,9 @@ namespace HexBridge.App.ViewModels;
 /// keeps a filter and a touch trail, and handing the view a new object ten times a second
 /// would reset both.
 /// </summary>
+/// <summary>One thing the controller can or cannot do, and whether it is doing it.</summary>
+public sealed record DeviceCapability(string Text, bool Live);
+
 public sealed partial class ForwardedDeviceViewModel : ObservableObject
 {
     public ForwardedDeviceViewModel(byte number) => Number = number;
@@ -64,6 +67,48 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
 
     [ObservableProperty] private string _attachCommand = "";
 
+    /// <summary>
+    /// What this controller can actually do here, right now.
+    ///
+    /// <para>
+    /// The page used to name the device and its update rate and stop there, which left the
+    /// question people actually ask — "is this a proper DualSense with the triggers, or
+    /// just a pad?" — with no answer on screen at all. Each line below is a fact the
+    /// receiver already knew and was not saying.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<DeviceCapability> Capabilities { get; } = [];
+
+    /// <summary>Set while the controller is forwarded but no game has addressed it yet.</summary>
+    [ObservableProperty] private string _capabilityNote = "";
+
+    private void DescribeCapabilities(ForwardedDeviceState device)
+    {
+        Capabilities.Clear();
+
+        // Windows having imported it is the difference between "the Mac is reading this
+        // pad" and "a game on this PC can see it".
+        Capabilities.Add(new DeviceCapability(
+            device.Imported ? Strings.Devices_Cap_Attached : Strings.Devices_Cap_NotAttached,
+            device.Imported));
+
+        // Trigger effects, rumble and lighting all ride the same output reports, so one
+        // line covers them and the evidence is the same: something has been sent.
+        Capabilities.Add(new DeviceCapability(Strings.Devices_Cap_Force, device.OutputsSent > 0));
+
+        // Only worth a line when the audio function is actually presented; with haptics
+        // switched off there is nothing here to be missing.
+        if (device.Composite || device.HapticsAvailable)
+        {
+            Capabilities.Add(new DeviceCapability(
+                Strings.Devices_Cap_Haptics, device.HapticsStreaming));
+        }
+
+        CapabilityNote = device.Imported && device.OutputsSent == 0
+            ? Strings.Devices_Cap_NothingSentYet
+            : "";
+    }
+
     public void Apply(ForwardedDeviceState device, string serverListen)
     {
         Title = device.Product;
@@ -87,6 +132,8 @@ public sealed partial class ForwardedDeviceViewModel : ObservableObject
         VisualCaption = device.Imported
             ? Loc.F(Strings.Devices_Caption_Imported, device.Product, Loc.Updates(device.ReportsPerSecond))
             : Loc.F(Strings.Devices_Caption_Waiting, device.Product);
+
+        DescribeCapabilities(device);
 
         AttachCommand =
             $"usbip.exe attach --receive-mode=low-latency -r {DevicesViewModel.Host(serverListen)} -b {device.BusId}";

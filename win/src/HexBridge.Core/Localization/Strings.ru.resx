@@ -498,6 +498,21 @@
   <data name="Devices_Attach_Hint" xml:space="preserve">
     <value>Если автоподключение не сработало, эту команду можно выполнить вручную:</value>
   </data>
+  <data name="Devices_Cap_Attached" xml:space="preserve">
+    <value>Windows подключила</value>
+  </data>
+  <data name="Devices_Cap_NotAttached" xml:space="preserve">
+    <value>Windows ещё не подключила</value>
+  </data>
+  <data name="Devices_Cap_Force" xml:space="preserve">
+    <value>Адаптивные триггеры и вибрация</value>
+  </data>
+  <data name="Devices_Cap_Haptics" xml:space="preserve">
+    <value>HD-хаптика</value>
+  </data>
+  <data name="Devices_Cap_NothingSentYet" xml:space="preserve">
+    <value>Триггеры, вибрация и подсветка идут одним каналом и загорятся, как только игра ими воспользуется.</value>
+  </data>
   <data name="Devices_Kind_Hid" xml:space="preserve">
     <value>HID-устройство</value>
   </data>

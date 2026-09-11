@@ -81,9 +81,31 @@
           <DataTemplate x:DataType="vm:ForwardedDeviceViewModel">
             <Border Classes="card" Margin="0,0,0,16">
               <StackPanel Spacing="12">
-                <StackPanel Spacing="2">
+                <StackPanel Spacing="6">
                   <TextBlock Classes="section" Text="{Binding Title}" />
                   <TextBlock Classes="caption" Text="{Binding KindText}" />
+
+                  <!-- The question this page kept failing to answer: is this a proper
+                       DualSense with the triggers, or just a pad Windows happens to see.
+                       A lit chip means it is doing that now, not that it could. -->
+                  <ItemsControl ItemsSource="{Binding Capabilities}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:DeviceCapability">
+                        <Border Classes="chip" Classes.ok="{Binding Live}" Margin="0,0,6,0">
+                          <TextBlock Text="{Binding Text}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="{Binding CapabilityNote}"
+                             IsVisible="{Binding CapabilityNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
 
                 <controls:ControllerVisual Height="260"
