@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: write
+  # Образ релея уезжает в ghcr вместе с релизом.
+  packages: write
 
 jobs:
   macos:
@@ -155,6 +157,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+
+      - name: Resolve the version
+        id: version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -167,6 +176,24 @@ jobs:
         with:
           name: relay
           path: hexbridge-relay-linux-*
+
+      # Тот же образ, что и на main, но с номером версии: сервер может
+      # закрепиться на теге, если не хочет ехать за latest.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: relay
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/hexarchy/hexbridge-relay:latest
+            ghcr.io/hexarchy/hexbridge-relay:${{ steps.version.outputs.value }}
 
   publish:
     name: Publish the release

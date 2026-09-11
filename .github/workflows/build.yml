@@ -126,6 +126,44 @@ jobs:
           path: hexbridge-relay-linux-*
           if-no-files-found: error
 
+  # Образ релея. Собирается здесь, а сервер его только тянет: у сервера нет ни
+  # исходников, ни Go, и обновление там должно быть «docker compose pull», а не
+  # сборка. `latest` двигается на каждый main, теги — на каждый релиз.
+  image:
+    name: Relay image
+    needs: relay
+    # Только на main: на пулл-реквесте нечего публиковать, а права на пакеты
+    # форку не выдаются.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # arm64 рядом с amd64: релей ставят и на ARM-хостинг, а собрать обе
+      # архитектуры здесь стоит минуту и избавляет сервер от выбора.
+      - uses: docker/build-push-action@v6
+        with:
+          context: relay
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/hexarchy/hexbridge-relay:latest
+            ghcr.io/hexarchy/hexbridge-relay:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-24.04
