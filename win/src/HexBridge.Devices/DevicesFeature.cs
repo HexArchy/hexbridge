@@ -133,7 +133,12 @@ public sealed class DevicesFeature : IFeature
 
         for (var offset = 0; offset < PortsToTry; offset++)
         {
-            var attempt = new IPEndPoint(_listen.Address, _listen.Port == 0 ? 0 : _listen.Port + offset);
+            var next = _listen.Port == 0 ? 0 : _listen.Port + offset;
+            // An ephemeral port is often near the top of the range, and asking for 65536
+            // throws before the socket is ever reached.
+            if (next > IPEndPoint.MaxPort) break;
+
+            var attempt = new IPEndPoint(_listen.Address, next);
             try
             {
                 server.Start(attempt);
