@@ -39,8 +39,17 @@ cat > "$PLIST" <<PLIST_EOF
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <!-- Only after a crash, never after somebody quits.
+         An unconditional KeepAlive means «Quit» in the menu bar does nothing a
+         person can see: the icon goes and comes straight back, and there is no
+         way to switch the thing off short of unloading the agent from a
+         terminal. SuccessfulExit=false restarts it when it exits non-zero,
+         which is what a crash does and what leaving on purpose does not. -->
     <key>KeepAlive</key>
-    <true/>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
     <key>ProcessType</key>
     <string>Interactive</string>
     <key>StandardOutPath</key>
