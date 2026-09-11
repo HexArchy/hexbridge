@@ -997,6 +997,12 @@
   <data name="Pairing_Caption_RemoteAddress" xml:space="preserve">
     <value>These are the addresses on the network this PC is plugged into. If the Mac is on a different one, type this PC's external address there and open UDP {0} and TCP {1} to it.</value>
   </data>
+  <data name="Pairing_Section_RelayAddress" xml:space="preserve">
+    <value>RELAY ADDRESS</value>
+  </data>
+  <data name="Pairing_Caption_RelayAddress" xml:space="preserve">
+    <value>Type this on the Mac along with the code. Both machines meet at the relay, so it does not matter which network either is on or whether any port is open.</value>
+  </data>
   <data name="Pairing_Section_ThisAddress" xml:space="preserve">
     <value>THIS PC'S ADDRESS</value>
   </data>
@@ -1679,6 +1685,12 @@
   </data>
   <data name="Log_FeatureStopFailed" xml:space="preserve">
     <value>hexbridge: “{0}” while stopping: {1}</value>
+  </data>
+  <data name="Log_RelayDeposit" xml:space="preserve">
+    <value>pairing: the code was left with the relay {0} (answered {1})</value>
+  </data>
+  <data name="Log_RelayDepositFailed" xml:space="preserve">
+    <value>pairing: the relay {0} would not take the code — {1}</value>
   </data>
   <data name="Log_Session" xml:space="preserve">
     <value>hexbridge: session {0} from {1}</value>

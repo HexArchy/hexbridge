@@ -115,7 +115,16 @@
                  has on the network it is plugged into, which is the answer only when both
                  machines are on that same network — said plainly underneath, because a PC
                  being streamed from somewhere else is a normal way to use this. -->
-            <StackPanel Spacing="4">
+            <!-- With a relay configured there is one address to type and it is the
+                 relay's, wherever either machine happens to be. Showing the local ones
+                 as well would only invite typing the wrong one. -->
+            <StackPanel Spacing="4" IsVisible="{Binding ViaRelay}">
+              <TextBlock Classes="section" Text="{l:Tr Pairing_Section_RelayAddress}" />
+              <SelectableTextBlock Classes="mono" FontSize="15" Text="{Binding RelayAddress}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{l:Tr Pairing_Caption_RelayAddress}" />
+            </StackPanel>
+
+            <StackPanel Spacing="4" IsVisible="{Binding !ViaRelay}">
               <TextBlock Classes="section" Text="{l:Tr Pairing_Section_ThisAddress}" />
               <SelectableTextBlock Classes="mono" FontSize="15" Text="{Binding ThisAddress}" />
               <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RemoteAddressNote}" />

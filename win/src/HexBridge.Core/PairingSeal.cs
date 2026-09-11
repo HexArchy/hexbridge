@@ -64,6 +64,39 @@ public static class PairingSeal
             HashAlgorithmName.SHA256,
             32);
 
+    private static readonly byte[] RendezvousPrefix = "hexbridge-pair-rendezvous-v1"u8.ToArray();
+
+    /// <summary>
+    /// The name two machines that know the same code agree on without either of them
+    /// saying it, so a relay can introduce them without being told the code.
+    ///
+    /// <para>
+    /// It has to be a one-way function of the code and nothing else. The relay holds the
+    /// sealed answer, and the key to that answer is derived from the code — so a relay
+    /// that learned the code could read what it is carrying, which is the one thing this
+    /// relay is built not to do. Guessing the id means guessing the code: 60 bits.
+    /// </para>
+    ///
+    /// <para>
+    /// Matched by <c>RendezvousID</c> in <c>relay/rendezvous.go</c> and
+    /// <c>PairingSeal.rendezvousID</c> on the Mac, against one vector in docs/PROTOCOL.md.
+    /// </para>
+    /// </summary>
+    public static string RendezvousId(string code)
+    {
+        var material = Encoding.ASCII.GetBytes(ShortCode.Normalise(code));
+        var input = new byte[RendezvousPrefix.Length + material.Length];
+        RendezvousPrefix.CopyTo(input, 0);
+        material.CopyTo(input, RendezvousPrefix.Length);
+
+        // Base64url without padding, truncated to 16 bytes: 22 characters, and the same
+        // shape as the discovery tag so one reader recognises both.
+        return Convert.ToBase64String(SHA256.HashData(input).AsSpan(0, 16))
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+    }
+
     /// <summary>Seals <paramref name="plaintext"/> under a fresh salt and nonce.</summary>
     public static string Seal(string plaintext, string code)
     {

@@ -46,6 +46,29 @@ public enum PairingSeal {
         String(code.uppercased().filter { alphabet.contains($0) })
     }
 
+    /// The name two machines that know the same code agree on without either of them
+    /// saying it, so a relay can introduce them without being told the code.
+    ///
+    /// It has to be a one-way function of the code and nothing else. The relay holds the
+    /// sealed answer, and the key to that answer comes from the code — a relay that
+    /// learned the code could read what it is carrying, which is the one thing this relay
+    /// is built not to do. Guessing the id means guessing the code: 60 bits.
+    ///
+    /// Matched by `RendezvousID` in `relay/rendezvous.go` and `PairingSeal.RendezvousId`
+    /// on the PC, against one vector in `docs/PROTOCOL.md`.
+    public static func rendezvousID(code: String) -> String {
+        var input = Data("hexbridge-pair-rendezvous-v1".utf8)
+        input.append(Data(normalise(code).utf8))
+
+        // Base64url without padding, truncated to 16 bytes: 22 characters, and the same
+        // shape as the discovery tag so one reader recognises both.
+        return Data(SHA256.hash(data: input).prefix(16))
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
     /// The key both sides arrive at from the same code and salt.
     public static func deriveKey(code: String, salt: Data) -> SymmetricKey {
         let password = Array(normalise(code).utf8)

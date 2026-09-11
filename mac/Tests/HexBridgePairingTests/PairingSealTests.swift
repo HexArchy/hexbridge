@@ -82,4 +82,15 @@ struct PairingSealTests {
         #expect(PairingSeal.open("not base64 at all!", code: Self.code) == nil)
         #expect(PairingSeal.open(Data([1, 2, 3]).base64EncodedString(), code: Self.code) == nil)
     }
+
+    @Test("Идентификатор точки встречи такой же, как у релея и ПК")
+    func rendezvousIdMatchesTheOtherImplementations() {
+        #expect(PairingSeal.rendezvousID(code: Self.code) == "rzWzGdiB0Jjyt5YKBdmhXA")
+        #expect(PairingSeal.rendezvousID(code: "tujj-c8xu-3lj4") == "rzWzGdiB0Jjyt5YKBdmhXA")
+    }
+
+    @Test("Идентификатор не выдаёт соседний код")
+    func rendezvousIdChangesWithTheCode() {
+        #expect(PairingSeal.rendezvousID(code: "TUJJC8XU3LJ5") != PairingSeal.rendezvousID(code: Self.code))
+    }
 }

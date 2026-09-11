@@ -255,6 +255,7 @@
 "pairing.exchange.cancelled" = "соединение оборвалось";
 "pairing.exchange.tooLong" = "ответ слишком длинный";
 "pairing.exchange.badPort" = "неверный порт";
+"pairing.exchange.unreadable" = "ответ не похож на HTTP";
 
 /* MARK: - Автопоиск */
 

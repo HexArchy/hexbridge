@@ -255,6 +255,7 @@
 "pairing.exchange.cancelled" = "the connection dropped";
 "pairing.exchange.tooLong" = "the answer was too long";
 "pairing.exchange.badPort" = "that port cannot be used";
+"pairing.exchange.unreadable" = "the answer did not look like HTTP";
 
 /* MARK: - Autodiscovery */
 

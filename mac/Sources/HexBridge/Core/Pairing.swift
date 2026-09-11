@@ -209,32 +209,52 @@ enum PairingExchange {
     /// stranger on the port cannot stream until memory runs out.
     private static let maximumAnswer = 64 * 1024
 
+    /// Collects the sealed answer, from whichever of the two places is listening.
+    ///
+    /// The address typed in may be the PC itself or a relay, and the person should not
+    /// have to say which. The relay's letterbox is asked first — it answers on a path the
+    /// PC does not serve, and the PC answers on a path the relay does not, so one of the
+    /// two says 404 and the other hands over the answer. Both are cheap: the id reveals
+    /// nothing and neither request carries the code in the clear.
+    ///
+    /// Asking the relay first is deliberate. When both are reachable they hold the same
+    /// answer, and the relay's copy is the one that is there because somebody configured
+    /// a relay.
     static func fetch(host: String, port: UInt16, code: String) async -> Result<Pairing.Payload, PairingError> {
-        let request = """
-        GET /pair?code=\(Pairing.normalizedCode(code))&enc=1 HTTP/1.1\r
-        Host: \(host)\r
-        User-Agent: HexBridge/1.0 (macOS)\r
-        Connection: close\r
-        \r
+        let viaRelay = "/rendezvous?id=\(PairingSeal.rendezvousID(code: code))"
+        let direct = "/pair?code=\(Pairing.normalizedCode(code))&enc=1"
 
-        """
+        var refused = false
+        for path in [viaRelay, direct] {
+            let answer: Answer
+            do {
+                answer = try await ask(path, host: host, port: port)
+            } catch {
+                // The address itself is unreachable; the second path would fail the same
+                // way, so say so once rather than twice.
+                return .failure(.exchangeUnreachable(error.localizedDescription))
+            }
 
-        let raw: Data
-        do {
-            raw = try await send(request, host: host, port: port)
-        } catch {
-            return .failure(.exchangeUnreachable(error.localizedDescription))
+            switch answer.status {
+            case 200:
+                return open(answer.body, code: code)
+            case 403, 404:
+                // «Not the code I am showing», or nothing left here under that name.
+                refused = true
+                continue
+            default:
+                continue
+            }
         }
 
-        guard let answer = Answer(raw) else { return .failure(.exchangeBadAnswer) }
-        // 403 and 404 are the two the PC uses for «that is not the code I am showing».
-        if answer.status == 403 || answer.status == 404 { return .failure(.exchangeRefused) }
-        guard answer.status == 200 else { return .failure(.exchangeBadAnswer) }
+        return .failure(refused ? .exchangeRefused : .exchangeBadAnswer)
+    }
 
-        // The key must not arrive in the clear, however reachable the PC was: on a network
-        // worth worrying about, whoever is on the path would have it too.
-        guard let opened = PairingSeal.open(answer.body, code: code) else {
-            return .failure(answer.body.contains("hexbridge://") ? .exchangePlaintext : .exchangeBadAnswer)
+    private static func open(_ body: String, code: String) -> Result<Pairing.Payload, PairingError> {
+        // The key must not arrive in the clear, wherever it came from: a relay is a
+        // machine somebody else runs, and a network is a network.
+        guard let opened = PairingSeal.open(body, code: code) else {
+            return .failure(body.contains("hexbridge://") ? .exchangePlaintext : .exchangeBadAnswer)
         }
 
         switch Pairing.parse(text: opened) {
@@ -243,6 +263,22 @@ enum PairingExchange {
         case .failure:
             return .failure(.exchangeBadAnswer)
         }
+    }
+
+    private static func ask(_ path: String, host: String, port: UInt16) async throws -> Answer {
+        let request = """
+        GET \(path) HTTP/1.1\r
+        Host: \(host)\r
+        User-Agent: HexBridge/1.0 (macOS)\r
+        Connection: close\r
+        \r
+
+        """
+
+        guard let answer = Answer(try await send(request, host: host, port: port)) else {
+            throw ExchangeFailure.unreadable
+        }
+        return answer
     }
 
     // MARK: - Transport
@@ -330,6 +366,7 @@ enum PairingExchange {
         case cancelled
         case tooLong
         case unusablePort
+        case unreadable
 
         var errorDescription: String? {
             switch self {
@@ -337,6 +374,7 @@ enum PairingExchange {
             case .cancelled: return L.t("pairing.exchange.cancelled")
             case .tooLong: return L.t("pairing.exchange.tooLong")
             case .unusablePort: return L.t("pairing.exchange.badPort")
+            case .unreadable: return L.t("pairing.exchange.unreadable")
             }
         }
     }

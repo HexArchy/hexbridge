@@ -477,16 +477,53 @@ Security refuses the request outright. The exchange goes over `NWConnection` —
 socket the rest of the protocol uses — rather than switching ATS off for the whole
 application.
 
+### Pairing through the relay
+
+The direct exchange needs the Mac to open a TCP connection to the PC. When neither
+machine can accept one — both behind NAT, which is the situation a relay exists for —
+that cannot happen, so the relay holds the answer instead. Both sides only ever dial
+out.
+
+```
+PUT /rendezvous?id=<id>     the PC leaves the sealed blob, 204 on success
+GET /rendezvous?id=<id>     the Mac collects it, 200 with the blob, or 404
+```
+
+The blob is the *same* sealed answer the direct exchange returns, unchanged. The relay
+stores it opaquely for three minutes, replaces it when a new code is made, and serves it
+more than once so a dropped connection can be retried.
+
+`id = base64url_nopad(SHA256("hexbridge-pair-rendezvous-v1" ‖ normalised code)[0..16])`
+
+**The relay is never told the code.** The key to the blob is derived from the code, so a
+relay that learned it could read what it is carrying — the one thing this relay is built
+not to do. It gets the id instead: enough to match two parties who both know the code,
+useless to anyone who does not. Guessing an id means guessing the code, which is 60 bits,
+and the blob behind it is still behind PBKDF2.
+
+Limits: 8 KB per blob, 256 concurrent pairings, 5 requests/s per address, and every other
+path answers 404.
+
+The Mac asks for `/rendezvous` first and `/pair` second, against whatever address was
+typed. One of the two answers 404 and the other hands over the answer, so a person does
+not have to know whether they are pointing at a relay or at the PC.
+
+When a relay is configured, the PC puts the **relay's** address into the payload rather
+than its own, so the Mac aims its audio at the relay without a second setting. The host
+is stored as typed and resolved by the Mac at connect time, so a relay behind a name that
+moves keeps working.
+
 ### Test vector
 
 Both implementations are pinned to this, in
-`mac/Tests/HexBridgePairingTests/PairingSealTests.swift` and
-`win/src/HexBridge.Tests/PairingSealTests.cs`. Salt is `01 02 … 10`, nonce is `A0 A1 … AB`.
+`mac/Tests/HexBridgePairingTests/PairingSealTests.swift`,
+`win/src/HexBridge.Tests/PairingSealTests.cs` and, for the id, `relay/rendezvous_test.go`. Salt is `01 02 … 10`, nonce is `A0 A1 … AB`.
 
 ```
 code       TUJJC8XU3LJ4
 plaintext  hexbridge://pair?v=1&h=10.0.0.7&p=47702&k=3q2-796tvu_erb7v3q2-796tvu_erb7v3q2-796tvu8&n=PC
 key        3b5d88c7628acaec690b06bce40aca7174eed292d27a8ded9d3b801d3beb513c
+id         rzWzGdiB0Jjyt5YKBdmhXA
 blob       AQECAwQFBgcICQoLDA0ODxCgoaKjpKWmp6ipqquYsSxi+zUzZvJq1//po186Z/Mjzmj52LsWiAN6XTnFUHQm
            oJ2ReIRAhxGw77vd7slbDBE7r5lxvBMh0XPAfjdwIa8S86pAsZ3skt5HC/MCC6Rw0CT9aQd5D0b1ZyCUuovF
            ba2HYAgIqgXf

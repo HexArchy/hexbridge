@@ -161,6 +161,9 @@ func (r *relay) stats() (rooms, endpoints int) {
 
 func main() {
 	listen := flag.String("listen", ":47702", "UDP address to listen on")
+	// Same +1 convention the PC uses for its own exchange, so one number in the
+	// clients' settings describes the whole relay.
+	pairListen := flag.String("pair-listen", ":47703", "TCP address for the pairing rendezvous, empty to disable")
 	quiet := flag.Bool("quiet", false, "suppress the periodic stats line")
 	flag.Parse()
 
@@ -183,6 +186,18 @@ func main() {
 
 	r := newRelay()
 
+	// Pairing needs a way in that does not depend on either side accepting a
+	// connection — otherwise the one situation the relay exists for is the one
+	// situation you cannot pair in.
+	meeting := newRendezvous()
+	if *pairListen != "" {
+		_, ln, err := meeting.serve(*pairListen)
+		if err != nil {
+			log.Fatalf("listen %s: %v", *pairListen, err)
+		}
+		log.Printf("hexbridge-relay pairing rendezvous on %s", ln.Addr())
+	}
+
 	go func() {
 		ticker := time.NewTicker(sweepInterval)
 		defer ticker.Stop()
@@ -190,8 +205,8 @@ func main() {
 			r.sweep(now)
 			if !*quiet {
 				rooms, endpoints := r.stats()
-				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d",
-					rooms, endpoints, r.forwarded.Load(), r.dropped.Load())
+				log.Printf("rooms=%d endpoints=%d forwarded=%d dropped=%d pairings=%d",
+					rooms, endpoints, r.forwarded.Load(), r.dropped.Load(), meeting.count())
 			}
 		}
 	}()

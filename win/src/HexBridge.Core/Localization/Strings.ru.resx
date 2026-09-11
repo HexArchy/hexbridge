@@ -997,6 +997,12 @@
   <data name="Pairing_Caption_RemoteAddress" xml:space="preserve">
     <value>Это адреса в сети, куда включён сам ПК. Если Mac в другой сети — введите на нём внешний адрес этого ПК и откройте на нём UDP {0} и TCP {1}.</value>
   </data>
+  <data name="Pairing_Section_RelayAddress" xml:space="preserve">
+    <value>АДРЕС РЕЛЕЯ</value>
+  </data>
+  <data name="Pairing_Caption_RelayAddress" xml:space="preserve">
+    <value>Введите его на Mac вместе с кодом. Обе машины связываются через релей, поэтому неважно, в какой они сети и открыты ли порты.</value>
+  </data>
   <data name="Pairing_Section_ThisAddress" xml:space="preserve">
     <value>АДРЕС ЭТОГО ПК</value>
   </data>
@@ -1679,6 +1685,12 @@
   </data>
   <data name="Log_FeatureStopFailed" xml:space="preserve">
     <value>hexbridge: «{0}» при остановке: {1}</value>
+  </data>
+  <data name="Log_RelayDeposit" xml:space="preserve">
+    <value>связывание: код оставлен на релее {0} (ответ {1})</value>
+  </data>
+  <data name="Log_RelayDepositFailed" xml:space="preserve">
+    <value>связывание: релей {0} не принял код — {1}</value>
   </data>
   <data name="Log_Session" xml:space="preserve">
     <value>hexbridge: сессия {0} от {1}</value>

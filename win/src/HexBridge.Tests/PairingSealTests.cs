@@ -127,4 +127,34 @@ public class PairingSealTests
         Assert.Equal(403, answer.Status);
         Assert.Equal("", answer.Body);
     }
+
+    // MARK: - The name the relay knows them by
+
+    [Fact]
+    public void TheRendezvousIdMatchesTheRelayAndTheMac()
+    {
+        Assert.Equal("rzWzGdiB0Jjyt5YKBdmhXA", PairingSeal.RendezvousId(Code));
+        Assert.Equal("rzWzGdiB0Jjyt5YKBdmhXA", PairingSeal.RendezvousId("tujj-c8xu-3lj4"));
+    }
+
+    [Fact]
+    public void TheRendezvousIdIsUrlSafeAndUnpadded()
+    {
+        var id = PairingSeal.RendezvousId(Code);
+
+        Assert.Equal(22, id.Length);
+        Assert.DoesNotContain('+', id);
+        Assert.DoesNotContain('/', id);
+        Assert.DoesNotContain('=', id);
+    }
+
+    /// <summary>The id travels to a relay that must not be able to work back to the code.</summary>
+    [Fact]
+    public void TheRendezvousIdDoesNotContainTheCode()
+    {
+        var id = PairingSeal.RendezvousId(Code);
+
+        Assert.DoesNotContain(Code, id, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual(PairingSeal.RendezvousId("TUJJC8XU3LJ5"), id);
+    }
 }

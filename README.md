@@ -135,10 +135,16 @@ Avalonia needs no Windows-only tooling. The real check runs in CI on
 
 ## Relay
 
-Needed only when the Mac cannot reach the PC directly. Both sides dial out to the
-relay themselves, so no port forwarding is required on either end. The relay sees
-only the header and cannot decrypt either the audio or the input. Deployment:
-[docs/VPS.md](docs/VPS.md).
+Needed when the Mac cannot reach the PC directly — different networks, no port you
+can forward, or both sides behind NAT. Both machines dial out to the relay
+themselves, so nothing has to be forwarded at either end, and pairing goes through
+it too: the PC leaves its sealed answer there and the Mac collects it, so the one
+situation a relay exists for is also one you can set up in.
+
+The relay cannot read any of it. The audio and the input stay encrypted end to end
+— it sees only the header it needs to route by — and it is never told the pairing
+code, only a one-way hash of it, so the answer it carries stays sealed to it as
+well. Deployment: [docs/VPS.md](docs/VPS.md).
 
 ### Which virtual cable
 

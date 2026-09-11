@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net.Http;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -223,6 +224,48 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
 
     /// <summary>The data port the note talks about, kept from the last time a code was made.</summary>
     private int _dataPort = 47702;
+
+    /// <summary>
+    /// Whether this code was left with the relay as well as served from here. Changes what
+    /// the screen tells the person to type on the Mac: the relay's address, not this one's.
+    /// </summary>
+    [ObservableProperty] private bool _viaRelay;
+
+    /// <summary>Where the deposit went, shown so the Mac can be pointed at the same place.</summary>
+    [ObservableProperty] private string _relayAddress = "";
+
+    /// <summary>
+    /// Splits the relay setting into host and port without resolving it.
+    ///
+    /// Deliberately not <c>ReceiverConfig.ParseEndpoint</c>, which resolves: the host goes
+    /// into the payload the Mac keeps, and baking today's address of a name into it would
+    /// outlive the address. The Mac resolves it when it connects, every time.
+    /// </summary>
+    private static (string Host, int Port)? ParseRelay(string? relay, int fallbackPort)
+    {
+        if (string.IsNullOrWhiteSpace(relay)) return null;
+
+        var value = relay.Trim();
+
+        // [::1]:47702 — the only form where a colon is not the separator.
+        if (value.StartsWith('['))
+        {
+            var close = value.IndexOf(']');
+            if (close < 0) return null;
+
+            var literal = value[1..close];
+            var rest = value[(close + 1)..];
+            return (literal, rest.StartsWith(':') && int.TryParse(rest[1..], out var bracketed)
+                ? bracketed
+                : fallbackPort);
+        }
+
+        var mark = value.LastIndexOf(':');
+        if (mark <= 0) return value.Length > 0 ? (value, fallbackPort) : null;
+
+        var host = value[..mark];
+        return (host, int.TryParse(value[(mark + 1)..], out var port) ? port : fallbackPort);
+    }
     [ObservableProperty] private bool _isDiscovering;
     [ObservableProperty] private string _machineName = Environment.MachineName;
 
@@ -663,6 +706,50 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         }
     }
 
+    /// <summary>
+    /// Leaves the sealed answer with the relay, so a Mac that cannot reach this machine
+    /// can still collect it.
+    ///
+    /// <para>
+    /// Sealed before it goes, under the code on screen — the relay is handed something it
+    /// cannot read, filed under a name derived from the code by a one-way hash. It never
+    /// learns the code, and therefore never the key.
+    /// </para>
+    ///
+    /// <para>
+    /// Fire and forget. The direct listener on this machine is still running and still
+    /// serves the same code, so a relay that is down or misconfigured costs nothing on a
+    /// network where the two machines can see each other. It is written to the log rather
+    /// than to the screen for the same reason.
+    /// </para>
+    /// </summary>
+    private void LeaveWithRelay((string Host, int Port) relay, string uri, string code)
+    {
+        var blob = PairingSeal.Seal(uri, code);
+        var id = PairingSeal.RendezvousId(code);
+        var address = $"http://{Host(relay.Host)}:{PairingPayload.ExchangePort(relay.Port)}/rendezvous?id={id}";
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+                using var content = new StringContent(blob);
+                var answer = await client.PutAsync(address, content).ConfigureAwait(false);
+
+                _log(answer.IsSuccessStatusCode ? LogLevel.Info : LogLevel.Warning,
+                     Loc.F(Strings.Log_RelayDeposit, relay.Host, (int)answer.StatusCode));
+            }
+            catch (Exception ex)
+            {
+                _log(LogLevel.Warning, Loc.F(Strings.Log_RelayDepositFailed, relay.Host, ex.Message));
+            }
+        });
+    }
+
+    /// <summary>Wraps an IPv6 literal in brackets so it can go into a URL.</summary>
+    private static string Host(string host) => host.Contains(':') ? $"[{host}]" : host;
+
     // MARK: - Step 2: the code
 
     [RelayCommand]
@@ -692,11 +779,26 @@ public sealed partial class PairingViewModel : ObservableObject, IAsyncDisposabl
         _dataPort = port;
         OnPropertyChanged(nameof(RemoteAddressNote));
 
-        var payload = PairingPayload.Create(host, port, MachineName);
+        // With a relay configured, the address the Mac should aim at is the relay, not
+        // this machine: that is the whole point of having one, and it is the only address
+        // that works when neither side can accept a connection. The payload carries it,
+        // so the Mac needs no separate setting.
+        var relay = ParseRelay(config.Relay, port);
+        var payload = relay is { } via
+            ? PairingPayload.Create(via.Host, via.Port, MachineName)
+            : PairingPayload.Create(host, port, MachineName);
+
         Uri = payload.ToUri();
         Fingerprint = payload.Fingerprint;
         Code = ShortCode.Generate();
         Pending = payload;
+        ViaRelay = relay is not null;
+
+        if (relay is { } destination)
+        {
+            RelayAddress = $"{destination.Host}:{destination.Port}";
+            LeaveWithRelay(destination, payload.ToUri(), Code);
+        }
 
         _codeExpiresAt = DateTime.UtcNow + ShortCode.Lifetime;
         StartCountdown();

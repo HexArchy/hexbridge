@@ -26,3 +26,6 @@ relay/hexbridge-relay
 # Прочее
 *.wav
 .DS_Store
+
+# Go build output: `go build ./...` drops the binary next to its source.
+/relay/relay

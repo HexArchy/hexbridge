@@ -56,6 +56,28 @@ ufw allow 47702/udp comment "hexbridge relay"
 
 4. `./deploy.sh` — it does the rsync and the `docker compose up -d` itself.
 
+## Pairing through the relay
+
+The relay also runs a small TCP listener — `-pair-listen`, `:47703` by default, the same
+`+1` convention the PC uses — that lets two machines pair when neither can accept a
+connection. The PC leaves its sealed answer there and the Mac collects it; nothing else
+is served, and every other path answers 404.
+
+Open **both** ports on the VPS: UDP for the audio and TCP for pairing.
+
+```
+ufw allow 47702/udp
+ufw allow 47703/tcp
+```
+
+The relay never learns the pairing code, so it cannot read what it is holding. See
+"Pairing through the relay" in [PROTOCOL.md](PROTOCOL.md) for why that is true rather
+than merely intended.
+
+Set the relay's address in the PC's Settings, under the key and relay section. From then
+on the pairing screen shows the relay's address instead of the PC's local ones, and that
+is the single address to type on the Mac — whatever network either machine is on.
+
 ## Why not go through the existing Hysteria2
 
 Hysteria2 on UDP/443 is a proxy for client traffic, and there is no reason to route
