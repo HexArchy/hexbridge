@@ -165,13 +165,18 @@ first launch and can be switched at any time in Settings, without a restart.
 
 ## Limitations
 
-* DualSense HD haptics is **off by default**. It works — the signature haptics is
-  an isochronous audio stream driving the voice-coil actuators, and HexBridge
-  presents the controller as a composite USB device to carry it — but usbip-win2
-  has an open bugcheck on exactly that isochronous audio path. With the switch
-  off the audio function is absent from the configuration descriptor entirely, so
-  Windows never loads the driver that carries the bug. Turn it on the first time
-  with the receiver's autostart disabled. See [docs/DUALSENSE.md](docs/DUALSENSE.md).
+* DualSense HD haptics is on, and carries the one risk in here worth naming. The
+  signature haptics is an isochronous audio stream driving the voice-coil
+  actuators, so HexBridge presents the controller as a composite USB device —
+  and Windows then loads `usbaudio.sys` on top of usbip-win2's virtual host
+  controller. That is the path usbip-win2 issue #181 bugchecks on. Its fixes are
+  merged and shipped in 0.9.8.0, the version required here, but the issue is
+  still open and somebody was still reproducing it weeks afterwards. So a run
+  that goes down while haptics is presented costs the **next** run its haptics
+  and nothing else: the machine comes back without it, says so in the log, and
+  tries again the run after. Turning the switch off removes the audio path
+  entirely — not one byte of it is reachable — so a controller that crashes your
+  machine can still be used without haptics. See [docs/DUALSENSE.md](docs/DUALSENSE.md).
 * **Gamepad forwarding needs a Mac on the sending side.** The receiver builds a
   virtual USB device out of the real descriptors — device, configuration, HID
   report — and macOS hands all of those over through IOKit for free. Windows does

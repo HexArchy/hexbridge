@@ -39,6 +39,11 @@ public sealed class DevicesFeature : IFeature
     private UsbIpServer? _server;
     private UsbIpAttacher? _attacher;
     private CancellationTokenSource? _cancel;
+
+    /// <summary>Whether the audio function is presented this run. See <see cref="HapticsGuard"/>.</summary>
+    private bool _haptics;
+
+    private HapticsGuard? _guard;
     private IPEndPoint _listen = new(IPAddress.Loopback, 3240);
     private string? _fault;
     private long _rejected;
@@ -170,6 +175,12 @@ public sealed class DevicesFeature : IFeature
     public void Start(FeatureContext context)
     {
         _listen = ReceiverConfig.ParseEndpoint(context.Config.UsbIpListen, 3240);
+
+        // Decided once, here, rather than per device: presenting the audio function is what
+        // can bugcheck the machine, and a guard consulted four times would arm itself four
+        // times over.
+        _guard = new HapticsGuard(HapticsGuard.PathBesideConfig(ReceiverConfig.DefaultPath), context.Log);
+        _haptics = context.Config.Haptics && _guard.MayStart();
         _attacher = new UsbIpAttacher(context.Config.UsbIpPath, context.Log);
         _cancel = new CancellationTokenSource();
         _fault = null;
@@ -204,6 +215,13 @@ public sealed class DevicesFeature : IFeature
         UsbIpServer? server;
         UsbIpAttacher? attacher;
         CancellationTokenSource? cancel;
+
+        // Before anything else: this stop was asked for, so the next run may present the
+        // audio function again. Left until after the teardown it would be missed whenever
+        // the teardown itself threw.
+        _guard?.Finished();
+        _guard = null;
+        _haptics = false;
 
         lock (_gate)
         {
@@ -297,7 +315,7 @@ public sealed class DevicesFeature : IFeature
             device = new VirtualHidDevice(
                 attach,
                 report => SendOutput(attach.Device, report),
-                haptics: context.Config.Haptics,
+                haptics: _haptics,
                 onHaptic: payload => context.Send(PacketType.Haptic, payload));
         }
         catch (Exception ex)
@@ -326,7 +344,7 @@ public sealed class DevicesFeature : IFeature
         context.Log(LogLevel.Info,
             Loc.F(Strings.Log_Dev_Built, device.ProductName, device.Identity, device.Info.BusId));
 
-        if (context.Config.Haptics)
+        if (_haptics)
         {
             // Asking for haptics and getting none is not a failure, but it is the difference
             // between "the actuators are silent because nothing is playing" and "there was
@@ -554,7 +572,7 @@ public sealed class DevicesFeature : IFeature
             ClientConnected = server?.HasClient ?? false,
 
             Devices = devices,
-            HapticsEnabled = Volatile.Read(ref _context)?.Config.Haptics ?? false,
+            HapticsEnabled = _haptics,
         };
     }
 

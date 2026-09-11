@@ -1848,6 +1848,12 @@
   <data name="Log_Dev_Built" xml:space="preserve">
     <value>devices: {0} ({1}) built, busid {2}</value>
   </data>
+  <data name="Log_Haptics_SkippedAfterCrash" xml:space="preserve">
+    <value>HD haptics is sitting out one run: the last one ended unexpectedly. The run after this will try again.</value>
+  </data>
+  <data name="Log_Haptics_GuardUnavailable" xml:space="preserve">
+    <value>the HD haptics catch could not be set ({0}) — haptics is on, but a repeat crash will not be caught</value>
+  </data>
   <data name="Log_Dev_HapticsReady" xml:space="preserve">
     <value>haptics: {0} handed over as a composite, the isochronous OUT is ready</value>
   </data>

@@ -84,15 +84,27 @@ public sealed class ReceiverConfig
     /// HD haptics: serve the controller's audio function alongside its HID interface, so the
     /// PCM a game writes to the voice-coil actuators reaches the Mac.
     ///
-    /// Off in a fresh config, and separate from <see cref="Gamepad"/> on purpose. Adaptive
-    /// triggers, rumble and lighting travel as HID output reports and need none of this;
-    /// haptics need an isochronous endpoint, which means presenting a composite device, which
-    /// means Windows loading usbaudio.sys on top of usbip-win2's vhci. That driver has an open
-    /// bug in the lifetime of a request on exactly that path — issue #181, a bugcheck when an
-    /// audio pin is closed. Anyone who hits it has to be able to keep the controller and drop
-    /// the haptics, and with this off not one byte of the audio path is reachable.
+    /// On, and separate from <see cref="Gamepad"/> on purpose. Adaptive triggers, rumble and
+    /// lighting travel as HID output reports and need none of this; haptics need an
+    /// isochronous endpoint, which means presenting a composite device, which means Windows
+    /// loading usbaudio.sys on top of usbip-win2's vhci.
+    ///
+    /// <para>
+    /// It was off for a long time because that path could bugcheck the machine — usbip-win2
+    /// issue #181, a crash when an audio pin closes. The fixes for it are merged and shipped
+    /// in 0.9.8.0, which is the version we require. The issue is still open and somebody was
+    /// still reproducing it weeks after those fixes landed, so being on by default is backed
+    /// by <see cref="HexBridge.Devices.HapticsGuard"/>: a run that goes down while the audio
+    /// function is presented costs the next run its haptics, and nothing else.
+    /// </para>
+    ///
+    /// <para>
+    /// Turning it off still removes the audio path entirely — not one byte of it is
+    /// reachable — so anyone who does hit a crash can keep the controller and drop the
+    /// haptics.
+    /// </para>
     /// </summary>
-    public bool Haptics { get; set; }
+    public bool Haptics { get; set; } = true;
 
     /// <summary>
     /// Where the USB/IP server listens. usbip-win2 dials 3240 by default and the vhci
@@ -106,12 +118,74 @@ public sealed class ReceiverConfig
     /// <summary>Full path to usbip.exe, when it is not in the usual place or on PATH.</summary>
     public string? UsbIpPath { get; set; }
 
-    /// <summary>Config lives next to the executable so a portable copy carries its own settings.</summary>
-    public static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "config.json");
+    /// <summary>
+    /// Where settings live: beside the user's other application data, not beside the
+    /// executable.
+    ///
+    /// <para>
+    /// It used to be the executable's own folder, which is tidy for a portable copy and
+    /// wrong for an installed one. The Setup installer puts each version in a folder of
+    /// its own and swaps them on update, so a config living there went away with the
+    /// version that wrote it — and the pairing key went with it. Somebody who updates is
+    /// then asked to pair again, which is the one piece of setup nobody wants to repeat.
+    /// </para>
+    /// </summary>
+    public static string DefaultPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HexBridge", "config.json");
+
+    /// <summary>
+    /// Places an older version, or an older name, may have left a config.
+    ///
+    /// Ordered by how likely each is to be the one in use. `MicBridge` is what this was
+    /// called before, and an install from those days still holds a working key.
+    /// </summary>
+    private static IEnumerable<string> LegacyPaths()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        yield return Path.Combine(AppContext.BaseDirectory, "config.json");
+        yield return Path.Combine(local, "HexBridge", "config.json");
+        yield return Path.Combine(local, "MicBridge", "config.json");
+        yield return @"C:\HexBridge-Windows\config.json";
+        yield return @"C:\MicBridge-Windows\config.json";
+    }
+
+    /// <summary>
+    /// Brings an older config forward, once, and answers where to read from.
+    ///
+    /// Copies rather than moves, and never over the top of one that is already there. A
+    /// migration that loses the file it was migrating is worse than no migration, and the
+    /// old copy costs nothing to leave where it lies.
+    /// </summary>
+    private static string Resolve()
+    {
+        var wanted = DefaultPath;
+        if (File.Exists(wanted)) return wanted;
+
+        foreach (var legacy in LegacyPaths())
+        {
+            try
+            {
+                if (!File.Exists(legacy)) continue;
+
+                Directory.CreateDirectory(Path.GetDirectoryName(wanted)!);
+                File.Copy(legacy, wanted, overwrite: false);
+                return wanted;
+            }
+            catch (Exception)
+            {
+                // Unreadable, or a race with another copy of us that got there first.
+                // Either way the file it was going to read is still readable in place.
+                return legacy;
+            }
+        }
+
+        return wanted;
+    }
 
     public static ReceiverConfig Load(string? path = null)
     {
-        path ??= DefaultPath;
+        path ??= Resolve();
         if (!File.Exists(path)) return new ReceiverConfig();
         return JsonSerializer.Deserialize<ReceiverConfig>(File.ReadAllText(path)) ?? new ReceiverConfig();
     }

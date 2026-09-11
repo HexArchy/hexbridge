@@ -1848,6 +1848,12 @@
   <data name="Log_Dev_Built" xml:space="preserve">
     <value>устройства: {0} ({1}) собран, busid {2}</value>
   </data>
+  <data name="Log_Haptics_SkippedAfterCrash" xml:space="preserve">
+    <value>HD-хаптика пропущена на один запуск: прошлый раз завершился аварийно. Следующий запуск попробует снова.</value>
+  </data>
+  <data name="Log_Haptics_GuardUnavailable" xml:space="preserve">
+    <value>защёлку HD-хаптики не удалось поставить ({0}) — хаптика включена, но повторное падение не будет поймано</value>
+  </data>
   <data name="Log_Dev_HapticsReady" xml:space="preserve">
     <value>хаптика: {0} отдан композитом, изохронный OUT готов</value>
   </data>

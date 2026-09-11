@@ -164,18 +164,39 @@ log stream --predicate 'subsystem == "com.apple.iohid"'
 
 ## HD haptics
 
-Supported, but **off by default** — it has its own toggle, independent of triggers
-and rumble.
+Supported and **on by default**, with its own toggle, independent of triggers and
+rumble.
 
-The caution is about the driver, not our code: usbip-win2 has an open bug,
-[#181](https://github.com/vadimgrn/usbip-win2/issues/181), a request-lifetime race
-when an audio pin is closed — that is, exactly on the isochronous path. The risk is
-reduced by three things: with haptics off, the audio functions are not in the
-configuration descriptor at all and Windows never even loads `usbaudio.sys`; the
-microphone endpoint answers with silence rather than an error, so as not to provoke
-a pin open-and-close loop; and every isochronous request is answered immediately, so
-none is left hanging. None of that fixes the bug itself. The first time you turn
-haptics on, it is worth disabling autostart of the receiver.
+It was off for a long time, and the caution was always about the driver rather than
+our code: usbip-win2 issue
+[#181](https://github.com/vadimgrn/usbip-win2/issues/181) is a request-lifetime race
+when an audio pin is closed — exactly the isochronous path. What changed is that its
+fixes are merged and shipped in the 0.9.8.0 we require: commit `4139f44`, a pool
+overrun in the filter driver's IRP accessor that corrupted memory on every
+`SELECT_INTERFACE`, and [PR #182](https://github.com/vadimgrn/usbip-win2/pull/182),
+"fix request lifetime races behind the pool corruption in #181", merged on
+2026-08-05. The driver binary in 0.9.8.0 is dated after both.
+
+**The issue is still open**, and as recently as 2026-09-05 somebody who had never
+hit the bugcheck reported reproducing it. Further fixes exist only on the
+development branch, with no signed release. So this is on by default because the
+odds moved, not because the matter is closed.
+
+What stands behind that decision:
+
+* A run that goes down while the audio function is presented costs the **next** run
+  its haptics. A marker is written when the function goes up and removed on a clean
+  stop; finding it at startup means the machine did not come back on its own terms.
+  One run, then it tries again. Without this, on-by-default would mean a machine
+  that bugchecks, reboots, starts HexBridge and bugchecks again, with no way in.
+* Turning the switch off removes the audio functions from the configuration
+  descriptor entirely — Windows never loads `usbaudio.sys` — so a controller that
+  crashes a machine can still be used without haptics.
+* The microphone endpoint answers with silence rather than an error, so as not to
+  provoke a pin open-and-close loop, and every isochronous request is answered
+  immediately so none is left hanging.
+
+Pin **0.9.8.0 or newer**. 0.9.7.7 and 0.9.7.8 carry the bug without the fixes.
 
 ### What the real controller turned out to do
 
