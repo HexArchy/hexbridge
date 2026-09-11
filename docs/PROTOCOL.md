@@ -358,11 +358,19 @@ long as the transfer is running.
 | 11  | 4·K  | numbers of missing chunks after the first, LE u32 |
 ```
 
-The sender resends only what is listed. The list is capped at 256 numbers. There is
-no truncation flag in the packet: exactly 256 listed numbers is itself the signal
-that "there may be more", and the sender starts over from the first missing chunk.
-With exactly 257 holes that costs one redundant resend — at that link quality
-selective retransmission is not winning anyway.
+The sender resends what is listed. The list is capped at 256 numbers. There is no
+truncation flag in the packet: exactly 256 listed numbers is itself the signal that
+"there may be more".
+
+What the sender does about that "more" is its own business, and only two things are
+required of it: answer every number it was given, and keep making progress past the
+last one. The obvious reading — start again from the first missing chunk — is one way
+and an expensive one: it costs about ×1.75 in chunks on the wire at 1 % loss, and on a
+four-gigabyte object it means re-sending the whole thing every 200 ms because of a
+single early loss. Both implementations instead answer the listed stretch exactly and,
+beyond it, send only chunks they have never sent. Nothing is lost by that: the
+receiver goes on acknowledging every 200 ms, so a hole it could not name this time is
+named next time.
 
 When nothing is missing, the "first missing chunk" field carries the chunk count,
 that is one more than the last chunk, and `K` is zero. Otherwise the sender would
