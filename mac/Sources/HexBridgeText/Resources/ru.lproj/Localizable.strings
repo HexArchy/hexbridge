@@ -261,6 +261,9 @@
 "pairing.exchange.tooLong" = "ответ слишком длинный";
 "pairing.exchange.badPort" = "неверный порт";
 "pairing.exchange.unreadable" = "ответ не похож на HTTP";
+"send.usage" = "укажите файл: hexbridge send <путь>";
+"send.noAnswer" = "вторая машина не отвечает — файл не отправлен";
+"send.done" = "«%@» — %@ МБ/с, итог: %@";
 "config.unreadable" = "не удалось прочитать конфиг %@ — %@";
 "relay.direct.trying" = "пробую прямой путь на %@";
 "relay.direct.up" = "прямой путь работает — релей больше не в цепочке";

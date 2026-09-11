@@ -261,6 +261,9 @@
 "pairing.exchange.tooLong" = "the answer was too long";
 "pairing.exchange.badPort" = "that port cannot be used";
 "pairing.exchange.unreadable" = "the answer did not look like HTTP";
+"send.usage" = "name a file: hexbridge send <path>";
+"send.noAnswer" = "the other machine is not answering — nothing was sent";
+"send.done" = "“%@” — %@ MB/s, outcome: %@";
 "config.unreadable" = "the config at %@ could not be read — %@";
 "relay.direct.trying" = "trying a direct path to %@";
 "relay.direct.up" = "the direct path works — the relay is out of the chain";

@@ -141,6 +141,10 @@ enum CLI {
             runDevices(args)
             exit(0)
 
+        case "send":
+            runSend(args)
+            exit(0)
+
         default:
             return
         }
@@ -288,6 +292,71 @@ enum CLI {
     /// Dispatch sources are only live while something holds them; a local would
     /// be released at the end of the enclosing scope and silently cancelled.
     private nonisolated(unsafe) static var keepAlive: [Any] = []
+
+    /// Sends one file and waits for the other machine to say it has it.
+    ///
+    /// The app does this by dropping a file on a window, which is the right way round
+    /// for a person and no way at all for anyone checking that a four-gigabyte transfer
+    /// survives a real network. It is also the answer to "it did not arrive" from
+    /// somebody who cannot send a screenshot: this prints what happened.
+    static func runSend(_ args: Arguments) {
+        guard let path = args.object ?? args.value("file") else {
+            fail(L.t("send.usage"))
+        }
+
+        let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let (config, configPath) = resolveConfig(args)
+        let runtime = BridgeRuntime(config: config, configPath: configPath)
+
+        do {
+            _ = try config.symmetricKey()
+            try runtime.start()
+        } catch {
+            fail("\(error)")
+        }
+
+        // Both ends have to be talking before an offer means anything: the channel would
+        // otherwise send it into the dark and report a timeout thirty seconds later.
+        let deadline = Date().addingTimeInterval(10)
+        while runtime.snapshot().pong == nil, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        guard runtime.snapshot().pong != nil else { fail(L.t("send.noAnswer")) }
+
+        let bulk = runtime.bulk
+        let name = url.lastPathComponent
+        var outcome: BulkOutcome?
+
+        bulk.observeFinished { result in
+            if result.description == name { outcome = result.outcome }
+        }
+
+        do {
+            _ = try bulk.offer(kind: .file, format: .opaque, file: url, description: name)
+        } catch {
+            fail("\(error)")
+        }
+
+        let started = Date()
+        var lastPrinted = -1
+        while outcome == nil {
+            bulk.tick(now: Date())
+            if let moving = bulk.progress().first(where: { $0.kind == .file }) {
+                let percent = Int(Double(moving.chunksDone) / Double(max(moving.chunkCount, 1)) * 100)
+                if percent != lastPrinted {
+                    lastPrinted = percent
+                    print("\(percent)%", terminator: "\r")
+                    fflush(stdout)
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+
+        let seconds = Date().timeIntervalSince(started)
+        let keys: Set<URLResourceKey> = [.fileSizeKey]
+        let size = (try? url.resourceValues(forKeys: keys).fileSize) ?? 0
+        print(L.t("send.done", name, L.number(Double(size) / 1_048_576 / max(seconds, 0.001)), "\(outcome!)"))
+    }
 
     static func runHeadless(_ runtime: BridgeRuntime, quiet: Bool) -> Never {
         let hostPort: (host: String, port: UInt16)
