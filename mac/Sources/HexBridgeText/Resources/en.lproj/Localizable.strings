@@ -18,7 +18,9 @@
 "unit.percent" = "%@\U00A0%%";
 "unit.ms" = "%@\U00A0ms";
 "unit.kbits" = "%@\U00A0kbit/s";
+"unit.mbs" = "%@\U00A0MB/s";
 "unit.hz" = "%@\U00A0Hz";
+"unit.gb" = "%@\U00A0GB";
 "unit.mb" = "%@\U00A0MB";
 "unit.kb" = "%@\U00A0KB";
 "unit.bytes" = "%@\U00A0B";
@@ -155,6 +157,9 @@
 "link.bitrate" = "Bitrate";
 "link.expectedLoss" = "Expected packet loss: %@";
 "link.expectedLoss.help" = "Higher means steadier sound and more traffic.";
+"link.sendRate" = "Transfer speed";
+"link.sendRate.unlimited" = "As fast as the link goes";
+"link.sendRate.help" = "Files and the clipboard share the link with the sound. Left alone, HexBridge speeds up while everything is getting through and eases off when it stops.";
 
 /* MARK: - Settings, Diagnostics */
 
@@ -577,7 +582,7 @@
 "runtime.error.notStarted" = "the stream is not running";
 "sender.error.descriptorTooBig" = "the description of the device does not fit in one packet";
 "bulk.error.empty" = "there is nothing to send: the object is empty";
-"bulk.error.tooLarge" = "the object is larger than 64 MB, which is as much as this link carries in one go";
+"bulk.error.tooLarge" = "the object is larger than %@, which is as much as this link carries in one go";
 
 "devices.error.subscribe" = "USB plug and unplug events could not be subscribed to";
 "devices.error.open" = "“%@” could not be opened";

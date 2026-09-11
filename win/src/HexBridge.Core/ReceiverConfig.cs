@@ -100,6 +100,40 @@ public sealed class ReceiverConfig
     public bool Files { get; set; } = true;
 
     /// <summary>
+    /// How fast files and clipboard objects may be sent, in chunks a second — a chunk being
+    /// the 1024 bytes docs/PROTOCOL.md fixes, so the number is also kibibytes a second.
+    /// Zero — which is what a config that was never asked says — means no ceiling of ours.
+    ///
+    /// <para>
+    /// No ceiling does not mean as fast as a loop can spin. HexBridge speeds up while the
+    /// other machine is getting everything and slows down as soon as it starts asking for
+    /// chunks a second time, so an unset limit settles on what the link actually carries.
+    /// The setting is for the link this program cannot see into: a connection somebody pays
+    /// for by the gigabyte, or a household that notices when one machine takes it all.
+    /// </para>
+    ///
+    /// <para>
+    /// The name is the Mac's, which calls the same setting <c>sendRate</c> and counts it in
+    /// the same units. One idea, one word — the two configs are separate files, but the
+    /// person changing one of them is the same person.
+    /// </para>
+    /// </summary>
+    public int SendRate { get; set; }
+
+    /// <summary>
+    /// What the relay carries from one address before it starts dropping, in packets per
+    /// second. Zero means the number in docs/PROTOCOL.md, which is 2000.
+    ///
+    /// <para>
+    /// Read only when a relay is configured, and only to keep transfers underneath it: what
+    /// a relay drops comes back as a hole and is sent again, so aiming above its limit makes
+    /// a transfer slower rather than faster. A relay started with a higher limit than the
+    /// contract's is worth saying so here — this end has no way to ask it.
+    /// </para>
+    /// </summary>
+    public int RelayPacketsPerSecond { get; set; }
+
+    /// <summary>
     /// HD haptics: serve the controller's audio function alongside its HID interface, so the
     /// PCM a game writes to the voice-coil actuators reaches the Mac.
     ///

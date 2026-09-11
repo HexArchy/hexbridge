@@ -29,6 +29,21 @@ public sealed class BulkLane
     /// </summary>
     public Func<byte[], bool>? Owns { get; set; }
 
+    /// <summary>
+    /// Where this feature wants an arriving object staged while it is being assembled, or
+    /// null to have it held in memory.
+    ///
+    /// <para>
+    /// One answer to two questions, deliberately: a feature that names a folder is one
+    /// whose objects are streamed to disk and never held whole, and a feature that names
+    /// none is one whose objects fit in memory by construction. Files are the first, and
+    /// the folder they stage in is the folder they land in — so the last step of a transfer
+    /// is a rename rather than a copy from one volume to another. The clipboard is the
+    /// second, and its 64 MiB ceiling is what makes that safe.
+    /// </para>
+    /// </summary>
+    public Func<string?>? Staging { get; set; }
+
     /// <summary>An object of this kind arrived whole. Raised on the socket thread.</summary>
     public event Action<BulkDelivery>? Delivered;
 
@@ -40,7 +55,15 @@ public sealed class BulkLane
     /// reason the user can read.
     /// </summary>
     public uint? Offer(BulkFormat format, byte[] bytes, string description, DateTime now, out string? error) =>
-        _host.Offer(Kind, format, bytes, description, now, out error);
+        _host.Offer(Kind, format, BulkSource.FromMemory(bytes), description, now, out error);
+
+    /// <summary>
+    /// The same, for an object that is not in memory and must not be — a file, read a chunk
+    /// at a time for as long as the transfer lasts. The source is taken over whatever
+    /// happens next, including a refusal, so the caller never has to close it.
+    /// </summary>
+    public uint? Offer(BulkFormat format, BulkSource source, string description, DateTime now, out string? error) =>
+        _host.Offer(Kind, format, source, description, now, out error);
 
     /// <summary>What this feature has in flight, for a progress bar. Never anybody else's.</summary>
     public BulkProgress[] Progress() => _host.Progress(Kind);
@@ -52,6 +75,8 @@ public sealed class BulkLane
     internal bool IsOpen => Delivered is not null;
 
     internal bool Has(byte[] hash) => Owns?.Invoke(hash) == true;
+
+    internal string? StagingFolder() => Staging?.Invoke();
 
     internal void Deliver(BulkDelivery delivery) => Delivered?.Invoke(delivery);
 
@@ -99,7 +124,7 @@ public sealed class BulkHost : IFeature
 
     /// <summary>
     /// On when anything needs it and off otherwise. A channel nobody is using would still
-    /// accept an offer, pull up to 64 MiB across the network and hand it to no one.
+    /// accept an offer, pull gigabytes across the network and hand them to no one.
     /// </summary>
     public bool IsEnabled(ReceiverConfig config) => config.Clipboard || config.Files;
 
@@ -126,6 +151,8 @@ public sealed class BulkHost : IFeature
         {
             Owns = HasAlready,
             Wanted = IsWanted,
+            Staging = StagingFor,
+            ChunkRateCeiling = CeilingFor(context.Config),
         };
         channel.Delivered += OnDelivered;
         channel.Finished += OnFinished;
@@ -153,10 +180,12 @@ public sealed class BulkHost : IFeature
     {
         CancellationTokenSource? cancel;
         Thread? worker;
+        BulkChannel? channel;
         lock (_gate)
         {
             cancel = _cancel;
             worker = _worker;
+            channel = _channel;
             _cancel = null;
             _worker = null;
             _channel = null;
@@ -167,6 +196,11 @@ public sealed class BulkHost : IFeature
         // Bounded: the thread only ever sleeps for a tick and does nothing that can block.
         worker?.Join(TimeSpan.FromSeconds(2));
         cancel?.Dispose();
+
+        // After the thread has stopped, so nothing is being written while it is thrown
+        // away. Half-received objects are what this is for: dropping the channel would
+        // leave their temporary files on disk, and nobody would ever come back for them.
+        channel?.Reset();
         return Task.CompletedTask;
     }
 
@@ -201,15 +235,19 @@ public sealed class BulkHost : IFeature
 
     // MARK: - Lanes
 
-    internal uint? Offer(BulkKind kind, BulkFormat format, byte[] bytes, string description, DateTime now, out string? error)
+    internal uint? Offer(BulkKind kind, BulkFormat format, BulkSource source, string description, DateTime now, out string? error)
     {
         var channel = Volatile.Read(ref _channel);
         if (channel is null)
         {
+            // The source belongs to the channel from the moment it is handed over, and
+            // there is no channel — so it is closed here rather than left open on a file
+            // nobody is going to send.
+            source.Dispose();
             error = Strings.Err_Bulk_NotRunning;
             return null;
         }
-        return channel.Offer(kind, format, bytes, description, now, out error);
+        return channel.Offer(kind, format, source, description, now, out error);
     }
 
     internal BulkProgress[] Progress(BulkKind kind) =>
@@ -223,6 +261,30 @@ public sealed class BulkHost : IFeature
     }
 
     private bool HasAlready(BulkKind kind, byte[] hash) => Find(kind)?.Has(hash) == true;
+
+    private string? StagingFor(BulkKind kind) => Find(kind)?.StagingFolder();
+
+    /// <summary>
+    /// The fastest this machine should aim to send, worked out once when the channel is
+    /// built.
+    ///
+    /// <para>
+    /// Two things can hold it down. One is the setting, which is there for a link somebody
+    /// knows something about that this program does not — a metered connection, a household
+    /// that notices. The other is a relay: it drops whatever exceeds its per-address limit,
+    /// and a dropped chunk comes back as a hole and is sent again, so aiming above what a
+    /// relay carries is a way of making a transfer slower rather than faster. With neither,
+    /// there is no artificial ceiling at all and the pacing finds the link's own.
+    /// </para>
+    /// </summary>
+    internal static double CeilingFor(ReceiverConfig config)
+    {
+        double? relay = string.IsNullOrWhiteSpace(config.Relay)
+            ? null
+            : config.RelayPacketsPerSecond > 0 ? config.RelayPacketsPerSecond : Bulk.RelayPacketsPerSecond;
+
+        return Bulk.CeilingFor(config.SendRate, relay);
+    }
 
     /// <summary>
     /// A lane with a listener is a feature that is running. A kind whose feature is off is
@@ -242,10 +304,32 @@ public sealed class BulkHost : IFeature
             // for a file that was never written.
             Volatile.Read(ref _context)?.Log(LogLevel.Warning,
                 Loc.F(Strings.Log_Bulk_Unwanted, delivery.Description));
+
+            // The object was handed over the moment it verified, and there is nobody to
+            // hand it to. Whatever it was streamed into is ours to clear away.
+            Discard(delivery);
             return;
         }
 
         lane.Deliver(delivery);
+    }
+
+    /// <summary>
+    /// Throws away an object nobody took. Never throws itself: a temporary file that
+    /// survives is swept at the next start, and a failure here would take the channel's
+    /// thread with it.
+    /// </summary>
+    private static void Discard(BulkDelivery delivery)
+    {
+        if (delivery.Path is null) return;
+
+        try
+        {
+            File.Delete(delivery.Path);
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private void OnFinished(BulkResult result) => Find(result.Kind)?.Finish(result);

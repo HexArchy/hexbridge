@@ -170,7 +170,13 @@ final class ClipboardFeature: Feature {
     }
 
     private func accept(_ delivery: BulkDelivery) {
-        let item = ClipboardItem(format: delivery.format, bytes: delivery.bytes)
+        // The clipboard asks for its objects in memory, so this is the only
+        // shape one can arrive in — and it has to be: the pasteboard is handed
+        // bytes, and there is no version of this feature that does not hold
+        // them.
+        guard case .bytes(let bytes) = delivery.payload else { return }
+
+        let item = ClipboardItem(format: delivery.format, bytes: bytes)
         sync.apply(item)
 
         received += 1

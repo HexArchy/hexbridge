@@ -45,6 +45,12 @@ public sealed class FilesFeature : IFeature
     {
         _lane = bulk.Lane(BulkKind.File);
         _folder = folder;
+
+        // A file is put together on disk rather than in memory, and in the folder it is
+        // going to end up in. The last step of a transfer is then a rename, which costs the
+        // same whatever the size, instead of a copy from one volume to another — which for
+        // four gigabytes means writing four gigabytes a second time.
+        _lane.Staging = Folder;
     }
 
     public string Id => "files";
@@ -75,6 +81,12 @@ public sealed class FilesFeature : IFeature
             _received = 0;
             _arrived.Clear();
         }
+
+        // Before the lane is listening, which is the moment nothing can be in flight: a
+        // file offered to a feature with nobody on it is turned down, so anything
+        // half-written in there belongs to a run that ended without being able to clear up
+        // after itself — a machine that lost power, or was switched off mid-transfer.
+        FileNames.SweepPartials(Folder());
 
         _lane.Delivered += OnDelivered;
         _lane.Finished += OnFinished;
@@ -178,10 +190,17 @@ public sealed class FilesFeature : IFeature
     /// the user can read when it is not.
     ///
     /// <para>
-    /// Reads the whole file, so it is called from a thread that can afford to wait. The size
-    /// is checked from the directory entry first: the ceiling exists because both ends hold
-    /// the object in memory, and reading a four-gigabyte file in order to refuse it would be
-    /// the one way to run out of memory on the way to saying no.
+    /// The file is never read into memory — it is opened and left open, and the channel
+    /// reads each chunk out of it as it goes, the ones it has to send a second time
+    /// included. What this does do before any of that is read it once to hash it, because
+    /// the hash travels in the offer and the offer goes first; so it is called from a
+    /// thread that can afford to wait, which for four gigabytes is seconds.
+    /// </para>
+    ///
+    /// <para>
+    /// The size is checked from the directory entry rather than from the file: a refusal
+    /// that had to open and hash the file first would be the slowest way there is of saying
+    /// no.
     /// </para>
     /// </summary>
     public string? Send(string path)
@@ -193,22 +212,15 @@ public sealed class FilesFeature : IFeature
         {
             var file = new FileInfo(path);
             if (!file.Exists) return Loc.F(Strings.Err_Files_Gone, Path.GetFileName(path));
-            if (file.Length > Bulk.MaxObjectSize)
-            {
-                return Loc.F(Strings.Err_Bulk_TooBig,
-                    Loc.Size(file.Length),
-                    Bulk.MaxObjectSize / (1024 * 1024));
-            }
-
-            var bytes = File.ReadAllBytes(path);
+            if (file.Length > Bulk.MaxSizeFor(BulkKind.File)) return BulkChannel.TooBig(BulkKind.File, file.Length);
 
             // The contract's own rule for kind 2: the description is the name and nothing
             // else, and it is trimmed before it is sent rather than by whoever receives it.
             var name = FileNames.Sanitise(Path.GetFileName(path));
-            _lane.Offer(BulkFormat.Opaque, bytes, name, DateTime.UtcNow, out var error);
+            _lane.Offer(BulkFormat.Opaque, BulkSource.FromFile(path), name, DateTime.UtcNow, out var error);
             if (error is not null) return error;
 
-            context?.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Sending, name, Loc.Size(bytes.Length)));
+            context?.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Sending, name, Loc.Size(file.Length)));
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -263,8 +275,14 @@ public sealed class FilesFeature : IFeature
     // MARK: - Receiving
 
     /// <summary>
-    /// Called on the socket thread, so it does nothing but queue: writing sixty megabytes to
-    /// disk there would stop every packet on the link, voice included, for as long as it took.
+    /// Called on the channel's thread, so it does nothing but queue: giving a file its real
+    /// name can mean waiting on a disk, and that thread has acks to send.
+    ///
+    /// <para>
+    /// A file arrives as a temporary file that is already whole and already verified, and
+    /// from this moment it belongs to this feature — if the queue will not take it, it is
+    /// this feature that has to clear it away.
+    /// </para>
     /// </summary>
     private void OnDelivered(BulkDelivery delivery)
     {
@@ -273,11 +291,35 @@ public sealed class FilesFeature : IFeature
 
         try
         {
-            arrivals?.Add(delivery);
+            if (arrivals is null)
+            {
+                Discard(delivery);
+                return;
+            }
+            arrivals.Add(delivery);
         }
         catch (InvalidOperationException)
         {
             // The feature was switched off between the delivery and this line.
+            Discard(delivery);
+        }
+    }
+
+    /// <summary>
+    /// Throws away an object that never made it to a name. Never throws: what is left
+    /// behind is swept the next time the feature starts, and a failure here would cost the
+    /// thread it is on.
+    /// </summary>
+    private static void Discard(BulkDelivery delivery)
+    {
+        if (delivery.Path is null) return;
+
+        try
+        {
+            File.Delete(delivery.Path);
+        }
+        catch (Exception)
+        {
         }
     }
 
@@ -290,9 +332,14 @@ public sealed class FilesFeature : IFeature
         {
             try
             {
-                var path = FileNames.Save(Folder(), delivery.Description, delivery.Bytes);
+                // Two ways in, and which one it is says how the object crossed. A file is
+                // staged on disk and gets its real name by being renamed; anything that
+                // came the other way was small enough to be held, and is written out here.
+                var path = delivery.Path is { } staged
+                    ? FileNames.Adopt(Folder(), delivery.Description, staged)
+                    : FileNames.Save(Folder(), delivery.Description, delivery.Bytes ?? []);
                 var arrival = new ArrivedFile(
-                    Path.GetFileName(path), path, delivery.Bytes.Length, DateTime.UtcNow);
+                    Path.GetFileName(path), path, delivery.Size, DateTime.UtcNow);
 
                 lock (_gate)
                 {
@@ -309,6 +356,9 @@ public sealed class FilesFeature : IFeature
             {
                 // A full disk or a folder somebody took the rights to must not cost the
                 // thread: the next file may well land, and the page says what happened.
+                // What was staged goes with it — a file that could not be given its name
+                // is not one to leave lying under the name it was streamed into.
+                Discard(delivery);
                 lock (_gate) _fault = ex.Message;
                 context.Log(LogLevel.Error, Loc.F(Strings.Log_Files_WriteFailed, ex.Message));
             }

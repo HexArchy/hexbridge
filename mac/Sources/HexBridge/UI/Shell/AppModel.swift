@@ -518,6 +518,20 @@ final class AppModel: FeatureHost {
         set { config.expectedLossPercent = newValue; markNeedsRestart() }
     }
 
+    /// The ceiling on how fast files and the clipboard are pushed, in blocks a
+    /// second, with zero for "no ceiling of ours".
+    ///
+    /// Applied at once and never a reason to restart: the channel reads it on
+    /// its next tick, and there is no socket or encoder to rebuild for it.
+    var sendRate: Int {
+        get { config.sendRate ?? 0 }
+        set {
+            config.sendRate = newValue
+            runtime.applySendRate()
+            saveSoon()
+        }
+    }
+
     var gain: Double {
         get { config.gain }
         set {

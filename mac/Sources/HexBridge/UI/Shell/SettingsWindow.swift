@@ -244,11 +244,39 @@ struct ConnectionPane: View {
                     step: 5
                 )
                 .help(L.t("link.expectedLoss.help"))
+
+                // Here rather than on the Files pane: the same channel carries
+                // the clipboard, and a speed that lives under one of the two
+                // features would be a setting the other one silently obeys.
+                Picker(L.t("link.sendRate"), selection: $model.sendRate) {
+                    Text(L.t("link.sendRate.unlimited")).tag(0)
+                    ForEach(rateChoices, id: \.self) { rate in
+                        Text(rateTitle(rate)).tag(rate)
+                    }
+                }
+                .help(L.t("link.sendRate.help"))
             }
 
             RestartBanner(model: model)
         }
         .formStyle(.grouped)
+    }
+
+    /// The offered speeds, in blocks a second. A value that is in the config but
+    /// not on this list — somebody edited the file — is added rather than
+    /// dropped, because a picker showing nothing at all is worse than a picker
+    /// showing an odd number.
+    private var rateChoices: [Int] {
+        let offered = [1024, 2048, 5120, 10240, 25600]
+        guard model.sendRate > 0, !offered.contains(model.sendRate) else { return offered }
+        return (offered + [model.sendRate]).sorted()
+    }
+
+    /// Blocks a second read as nothing; megabytes a second read as a speed. The
+    /// decimal only appears when dropping it would be a lie.
+    private func rateTitle(_ blocks: Int) -> String {
+        let perSecond = Double(blocks) * Double(Bulk.chunkSize) / (1024 * 1024)
+        return L.t("unit.mbs", L.number(perSecond, decimals: perSecond == perSecond.rounded() ? 0 : 1))
     }
 }
 

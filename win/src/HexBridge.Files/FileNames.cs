@@ -130,6 +130,83 @@ public static class FileNames
     }
 
     /// <summary>
+    /// Moves a file that has already been written — the temporary one an arriving object was
+    /// streamed into — to its real name in <paramref name="folder"/>, and answers where it
+    /// landed.
+    ///
+    /// <para>
+    /// The same rules as <see cref="Save"/> and for the same reasons: the name is sanitised,
+    /// nothing is ever written over, and a name already taken is tried again as « (2)». A
+    /// move rather than a copy, within the one folder, so a four-gigabyte file arrives by
+    /// having its name changed rather than by being written to disk a second time.
+    /// </para>
+    /// </summary>
+    public static string Adopt(string folder, string? name, string staged)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        Directory.CreateDirectory(root);
+
+        var safe = Sanitise(name);
+        for (var attempt = 1; attempt <= MaxNumbered; attempt++)
+        {
+            var candidate = attempt == 1 ? safe : Numbered(safe, attempt);
+            var path = Path.GetFullPath(Path.Combine(root, candidate));
+
+            if (!Inside(root, path)) throw new IOException(Loc.F(Strings.Err_Files_Outside, candidate));
+
+            try
+            {
+                // Never over the top of one that is there: the move is what decides, not a
+                // check before it, exactly as the create does in Save.
+                File.Move(staged, path, overwrite: false);
+                return path;
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                // Taken. Anything else — no room, no permission — is a real failure and
+                // belongs to the caller.
+            }
+        }
+
+        throw new IOException(Loc.F(Strings.Err_Files_NoName, safe));
+    }
+
+    /// <summary>
+    /// Clears away what half-finished transfers left behind.
+    ///
+    /// <para>
+    /// A transfer that is abandoned deletes its own temporary file; one that ends with the
+    /// machine losing power cannot. This is called as the feature starts, the one moment
+    /// when nothing can be in flight, so anything matching is the remains of a run that is
+    /// over. It never throws: a file that will not go is not a reason to refuse to start.
+    /// </para>
+    /// </summary>
+    public static void SweepPartials(string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return;
+
+            foreach (var path in Directory.EnumerateFiles(folder, "*" + Bulk.PartialExtension))
+            {
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception)
+                {
+                    // Held open by something else, or not ours to delete. It is tried again
+                    // at the next start.
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // No folder, or no rights to list it. Nothing here is worth a fault on the page.
+        }
+    }
+
+    /// <summary>
     /// The user's Downloads folder, which is where the contract says files land.
     /// </summary>
     public static string Downloads()

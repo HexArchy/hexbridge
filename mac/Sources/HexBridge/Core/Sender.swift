@@ -45,6 +45,14 @@ final class Sender {
     /// by silence.
     private(set) var usingDirect = false
 
+    /// Whether the address we were given turned out to be a relay.
+    ///
+    /// Only a relay sends the introduction (PROTOCOL.md, type 14), so one
+    /// arriving is the answer to a question nothing else here can ask. Latched
+    /// rather than sampled: a relay does not stop being one between two of its
+    /// own packets.
+    private var relayAnnouncedItself = false
+
     /// How long the direct path may be silent before the relay takes over. Three
     /// missed keepalives: long enough not to flap on one lost packet.
     private static let directGrace: TimeInterval = 3.5
@@ -97,6 +105,19 @@ final class Sender {
     var onHaptic: ((Wire.Haptics.Block) -> Void)?
 
     var muted = false
+
+    /// True while what we send is going through a relay rather than straight at
+    /// the other machine.
+    ///
+    /// Asked by the bulk channel, which has to keep its speed under what a relay
+    /// carries: a relay drops what exceeds its per-endpoint limit, and a dropped
+    /// chunk comes back as a hole and is sent twice. A direct path has no such
+    /// limit, so the moment one comes up the answer changes.
+    var throughRelay: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return relayAnnouncedItself && !usingDirect
+    }
 
     init(target: NWEndpoint, key: SymmetricKey, nodeName: String) {
         self.target = target
@@ -312,6 +333,9 @@ final class Sender {
         // comes from the relay, which has no key. It is never a reason to trust
         // anything, only a suggestion of where to knock.
         if let header = Wire.Header.decode(datagram[...]), header.type == .peer, header.room == room, !direct {
+            lock.lock()
+            relayAnnouncedItself = true
+            lock.unlock()
             noteCandidate(in: datagram)
             return
         }

@@ -27,6 +27,13 @@ public sealed record DeviceOption(string? Selector, string Title, string? Paired
 public sealed record BitrateOption(int Value, string Title);
 
 /// <summary>
+/// One ceiling for file and clipboard transfers, in kibibytes per second. Zero is «no
+/// limit», which is the first item and the default — a chunk is 1024 bytes, so the number
+/// is the same one the pacing counts in.
+/// </summary>
+public sealed record SpeedOption(int Value, string Title);
+
+/// <summary>
 /// An editable copy of <see cref="ReceiverConfig"/>. Nothing here touches the running
 /// receiver until the user saves, so a half-typed port cannot knock the audio out.
 /// </summary>
@@ -78,6 +85,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<OutputMode> OutputModes { get; private set; } = BuildOutputModes();
 
+    /// <summary>How fast files and the clipboard may be sent. Shared by both: one channel.</summary>
+    public IReadOnlyList<SpeedOption> Speeds { get; private set; } = BuildSpeeds();
+
     public IReadOnlyList<ThemeOption> Themes { get; private set; } = BuildThemes();
 
     /// <summary>«System / English / Русский». Each language names itself, in itself.</summary>
@@ -105,6 +115,25 @@ public sealed partial class SettingsViewModel : ObservableObject
         new("null", Strings.Settings_Output_Null),
         new("wav:hexbridge.wav", Strings.Settings_Output_Wav),
     ];
+
+    /// <summary>
+    /// No limit, and then three round numbers. A box to type a number into was the other
+    /// way, and it is the wrong one: the honest answer for almost everybody is the first
+    /// item, and the people who want one of the others do not care whether it is 5 or 5.5.
+    /// A value that came from the config and is not on this list keeps its own item, so
+    /// opening the settings page never quietly changes a setting.
+    /// </summary>
+    private static SpeedOption[] BuildSpeeds() =>
+    [
+        new(0, Strings.Settings_Speed_Unlimited),
+        new(1 * 1024, Loc.F(Strings.Settings_Speed_Format, 1)),
+        new(5 * 1024, Loc.F(Strings.Settings_Speed_Format, 5)),
+        new(20 * 1024, Loc.F(Strings.Settings_Speed_Format, 20)),
+    ];
+
+    private SpeedOption SpeedFor(int value) =>
+        Speeds.FirstOrDefault(s => s.Value == value)
+            ?? new SpeedOption(value, Loc.F(Strings.Settings_Speed_Custom, value));
 
     private static ThemeOption[] BuildThemes() =>
     [
@@ -148,6 +177,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>The same: off until asked for, because a file that arrives is written.</summary>
     [ObservableProperty] private bool _files;
+
+    [ObservableProperty] private SpeedOption? _speed;
 
     [ObservableProperty] private bool _usbIpAutoAttach = true;
     [ObservableProperty] private string _usbIpListen = "127.0.0.1:3240";
@@ -212,6 +243,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Gamepad = config.Gamepad;
         Clipboard = config.Clipboard;
         Files = config.Files;
+        Speed = SpeedFor(config.SendRate);
         UsbIpAutoAttach = config.UsbIpAutoAttach;
         UsbIpListen = config.UsbIpListen;
         UsbIpPath = config.UsbIpPath ?? "";
@@ -262,6 +294,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         config.Gamepad = Gamepad;
         config.Clipboard = Clipboard;
         config.Files = Files;
+        config.SendRate = Speed?.Value ?? 0;
         config.UsbIpAutoAttach = UsbIpAutoAttach;
         config.UsbIpListen = string.IsNullOrWhiteSpace(UsbIpListen) ? "127.0.0.1:3240" : UsbIpListen.Trim();
         config.UsbIpPath = string.IsNullOrWhiteSpace(UsbIpPath) ? null : UsbIpPath.Trim();
@@ -411,18 +444,21 @@ public sealed partial class SettingsViewModel : ObservableObject
             var input = Input?.Value;
             var bitrate = Bitrate?.Value;
             var output = Output?.Value;
+            var speed = Speed?.Value ?? 0;
             var theme = Theme?.Value;
             var language = Language?.Value;
 
             InputModes = BuildInputModes();
             Bitrates = BuildBitrates();
             OutputModes = BuildOutputModes();
+            Speeds = BuildSpeeds();
             Themes = BuildThemes();
             Languages = BuildLanguages();
 
             OnPropertyChanged(nameof(InputModes));
             OnPropertyChanged(nameof(Bitrates));
             OnPropertyChanged(nameof(OutputModes));
+            OnPropertyChanged(nameof(Speeds));
             OnPropertyChanged(nameof(Themes));
             OnPropertyChanged(nameof(Languages));
 
@@ -430,6 +466,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             Bitrate = Bitrates.FirstOrDefault(b => b.Value == bitrate)
                 ?? new BitrateOption(bitrate ?? 32000, Loc.Kbits(bitrate ?? 32000));
             Output = OutputModes.FirstOrDefault(m => m.Value == output) ?? OutputModes[0];
+            Speed = SpeedFor(speed);
             Theme = Themes.FirstOrDefault(t => t.Value == theme) ?? Themes[0];
             Language = Languages.FirstOrDefault(l => l.Value == language) ?? Languages[0];
 

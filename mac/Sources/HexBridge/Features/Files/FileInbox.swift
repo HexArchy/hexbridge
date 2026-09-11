@@ -32,37 +32,71 @@ final class FileInbox: @unchecked Sendable {
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     }
 
-    /// Writes an arrived object to Downloads and reports back on the main queue.
-    func save(_ bytes: [UInt8], as rawName: String, completion: @escaping (Result<URL, Error>) -> Void) {
+    /// Takes over a file that arrived whole and gives it its real name.
+    ///
+    /// A move rather than a write, and that is the whole point of the file
+    /// having been assembled here in the first place: the object was written
+    /// straight into this folder under a hidden name as it arrived, so putting
+    /// it in place is a rename on the same volume. Copying the bytes a second
+    /// time would double the cost of every large transfer.
+    ///
+    /// The temporary file is this method's to dispose of from the moment it is
+    /// called: it either becomes the named file or it is removed.
+    func adopt(_ temporary: URL, as rawName: String, completion: @escaping (Result<URL, Error>) -> Void) {
         queue.async {
-            let result = Result { try Self.write(bytes, as: rawName) }
+            let result = Result { try Self.place(temporary, as: rawName) }
+            if case .failure = result { try? FileManager.default.removeItem(at: temporary) }
             DispatchQueue.main.async { completion(result) }
         }
     }
 
-    private static func write(_ bytes: [UInt8], as rawName: String) throws -> URL {
+    private static func place(_ temporary: URL, as rawName: String) throws -> URL {
         let folder = downloads
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 
-        let data = Data(bytes)
         for _ in 0..<attempts {
             guard let url = SafeFileName.destination(for: rawName, in: folder) else {
                 throw FileInboxError.noFreeName
             }
             do {
-                // `withoutOverwriting` rather than a plain write, and the reason
-                // is not the name we just chose but the moment after we chose
-                // it: a browser finishing a download of its own into the same
-                // folder in that instant would otherwise be overwritten. The
-                // write refuses, and the next turn of the loop picks the next
-                // free name.
-                try data.write(to: url, options: .withoutOverwriting)
+                // `moveItem` refuses rather than overwrites, and the reason is
+                // not the name we just chose but the moment after we chose it: a
+                // browser finishing a download of its own into the same folder in
+                // that instant would otherwise be destroyed. The move refuses,
+                // and the next turn of the loop picks the next free name.
+                try FileManager.default.moveItem(at: temporary, to: url)
                 return url
             } catch let error as NSError where error.code == NSFileWriteFileExistsError {
                 continue
             }
         }
         throw FileInboxError.noFreeName
+    }
+
+    /// Removes half-finished files from an earlier run.
+    ///
+    /// A transfer abandoned while the app is running cleans up after itself —
+    /// the object holding the temporary file removes it when it is dropped. What
+    /// that cannot cover is the app being killed mid-transfer, which leaves a
+    /// hidden part-file that nothing will ever ask for again. The hour is the
+    /// guard: it must never take a file that is being written right now.
+    func discardLeftovers(prefix: String, suffix: String, olderThan age: TimeInterval = 3600) {
+        queue.async {
+            let folder = Self.downloads
+            guard let names = try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: [.contentModificationDateKey]
+            ) else { return }
+
+            let cutoff = Date().addingTimeInterval(-age)
+            for url in names {
+                let name = url.lastPathComponent
+                guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { continue }
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate
+                guard let modified, modified < cutoff else { continue }
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
     }
 
     /// Puts Finder in front of the file. The same gesture as the log button in

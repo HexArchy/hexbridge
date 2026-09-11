@@ -252,7 +252,13 @@ public sealed class ClipboardFeature : IFeature
 
     private void Accept(ClipboardSync sync, BulkDelivery delivery, FeatureContext context)
     {
-        var item = new ClipboardItem(delivery.Format, delivery.Bytes);
+        // Always in hand, and by construction: the clipboard's lane stages nothing on disk,
+        // because what goes on a clipboard has to be bytes and its 64 MiB ceiling is what
+        // pays for holding them. An object that arrived any other way is not one this
+        // feature could apply if it tried.
+        if (delivery.Bytes is not { } bytes) return;
+
+        var item = new ClipboardItem(delivery.Format, bytes);
         sync.Apply(item);
 
         lock (_gate)

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import HexBridgeBulk
 import HexBridgeText
 
 /// What a bulk object is for. The kind is what lets one reliable channel carry
@@ -27,11 +28,28 @@ enum Bulk {
     /// 24-byte header, the 16-byte tag and the 8 bytes of chunk framing.
     static let chunkSize = 1024
 
-    /// 64 MiB. The channel paces at about 1.5 MB/s, so that is three quarters of a
-    /// minute at the top end — long, but a length somebody watching a progress bar
-    /// can live with. Both ends hold the whole object in memory while it travels,
-    /// which is the real reason there is a ceiling at all.
-    static let maxObjectSize = 64 * 1024 * 1024
+    /// 64 MiB, and only for the clipboard. It is held in memory at both ends and
+    /// there is no avoiding that — the pasteboard has to be handed the bytes — so
+    /// the memory is the reason for the ceiling. A clipboard that large is a
+    /// mistake rather than a use.
+    static let maxClipboardSize = 64 * 1024 * 1024
+
+    /// 4 GiB less one byte: the ceiling the wire format itself imposes, because
+    /// `size` in the offer is a `u32`. Nothing smaller is needed — a file is
+    /// never held whole at either end, so what limits it is the format and not
+    /// the machine.
+    static let maxFileSize = Int(UInt32.max)
+
+    /// The two kinds are not alike and neither is their ceiling. Asked with the
+    /// kind everywhere, including in the sentence shown to somebody whose file
+    /// was refused: naming the clipboard's 64 MB at a file is a limit they
+    /// cannot find and cannot act on.
+    static func maxObjectSize(of kind: BulkKind) -> Int {
+        switch kind {
+        case .clipboard: return maxClipboardSize
+        case .file: return maxFileSize
+        }
+    }
 
     /// How many missing chunk numbers a single ack may list after the first one.
     static let maxMissingListed = 256
@@ -55,6 +73,12 @@ enum Bulk {
     /// still has chunks outstanding. Retransmission is driven entirely by the
     /// receiver's 200 ms ack, so silence means the transfer can never finish.
     static let sendingSilenceTimeout: TimeInterval = 15
+
+    /// What a file is called while it is being assembled, and how to recognise
+    /// one left behind by a run that did not finish. A leading dot so that the
+    /// Downloads folder does not show somebody a file that is not there yet.
+    static let partialPrefix = ".hexbridge-"
+    static let partialSuffix = ".part"
 
     static let offerHeaderSize = 48
     static let chunkHeaderSize = 8
@@ -232,12 +256,37 @@ enum BulkOutcome {
     case stalled
 }
 
+/// Where an object being assembled is kept until it is whole.
+///
+/// Declared by whoever is waiting for the kind, because only that feature knows
+/// what it is going to do with the object. The clipboard has to put the bytes on
+/// the pasteboard and so has no use for anything but memory; a file is written
+/// to disk in the end anyway, and holding four gigabytes of it in RAM on the way
+/// there buys nothing at all.
+enum BulkStorage {
+    case memory
+    /// Straight into a temporary file in this directory, each chunk at its own
+    /// offset. The directory is the one the file will finally live in, so that
+    /// putting it in place is a rename rather than a second copy of four
+    /// gigabytes.
+    case file(directory: URL)
+}
+
+/// The object itself, in whichever shape it was assembled in.
+enum BulkPayload {
+    case bytes([UInt8])
+    /// A file that arrived whole and whose hash matched, still under its
+    /// temporary name. Whoever takes the delivery owns it from that moment:
+    /// nothing else will move it, and nothing else will remove it.
+    case file(URL)
+}
+
 /// An object that arrived whole.
 struct BulkDelivery {
     var transferID: UInt32
     var kind: BulkKind
     var format: BulkFormat
-    var bytes: [UInt8]
+    var payload: BulkPayload
     var hash: [UInt8]
     var description: String
 }
@@ -268,33 +317,367 @@ struct BulkProgress: Identifiable {
     var fraction: Double { chunkCount == 0 ? 0 : Double(chunksDone) / Double(chunkCount) }
 }
 
+// MARK: - Where the bytes come from and go
+
+/// One object's worth of bytes on the way out.
+///
+/// An abstraction with exactly two implementations, and it exists for the
+/// asymmetry between them: the clipboard has the bytes in hand already, while a
+/// file must never be pulled into memory to be sent. Retransmission is what
+/// makes this more than a read loop — the contract has the other end name what
+/// it is missing, in any order, at any point, so whatever is behind this has to
+/// be able to produce any chunk at any time.
+private protocol BulkBody: AnyObject {
+    var size: Int { get }
+    /// Chunk `index`, or nil when it cannot be produced any more — a file that
+    /// was replaced or unmounted under a transfer that is still running.
+    func chunk(_ index: UInt32) -> ArraySlice<UInt8>?
+}
+
+/// An object that was already in memory when it was offered.
+private final class MemoryBody: BulkBody {
+    private let bytes: [UInt8]
+
+    init(_ bytes: [UInt8]) { self.bytes = bytes }
+
+    var size: Int { bytes.count }
+
+    func chunk(_ index: UInt32) -> ArraySlice<UInt8>? {
+        let start = Int(index) * Bulk.chunkSize
+        let length = Bulk.chunkLength(size: bytes.count, index: index)
+        guard length > 0 else { return nil }
+        return bytes[start..<(start + length)]
+    }
+}
+
+/// A file read a window at a time, and never held whole.
+///
+/// The handle stays open for the life of the transfer, as the contract's
+/// «отправитель читает каждый блок с диска» requires it to: a retransmission has
+/// to read a chunk that went out minutes ago, and reopening the file for each
+/// one would both cost an `open` a packet and quietly follow whatever has taken
+/// that name in the meantime.
+///
+/// The window is what keeps the cost sane. Four gigabytes is four million
+/// chunks, and a seek and a read for each would be eight million system calls
+/// for a transfer that is otherwise strictly sequential. A quarter of a megabyte
+/// at a time makes that one read per 256 chunks; a retransmission that lands
+/// outside the window simply moves it, which is the rare case and is allowed to
+/// be the slow one.
+private final class FileBody: BulkBody {
+    private static let windowBytes = 256 * 1024
+    /// How much of the file is hashed at a time when the offer is being built.
+    private static let digestBytes = 1024 * 1024
+
+    private let handle: FileHandle
+    let size: Int
+
+    /// The window, always `windowBytes` long once allocated; `windowCount` says
+    /// how much of it is the file. One allocation for the whole transfer, and
+    /// never one per chunk.
+    private var window: [UInt8] = []
+    private var windowCount = 0
+    private var windowStart = 0
+
+    init(url: URL) throws {
+        handle = try FileHandle(forReadingFrom: url)
+        size = Int(try handle.seekToEnd())
+    }
+
+    deinit {
+        try? handle.close()
+    }
+
+    /// SHA-256 of the whole file, read a window at a time.
+    ///
+    /// The contract puts the hash in the offer, so it has to be known before the
+    /// first chunk goes out — which for a large file means one full pass over it
+    /// before anything moves. There is no way around that and no reason to want
+    /// one: it is the same pass the other end will make to check the result.
+    func digest() throws -> [UInt8] {
+        var sha = SHA256()
+        var buffer = [UInt8](repeating: 0, count: Self.digestBytes)
+        var offset = 0
+        while offset < size {
+            let wanted = min(Self.digestBytes, size - offset)
+            let got = try PosixFile.read(handle.fileDescriptor, into: &buffer, count: wanted, at: offset)
+            guard got > 0 else { break }
+            buffer.withUnsafeBytes { raw in
+                sha.update(bufferPointer: UnsafeRawBufferPointer(rebasing: raw[0..<got]))
+            }
+            offset += got
+        }
+        // The window describes a position the digest pass has just walked away
+        // from, so it is not to be trusted afterwards.
+        windowCount = 0
+        windowStart = 0
+        return Array(sha.finalize())
+    }
+
+    func chunk(_ index: UInt32) -> ArraySlice<UInt8>? {
+        let start = Int(index) * Bulk.chunkSize
+        let length = Bulk.chunkLength(size: size, index: index)
+        guard length > 0 else { return nil }
+
+        if start < windowStart || start + length > windowStart + windowCount {
+            refill(from: start)
+        }
+        guard start >= windowStart, start + length <= windowStart + windowCount else { return nil }
+
+        let offset = start - windowStart
+        return window[offset..<(offset + length)]
+    }
+
+    private func refill(from start: Int) {
+        if window.count != Self.windowBytes {
+            window = [UInt8](repeating: 0, count: Self.windowBytes)
+        }
+        windowStart = start
+        // Left empty when the read fails: `chunk` then sees a window that cannot
+        // hold what was asked for and says so, and the transfer is given up
+        // rather than finished with a hole in it.
+        windowCount = (try? PosixFile.read(
+            handle.fileDescriptor, into: &window,
+            count: min(Self.windowBytes, max(0, size - start)), at: start
+        )) ?? 0
+    }
+}
+
+/// Reading and writing a file at an offset, into memory we already hold.
+///
+/// Not `FileHandle.read(upToCount:)`, and this is not a matter of taste:
+/// Foundation's read maps the file, so hashing a four-gigabyte object leaves
+/// most of it resident — 2.8 GB, measured, for the object this whole change
+/// exists to make possible. A `pread` into a buffer that is reused costs the
+/// buffer and nothing else.
+///
+/// Both loops carry on through a short answer. A `read` or a `write` on a
+/// regular file is allowed to move less than it was asked for, and treating
+/// that as the end of the file — or as a completed write — is the kind of bug
+/// that only shows up on somebody else's disk.
+private enum PosixFile {
+
+    static func read(_ descriptor: Int32, into buffer: inout [UInt8], count: Int, at offset: Int) throws -> Int {
+        guard count > 0 else { return 0 }
+        var done = 0
+        while done < count {
+            let moved = buffer.withUnsafeMutableBytes { raw -> Int in
+                pread(descriptor, raw.baseAddress! + done, count - done, off_t(offset + done))
+            }
+            if moved < 0 {
+                if errno == EINTR { continue }
+                throw failure()
+            }
+            if moved == 0 { break }
+            done += moved
+        }
+        return done
+    }
+
+    static func write(_ descriptor: Int32, _ bytes: [UInt8], at offset: Int) throws {
+        var done = 0
+        while done < bytes.count {
+            let moved = bytes.withUnsafeBytes { raw -> Int in
+                pwrite(descriptor, raw.baseAddress! + done, bytes.count - done, off_t(offset + done))
+            }
+            if moved < 0 {
+                if errno == EINTR { continue }
+                throw failure()
+            }
+            // A write that moves nothing, having been asked for something, is
+            // a disk with no room on it: `errno` is not set in that case, so
+            // the reading has to be supplied rather than read back.
+            if moved == 0 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC)) }
+            done += moved
+        }
+    }
+
+    private static func failure() -> NSError {
+        NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+    }
+}
+
+/// One object's worth of bytes on the way in.
+///
+/// The mirror of `BulkBody`, and the same asymmetry: chunks arrive in whatever
+/// order the network gives them, so whatever is behind this has to take a write
+/// at an arbitrary offset, and then hash everything it took.
+private protocol BulkStore: AnyObject {
+    func write(_ data: [UInt8], at offset: Int) throws
+    /// SHA-256 of everything written, computed without holding the object.
+    func digest() throws -> [UInt8]
+    /// What was written is wrong and all of it will arrive again.
+    func restart()
+    /// Hands the object over. The store owns nothing afterwards.
+    func take() throws -> BulkPayload
+}
+
+/// An object assembled in memory, which is what the clipboard needs.
+private final class MemoryStore: BulkStore {
+    private var buffer: [UInt8]
+
+    init(size: Int) {
+        buffer = [UInt8](repeating: 0, count: size)
+    }
+
+    func write(_ data: [UInt8], at offset: Int) throws {
+        buffer.replaceSubrange(offset..<(offset + data.count), with: data)
+    }
+
+    func digest() throws -> [UInt8] {
+        Array(SHA256.hash(data: buffer))
+    }
+
+    /// Nothing to undo: every chunk will be written again over the same bytes,
+    /// and the map of which ones have arrived is cleared by the caller.
+    func restart() {}
+
+    func take() throws -> BulkPayload { .bytes(buffer) }
+}
+
+/// An object assembled straight on disk.
+///
+/// Hidden, because a half-written file in the Downloads folder is not something
+/// anybody asked to see, and in that folder rather than in a temporary one
+/// because the last step is then a rename on the same volume instead of a second
+/// copy of the whole object.
+///
+/// It cleans up after itself in `deinit`. That is deliberate rather than tidy:
+/// the transfer can be abandoned in half a dozen places — an idle timeout, the
+/// feature being switched off, the peer restarting, the channel being reset —
+/// and a temporary file left behind by any one of them is a gigabyte of somebody
+/// else's disk. Hanging the cleanup off the object's own lifetime is the only
+/// version of this that cannot be forgotten at a new call site.
+private final class FileStore: BulkStore {
+    /// How much is held before it is written. In the ordinary case chunks arrive
+    /// in order, so this turns 256 writes into one; out of order it flushes at
+    /// the discontinuity and is no worse than writing each chunk as it lands.
+    private static let flushBytes = 256 * 1024
+
+    private let url: URL
+    private let handle: FileHandle
+    private let size: Int
+    private var pending: [UInt8] = []
+    private var pendingAt = 0
+    /// Set once the file has been handed to whoever took the delivery, which is
+    /// the one case where `deinit` must leave it alone.
+    private var givenAway = false
+
+    init(directory: URL, transferID: UInt32, size: Int) throws {
+        self.size = size
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        url = directory.appendingPathComponent(
+            "\(Bulk.partialPrefix)\(transferID)-\(UUID().uuidString)\(Bulk.partialSuffix)"
+        )
+        guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+            throw BulkError.noRoom
+        }
+        // For updating rather than for writing: the hash at the end is read back
+        // out of this same descriptor, and a write-only one answers that with
+        // «bad file descriptor» only once the object is already complete.
+        handle = try FileHandle(forUpdating: url)
+        // Given its final length up front so that a chunk landing near the end
+        // before the ones in front of it is an ordinary write rather than a hole
+        // the filesystem has to invent.
+        try handle.truncate(atOffset: UInt64(size))
+        pending.reserveCapacity(Self.flushBytes + Bulk.chunkSize)
+    }
+
+    deinit {
+        try? handle.close()
+        if !givenAway { try? FileManager.default.removeItem(at: url) }
+    }
+
+    func write(_ data: [UInt8], at offset: Int) throws {
+        if !pending.isEmpty, offset != pendingAt + pending.count { try flush() }
+        if pending.isEmpty { pendingAt = offset }
+        pending.append(contentsOf: data)
+        if pending.count >= Self.flushBytes { try flush() }
+    }
+
+    func digest() throws -> [UInt8] {
+        try flush()
+        var sha = SHA256()
+        var buffer = [UInt8](repeating: 0, count: Self.flushBytes)
+        var offset = 0
+        while offset < size {
+            let wanted = min(Self.flushBytes, size - offset)
+            let got = try PosixFile.read(handle.fileDescriptor, into: &buffer, count: wanted, at: offset)
+            guard got > 0 else { break }
+            buffer.withUnsafeBytes { raw in
+                sha.update(bufferPointer: UnsafeRawBufferPointer(rebasing: raw[0..<got]))
+            }
+            offset += got
+        }
+        return Array(sha.finalize())
+    }
+
+    func restart() {
+        pending.removeAll(keepingCapacity: true)
+        pendingAt = 0
+    }
+
+    func take() throws -> BulkPayload {
+        try flush()
+        try handle.close()
+        givenAway = true
+        return .file(url)
+    }
+
+    private func flush() throws {
+        guard !pending.isEmpty else { return }
+        try PosixFile.write(handle.fileDescriptor, pending, at: pendingAt)
+        pending.removeAll(keepingCapacity: true)
+    }
+}
+
+// MARK: - The channel itself
+
 /// The reliable-delivery layer from docs/PROTOCOL.md, both roles in one object:
 /// it offers objects, it accepts them, and it retransmits what the other side
 /// says it is missing.
 ///
-/// It knows nothing about clipboards. A feature hands it bytes, a kind and a
-/// format and gets told when they landed; the day file transfer arrives it adds
-/// a kind and changes nothing here. Deliberately primitive, as the contract
-/// says: a fixed send budget, repeat on the receiver's ack, no congestion
-/// control and no reordering.
+/// It knows nothing about clipboards and nothing about files. A feature hands it
+/// an object, a kind and a format, says where an arriving object of that kind
+/// should be put, and gets told when it landed.
+///
+/// Nothing that crosses this channel is ever held whole unless the feature asked
+/// for it in memory. On the way out chunks are read off disk as they go,
+/// including on retransmission; on the way in they are written straight into a
+/// temporary file at their own offset and what has arrived is remembered in a
+/// bitmap. At the format's ceiling that is 512 KB of bookkeeping against four
+/// gigabytes for the obvious implementation, and it is the difference between a
+/// 4 GiB transfer and a crash.
 ///
 /// Time is a parameter rather than a field read from the clock, so every timeout
 /// in here is reachable from a test without waiting for it.
 ///
 /// `@unchecked Sendable`: everything mutable is behind `lock`, and `send` is
-/// called from the socket queue and from the feature's timer alike.
+/// called from the socket queue and from the feature's timer alike. The one
+/// thing that happens outside the lock is verification — see `finishing`.
 final class BulkChannel: @unchecked Sendable {
     private let lock = NSLock()
     private var send: (Wire.PacketType, [UInt8]) -> Void
 
     private var outgoing: [UInt32: Outgoing] = [:]
     private var incoming: [UInt32: Incoming] = [:]
+    /// Objects that are complete and are being hashed.
+    ///
+    /// A separate dictionary and not a flag, because while a transfer is in here
+    /// nothing but the verification itself may touch it. Hashing four gigabytes
+    /// takes seconds, and doing it under `lock` would stop the socket, the
+    /// timer and the 20 Hz redraw of the popover for all of them — a beachball
+    /// on a menu bar app. Moving the object out of reach is what lets the work
+    /// happen on another queue without a second lock inside every transfer.
+    private var finishing: [UInt32: Incoming] = [:]
     /// Ids of transfers already assembled, kept so a lost BULK_DONE can be re-sent.
     private var finished: [UInt32: Date] = [:]
 
     private var nextID = UInt32.random(in: 1...UInt32.max)
-    private var credit: Double = 0
-    private var lastTick: Date?
+
+    /// Where the hashing happens. `.userInitiated` because somebody is watching
+    /// a progress bar that has reached the end and is waiting for this.
+    private let verifyQueue = DispatchQueue(label: "hexbridge.bulk.verify", qos: .userInitiated)
 
     /// «Этот объект у меня уже есть». The contract makes this the answer to a
     /// duplicate offer *and* the thing that stops two machines syncing each
@@ -313,7 +696,8 @@ final class BulkChannel: @unchecked Sendable {
     /// channel, and with a single slot whichever feature started last would silently
     /// take delivery of the other's objects — and clear it again on the way out.
     /// Each observer filters by kind.
-    private var deliveryObservers: [Int: (kind: BulkKind, handle: (BulkDelivery) -> Void)] = [:]
+    private var deliveryObservers:
+        [Int: (kind: BulkKind, storage: BulkStorage, handle: (BulkDelivery) -> Void)] = [:]
     private var nextObserver = 1
 
     /// Registers an observer for one kind, and returns the token to remove it with.
@@ -321,21 +705,33 @@ final class BulkChannel: @unchecked Sendable {
     /// The kind is declared rather than filtered for inside the handler, because the
     /// channel needs to know it too: an object of a kind nobody is waiting for must be
     /// turned away at the offer instead of being pulled across and dropped.
+    ///
+    /// The storage is declared here for the same reason. It has to be decided when the
+    /// offer arrives, which is long before the handler is ever called, and the feature
+    /// waiting for the kind is the only thing that knows the answer.
     @discardableResult
-    func observeDeliveries(of kind: BulkKind, _ handler: @escaping (BulkDelivery) -> Void) -> Int {
+    func observeDeliveries(
+        of kind: BulkKind,
+        storage: BulkStorage = .memory,
+        _ handler: @escaping (BulkDelivery) -> Void
+    ) -> Int {
         lock.lock()
         defer { lock.unlock() }
         let token = nextObserver
         nextObserver += 1
-        deliveryObservers[token] = (kind, handler)
+        deliveryObservers[token] = (kind, storage, handler)
         return token
     }
 
-    /// Whether anything is waiting for this kind. Caller must not hold `lock`.
-    private func listening(for kind: BulkKind) -> Bool {
+    /// Where an arriving object of this kind goes, or nil when nothing is waiting
+    /// for the kind at all. Caller must not hold `lock`.
+    ///
+    /// One observer a kind is what the app registers, so "the first" is not a
+    /// choice between several — it is the only one.
+    private func storage(for kind: BulkKind) -> BulkStorage? {
         lock.lock()
         defer { lock.unlock() }
-        return deliveryObservers.values.contains { $0.kind == kind }
+        return deliveryObservers.values.first { $0.kind == kind }?.storage
     }
 
     func removeDeliveryObserver(_ token: Int) {
@@ -382,10 +778,26 @@ final class BulkChannel: @unchecked Sendable {
     /// Diagnostics, one line per interesting event. Called outside the lock.
     var onNote: ((String) -> Void)?
 
-    /// Chunks per second the sender may put on the wire. The relay caps a source
-    /// at 2000 packets/s and voice plus a gamepad already use 300 of them, so the
-    /// default leaves headroom rather than filling the pipe.
-    var chunksPerSecond: Double = 1500
+    /// How fast chunks go out, and the loop that decides it. See `BulkPacer`.
+    private var pacer = BulkPacer()
+    private var lastTick: Date?
+
+    /// A ceiling the user asked for, in chunks a second, or nil for "as fast as
+    /// this path actually goes". Read on the next tick, so moving the control in
+    /// settings takes effect without restarting anything.
+    var configuredCeiling: Double? {
+        get { lock.lock(); defer { lock.unlock() }; return storedCeiling }
+        set { lock.lock(); storedCeiling = newValue; lock.unlock() }
+    }
+    private var storedCeiling: Double?
+
+    /// Whether the other machine is currently being reached through a relay.
+    ///
+    /// A relay has its own per-endpoint limit and drops what exceeds it, and a
+    /// dropped chunk comes back as a hole and is sent twice — so aiming above it
+    /// is a way of going slower. Asked on every tick rather than remembered,
+    /// because the direct path can come up and go away mid-transfer.
+    var relayInPath: (() -> Bool)?
 
     /// How many times an object may fail its hash before the receiver gives up.
     var maxHashFailures = 3
@@ -400,7 +812,9 @@ final class BulkChannel: @unchecked Sendable {
     func rebind(send: @escaping (Wire.PacketType, [UInt8]) -> Void) {
         lock.lock()
         self.send = send
-        credit = 0
+        // Credit earned against a link that no longer exists is not credit, and
+        // a speed found on one path says nothing about the next one.
+        pacer.restart()
         lastTick = nil
         lock.unlock()
         peerRestarted()
@@ -415,6 +829,9 @@ final class BulkChannel: @unchecked Sendable {
     func peerRestarted() {
         lock.lock()
         incoming.removeAll()
+        // Dropped from the books but not touched: whatever is hashing it owns it
+        // until it comes back, and it cleans up when it finds itself unwanted.
+        finishing.removeAll()
         finished.removeAll()
         for transfer in outgoing.values { transfer.renegotiate() }
         lock.unlock()
@@ -425,8 +842,9 @@ final class BulkChannel: @unchecked Sendable {
         lock.lock()
         outgoing.removeAll()
         incoming.removeAll()
+        finishing.removeAll()
         finished.removeAll()
-        credit = 0
+        pacer.restart()
         lastTick = nil
         lock.unlock()
     }
@@ -440,14 +858,14 @@ final class BulkChannel: @unchecked Sendable {
         lock.lock()
         outgoing = outgoing.filter { $0.value.offer.kind != kind }
         incoming = incoming.filter { $0.value.kind != kind }
+        finishing = finishing.filter { $0.value.kind != kind }
         lock.unlock()
     }
 
     // MARK: - Sending
 
-    /// Starts offering an object. Returns its transfer id, or throws with a
-    /// reason a person can read. The bytes are held until the receiver confirms
-    /// them, as the contract requires — there is nowhere else to retransmit from.
+    /// Starts offering an object held in memory. Returns its transfer id, or
+    /// throws with a reason a person can read.
     @discardableResult
     func offer(
         kind: BulkKind,
@@ -457,14 +875,53 @@ final class BulkChannel: @unchecked Sendable {
         now: Date = Date()
     ) throws -> UInt32 {
         guard !bytes.isEmpty else { throw BulkError.empty }
-        guard bytes.count <= Bulk.maxObjectSize else { throw BulkError.tooLarge(bytes.count) }
+        guard bytes.count <= Bulk.maxObjectSize(of: kind) else {
+            throw BulkError.tooLarge(limit: Bulk.maxObjectSize(of: kind))
+        }
+        return push(
+            kind: kind, format: format, body: MemoryBody(bytes),
+            hash: Array(SHA256.hash(data: bytes)), description: description, now: now
+        )
+    }
 
-        let hash = Array(SHA256.hash(data: bytes))
+    /// Starts offering a file. The file is read as it goes and is never held
+    /// whole, which is the only reason the ceiling for a file can be the
+    /// format's own rather than the machine's.
+    ///
+    /// Slow, and has to be: the contract puts the hash in the offer, so the file
+    /// is read once through before the first chunk moves. Call it off the main
+    /// thread.
+    @discardableResult
+    func offer(
+        kind: BulkKind,
+        format: BulkFormat,
+        file url: URL,
+        description: String,
+        now: Date = Date()
+    ) throws -> UInt32 {
+        let body = try FileBody(url: url)
+        guard body.size > 0 else { throw BulkError.empty }
+        guard body.size <= Bulk.maxObjectSize(of: kind) else {
+            throw BulkError.tooLarge(limit: Bulk.maxObjectSize(of: kind))
+        }
+        return push(
+            kind: kind, format: format, body: body,
+            hash: try body.digest(), description: description, now: now
+        )
+    }
 
+    private func push(
+        kind: BulkKind,
+        format: BulkFormat,
+        body: BulkBody,
+        hash: [UInt8],
+        description: String,
+        now: Date
+    ) -> UInt32 {
         lock.lock()
         let id = nextID
         nextID = nextID == UInt32.max ? 1 : nextID + 1
-        let transfer = Outgoing(id: id, kind: kind, format: format, bytes: bytes, hash: hash, description: description)
+        let transfer = Outgoing(id: id, kind: kind, format: format, body: body, hash: hash, description: description)
         transfer.offerAttempts = 1
         transfer.lastOfferAt = now
         transfer.lastAckAt = now
@@ -511,40 +968,63 @@ final class BulkChannel: @unchecked Sendable {
             return
         }
 
-        guard offer.size > 0, offer.size <= UInt32(Bulk.maxObjectSize) else { return }
+        func refuse(_ note: String) {
+            deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
+                transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
+            )))
+            onNote?(note)
+        }
+
+        guard offer.size > 0, Int(offer.size) <= Bulk.maxObjectSize(of: offer.kind) else { return }
         guard offer.chunkCount == Bulk.chunkCount(forSize: Int(offer.size)) else { return }
 
-        // The whole loop-breaker, and the reason the contract puts a hash in the
-        // offer at all: if we already hold these exact bytes, nothing has to cross
-        // the wire.
         // Nobody is waiting for this kind — the feature that would take it is switched
         // off. Refusing at the offer costs one packet; accepting costs the whole object,
         // which is then discarded, while the other end watches a transfer it thinks
         // succeeded.
-        if !listening(for: offer.kind) {
-            deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
-                transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
-            )))
-            onNote?("bulk: nothing here is waiting for that, not pulling it")
+        guard let storage = storage(for: offer.kind) else {
+            refuse("bulk: nothing here is waiting for that, not pulling it")
             return
         }
 
+        // The per-kind ceiling is about the wire; this one is about the memory. A
+        // feature that asked for its objects in memory gets the memory limit
+        // whatever kind it registered for, or an offer could name four gigabytes
+        // and have us allocate them on the strength of it.
+        if case .memory = storage, Int(offer.size) > Bulk.maxClipboardSize {
+            refuse("bulk: the object is too large to hold in memory, not pulling it")
+            return
+        }
+
+        // The whole loop-breaker, and the reason the contract puts a hash in the
+        // offer at all: if we already hold these exact bytes, nothing has to cross
+        // the wire.
         if owns?(offer.kind, offer.hash) == true {
-            deliver(.bulkAck, BulkCodec.encode(ack: BulkAck(
-                transferID: offer.transferID, accepted: false, firstMissing: 0, missing: []
-            )))
-            onNote?("bulk: the object is already here, not pulling it")
+            refuse("bulk: the object is already here, not pulling it")
             return
         }
 
         lock.lock()
+        let known = incoming[offer.transferID]
+        lock.unlock()
+
         let state: Incoming
-        if let existing = incoming[offer.transferID], existing.hash == offer.hash {
-            state = existing
+        if let known, known.hash == offer.hash {
+            state = known
         } else {
-            state = Incoming(offer: offer)
-            incoming[offer.transferID] = state
+            // Built before the lock is taken: opening a file and giving it its
+            // length is a trip to the disk, and the socket queue is not the place
+            // to hold a lock across one.
+            do {
+                state = try Incoming(offer: offer, storage: storage)
+            } catch {
+                refuse("bulk: nowhere to put the object — \(error)")
+                return
+            }
         }
+
+        lock.lock()
+        incoming[offer.transferID] = state
         state.lastActivity = now
         state.lastAckAt = now
         let ack = BulkCodec.encode(ack: state.buildAck(accepted: true))
@@ -555,8 +1035,8 @@ final class BulkChannel: @unchecked Sendable {
 
     private func handle(chunkFor transferID: UInt32, index: UInt32, data: [UInt8], now: Date) {
         var packets: [(Wire.PacketType, [UInt8])] = []
-        var delivery: BulkDelivery?
         var note: String?
+        var verify: Incoming?
 
         lock.lock()
         let deliver = send
@@ -564,27 +1044,81 @@ final class BulkChannel: @unchecked Sendable {
             packets.append((.bulkDone, BulkCodec.encodeDone(transferID: transferID)))
         } else if let state = incoming[transferID] {
             state.lastActivity = now
-            state.store(index: index, data: data)
-
-            if state.isComplete {
-                if state.verify() {
-                    delivery = state.delivery()
+            do {
+                try state.store(index: index, data: data)
+                if state.isComplete {
+                    // Out of reach of everything else until the hash is known.
                     incoming.removeValue(forKey: transferID)
-                    finished[transferID] = now
-                    packets.append((.bulkDone, BulkCodec.encodeDone(transferID: transferID)))
-                } else {
-                    // «Молчаливой порчи не бывает»: every chunk is asked for again.
-                    state.hashFailures += 1
-                    if state.hashFailures >= maxHashFailures {
-                        incoming.removeValue(forKey: transferID)
-                        note = "bulk: the object arrived corrupt three times, giving up"
-                    } else {
-                        note = "bulk: hash mismatch, asking for the object again (attempt \(state.hashFailures))"
-                        state.forget()
-                        state.lastAckAt = now
-                        packets.append((.bulkAck, BulkCodec.encode(ack: state.buildAck(accepted: true))))
-                    }
+                    finishing[transferID] = state
+                    verify = state
                 }
+            } catch {
+                // There is no packet for «мне некуда это писать», and inventing
+                // one would be a change to the format. The transfer is dropped;
+                // the other end finds out when its acknowledgements stop, which
+                // is the honest outcome, and the reason is in the log.
+                incoming.removeValue(forKey: transferID)
+                note = "bulk: the object could not be written to disk — \(error)"
+            }
+        }
+        lock.unlock()
+
+        for packet in packets { deliver(packet.0, packet.1) }
+        if let note { onNote?(note) }
+        if let verify { beginVerification(transferID, state: verify) }
+    }
+
+    /// Hashes a complete object away from the lock, and then puts the answer back.
+    private func beginVerification(_ transferID: UInt32, state: Incoming) {
+        verifyQueue.async { [weak self] in
+            // A payload only if the hash matched. A temporary file that cannot be
+            // read back is treated exactly like one whose hash is wrong: the
+            // object is not what it claims to be, whichever of the two it is.
+            let payload: BulkPayload? = {
+                do { return try state.digest() == state.hash ? state.take() : nil } catch { return nil }
+            }()
+
+            guard let self else {
+                if case .file(let url)? = payload { try? FileManager.default.removeItem(at: url) }
+                return
+            }
+            self.settle(transferID, state: state, payload: payload, now: Date())
+        }
+    }
+
+    private func settle(_ transferID: UInt32, state: Incoming, payload: BulkPayload?, now: Date) {
+        var packets: [(Wire.PacketType, [UInt8])] = []
+        var delivery: BulkDelivery?
+        var note: String?
+
+        lock.lock()
+        guard finishing.removeValue(forKey: transferID) != nil else {
+            // The channel was reset, or the feature switched off, while this was
+            // being hashed. Nobody is waiting for it and nobody else will clean
+            // up the file it was handed.
+            lock.unlock()
+            if case .file(let url)? = payload { try? FileManager.default.removeItem(at: url) }
+            return
+        }
+        let deliver = send
+        let allowedFailures = maxHashFailures
+
+        if let payload {
+            finished[transferID] = now
+            delivery = state.delivery(payload: payload)
+            packets.append((.bulkDone, BulkCodec.encodeDone(transferID: transferID)))
+        } else {
+            // «Молчаливой порчи не бывает»: every chunk is asked for again.
+            state.hashFailures += 1
+            if state.hashFailures >= allowedFailures {
+                note = "bulk: the object arrived corrupt three times, giving up"
+            } else {
+                note = "bulk: hash mismatch, asking for the object again (attempt \(state.hashFailures))"
+                state.forget()
+                state.lastActivity = now
+                state.lastAckAt = now
+                incoming[transferID] = state
+                packets.append((.bulkAck, BulkCodec.encode(ack: state.buildAck(accepted: true))))
             }
         }
         lock.unlock()
@@ -604,7 +1138,10 @@ final class BulkChannel: @unchecked Sendable {
         var result: BulkResult?
         if ack.accepted {
             transfer.accepted = true
-            transfer.rebuild(from: ack)
+            let round = transfer.rebuild(from: ack)
+            // The one measurement the contract offers: chunks the other end has
+            // had a full round to receive and is still asking for.
+            pacer.note(sent: round.sent, lost: round.lost)
         } else {
             outgoing.removeValue(forKey: ack.transferID)
             result = transfer.result(.alreadyThere)
@@ -633,13 +1170,24 @@ final class BulkChannel: @unchecked Sendable {
         var notes: [String] = []
         var staleFinished: [UInt32] = []
 
+        // Asked outside the lock: it reaches into the socket, which has a lock of
+        // its own, and one lock taken inside another is a rule that has to be
+        // kept rather than remembered.
+        let throughRelay = relayInPath?() ?? false
+
         lock.lock()
         let deliver = send
         let elapsed = max(0, lastTick.map { now.timeIntervalSince($0) } ?? 0.02)
         lastTick = now
+
+        // A relay's limit is a fact about the path, and the setting is what the
+        // user asked for; where both apply the lower one wins.
+        var ceiling = storedCeiling
+        if throughRelay { ceiling = min(ceiling ?? BulkPacer.relayCeiling, BulkPacer.relayCeiling) }
+        pacer.ceiling = ceiling
         // A token bucket rather than «n chunks per tick», so the rate on the wire
         // does not change when the caller's timer does.
-        credit = min(credit + elapsed * chunksPerSecond, chunksPerSecond)
+        pacer.advance(by: elapsed)
 
         tickOutgoing(now: now, packets: &packets, results: &results, notes: &notes)
         tickIncoming(now: now, packets: &packets)
@@ -680,12 +1228,25 @@ final class BulkChannel: @unchecked Sendable {
             }
 
             if transfer.hasQueued {
-                while credit >= 1, let index = transfer.dequeue() {
-                    credit -= 1
+                var unreadable = false
+                while transfer.hasQueued, pacer.take() {
+                    guard let index = transfer.dequeue() else { break }
+                    guard let data = transfer.chunk(index) else {
+                        unreadable = true
+                        break
+                    }
                     packets.append((.bulkChunk, BulkCodec.encodeChunk(
-                        transferID: transfer.id, index: index, data: transfer.chunk(index)
+                        transferID: transfer.id, index: index, data: data
                     )))
                     transfer.lastSendAt = now
+                }
+                if unreadable {
+                    // The file moved, was replaced, or the volume went away. There
+                    // is nothing to retransmit from any more, and going on would
+                    // deliver an object that is not the one that was offered.
+                    outgoing.removeValue(forKey: transfer.id)
+                    results.append(transfer.result(.stalled))
+                    notes.append("bulk: the file being sent can no longer be read")
                 }
                 continue
             }
@@ -700,12 +1261,13 @@ final class BulkChannel: @unchecked Sendable {
                 continue
             }
 
-            if now.timeIntervalSince(transfer.lastSendAt) > 0.5, credit >= 1 {
-                credit -= 1
+            if now.timeIntervalSince(transfer.lastSendAt) > 0.5, pacer.take() {
                 let last = transfer.offer.chunkCount - 1
-                packets.append((.bulkChunk, BulkCodec.encodeChunk(
-                    transferID: transfer.id, index: last, data: transfer.chunk(last)
-                )))
+                if let data = transfer.chunk(last) {
+                    packets.append((.bulkChunk, BulkCodec.encodeChunk(
+                        transferID: transfer.id, index: last, data: data
+                    )))
+                }
                 transfer.lastSendAt = now
             }
         }
@@ -715,6 +1277,9 @@ final class BulkChannel: @unchecked Sendable {
     private func tickIncoming(now: Date, packets: inout [(Wire.PacketType, [UInt8])]) {
         for state in Array(incoming.values) {
             if now.timeIntervalSince(state.lastActivity) > Bulk.incomingIdleTimeout {
+                // Dropping the last reference is what removes the temporary file:
+                // the store cleans up in its own `deinit`, so no path out of a
+                // transfer can forget to.
                 incoming.removeValue(forKey: state.transferID)
                 continue
             }
@@ -738,14 +1303,17 @@ final class BulkChannel: @unchecked Sendable {
                 description: $0.offer.description
             )
         }
-        let incomingProgress = incoming.values.map {
+        // Objects being hashed are included and sit at the end of the bar. They
+        // are the last seconds of a large transfer, and a progress bar that
+        // vanishes and comes back reads as a transfer that failed and restarted.
+        let inbound = (Array(incoming.values) + Array(finishing.values)).map {
             BulkProgress(
                 transferID: $0.transferID, direction: .incoming, kind: $0.kind, format: $0.format,
                 size: $0.size, chunksDone: $0.haveCount, chunkCount: $0.chunkCount,
                 description: $0.description
             )
         }
-        return out + incomingProgress
+        return out + inbound
     }
 
     // MARK: - Roles
@@ -754,80 +1322,198 @@ final class BulkChannel: @unchecked Sendable {
     private final class Outgoing {
         let id: UInt32
         let offer: BulkOffer
-        private let bytes: [UInt8]
-        private var queue: [UInt32] = []
-        private var queueHead = 0
-        private var queued: Set<UInt32> = []
+        private let body: BulkBody
+
+        /// The chunks the other end named. At most 257 of them, which is what
+        /// one acknowledgement can carry.
+        private var listed: [UInt32] = []
+        private var listedHead = 0
+
+        /// The rest of the object, as a pair of cursors, for when the
+        /// acknowledgement ran out of room to name holes.
+        ///
+        /// Cursors and not a list: at four million chunks, writing out
+        /// «everything from here on» as an array would be sixteen megabytes to
+        /// say one sentence.
+        private var sweepNext: UInt32 = 0
+        private var sweepEnd: UInt32 = 0
+
+        /// Chunks put on the wire at least once. What tells a retransmission from
+        /// a first attempt, which is the only loss signal this layer has — and a
+        /// bitmap rather than a set, because at the format's ceiling a set of
+        /// four million numbers is a hundred megabytes to answer a yes-or-no
+        /// question.
+        private var sent: ChunkMap
+
+        /// Chunks at or below this index have had a full round in which to
+        /// arrive, so the other end still asking for one of them means it was
+        /// lost rather than that it is still on its way.
+        ///
+        /// This one line is the difference between a fast link and a link that
+        /// talks itself down. An acknowledgement is a snapshot, and everything
+        /// put on the wire since it was taken is naturally missing from it — the
+        /// faster the link goes the more of it there is. Without the mark that
+        /// shows up as loss, and the pacing cuts the speed for it; and the same
+        /// chunks get sent a second time for good measure, so the cut is paid
+        /// for twice.
+        private var settled: Int = -1
+        /// What `settled` becomes at the next acknowledgement. Deliberately a
+        /// round behind: the mark has to describe the round that has finished,
+        /// not the one that is starting.
+        private var settledNext: Int = -1
+        private var highestSent: Int = -1
+        /// Chunks handed to the socket since the previous acknowledgement, which
+        /// is what the loss count is a fraction of.
+        private var sentSinceAck = 0
 
         var accepted = false
         var offerAttempts = 0
         var lastOfferAt = Date.distantPast
         var lastAckAt = Date.distantPast
         var lastSendAt = Date.distantPast
-        /// Chunks handed to the socket so far, for the progress bar only.
-        var chunksSent: UInt32 = 0
 
-        init(id: UInt32, kind: BulkKind, format: BulkFormat, bytes: [UInt8], hash: [UInt8], description: String) {
+        init(id: UInt32, kind: BulkKind, format: BulkFormat, body: BulkBody, hash: [UInt8], description: String) {
             self.id = id
-            self.bytes = bytes
+            self.body = body
+            self.sent = ChunkMap(count: Int(Bulk.chunkCount(forSize: body.size)))
             self.offer = BulkOffer(
                 transferID: id,
                 kind: kind,
                 format: format,
-                size: UInt32(bytes.count),
-                chunkCount: Bulk.chunkCount(forSize: bytes.count),
+                size: UInt32(body.size),
+                chunkCount: Bulk.chunkCount(forSize: body.size),
                 hash: hash,
                 description: description
             )
         }
 
-        var hasQueued: Bool { queueHead < queue.count }
+        /// For the progress bar: chunks that have been on the wire at least once.
+        /// Counted this way rather than as "packets handed over" so that a round
+        /// of retransmission does not make the bar claim more than exists.
+        var chunksSent: UInt32 { UInt32(sent.present) }
+
+        var hasQueued: Bool { listedHead < listed.count || sweepNext < sweepEnd }
 
         /// Back to square one: offer it again and wait to be told what to send.
         func renegotiate() {
             accepted = false
             offerAttempts = 0
             lastOfferAt = .distantPast
-            chunksSent = 0
-            queue.removeAll(keepingCapacity: true)
-            queueHead = 0
-            queued.removeAll(keepingCapacity: true)
+            sweepNext = 0
+            sweepEnd = 0
+            listed.removeAll(keepingCapacity: true)
+            listedHead = 0
+            sent.removeAll()
+            settled = -1
+            settledNext = -1
+            highestSent = -1
+            sentSinceAck = 0
         }
 
-        /// Turns an ack into a send list. A full list means the receiver had more
-        /// holes than it could name, and the contract's answer to that is to start
-        /// over from the first one rather than to guess at the rest.
-        func rebuild(from ack: BulkAck) {
-            queue.removeAll(keepingCapacity: true)
-            queueHead = 0
-            queued.removeAll(keepingCapacity: true)
-            guard ack.firstMissing < offer.chunkCount else { return }
+        /// Turns an ack into a send list, and reports what the ack said about the
+        /// round that has just gone by.
+        ///
+        /// A full list means the other end had more holes than it could name.
+        /// What it named is still the whole truth about the stretch it covers,
+        /// though — from the first hole to the last number in the list there is
+        /// nothing else missing — so that stretch is answered exactly, and only
+        /// past the last number named is anything guessed at.
+        ///
+        /// Guessing there means sending what has never been sent, and nothing
+        /// else. The obvious reading of «start over from the first missing
+        /// chunk» is to re-send the entire tail of the object, and on a large
+        /// file that is a disaster: one chunk lost early holds the first-missing
+        /// number down, and every 200 ms the whole remainder goes out again. The
+        /// chunk that was really lost is named, gets sent, and the transfer
+        /// moves on; the rest of the tail is the other end's business to ask
+        /// about when its list reaches that far.
+        func rebuild(from ack: BulkAck) -> (sent: Int, lost: Int) {
+            // The mark moves up by one acknowledgement, and only now: what went
+            // out during the round that has just ended is what this
+            // acknowledgement cannot be expected to know about yet.
+            settled = settledNext
+            settledNext = highestSent
 
-            if ack.isTruncated {
-                for index in ack.firstMissing..<offer.chunkCount { enqueue(index) }
-                return
+            let round = (sent: sentSinceAck, lost: losses(named: ack))
+            sentSinceAck = 0
+
+            listed.removeAll(keepingCapacity: true)
+            listedHead = 0
+            sweepNext = 0
+            sweepEnd = 0
+            guard ack.firstMissing < offer.chunkCount else { return round }
+
+            listed.append(ack.firstMissing)
+            var lastNamed = ack.firstMissing
+            for index in ack.missing where index < offer.chunkCount {
+                // The list arrives in order, so a repeat is next to its twin.
+                // Sending one twice costs a packet and nothing else, but the
+                // check is one comparison.
+                if index != listed[listed.count - 1] { listed.append(index) }
+                lastNamed = max(lastNamed, index)
             }
 
-            enqueue(ack.firstMissing)
-            for index in ack.missing where index < offer.chunkCount { enqueue(index) }
+            if ack.isTruncated, lastNamed + 1 < offer.chunkCount {
+                sweepNext = lastNamed + 1
+                sweepEnd = offer.chunkCount
+            }
+            return round
         }
 
-        private func enqueue(_ index: UInt32) {
-            if queued.insert(index).inserted { queue.append(index) }
+        /// How many of the chunks this ack names were out a full round ago and
+        /// are therefore lost rather than in flight. See `settled`.
+        private func losses(named ack: BulkAck) -> Int {
+            guard ack.firstMissing < offer.chunkCount else { return 0 }
+            var count = wasLost(ack.firstMissing) ? 1 : 0
+            for index in ack.missing where index != ack.firstMissing {
+                if wasLost(index) { count += 1 }
+            }
+            return count
+        }
+
+        private func wasLost(_ index: UInt32) -> Bool {
+            index < offer.chunkCount && Int(index) <= settled && sent.contains(Int(index))
         }
 
         func dequeue() -> UInt32? {
-            guard queueHead < queue.count else { return nil }
-            let index = queue[queueHead]
-            queueHead += 1
-            queued.remove(index)
-            if chunksSent < offer.chunkCount { chunksSent += 1 }
-            return index
+            while true {
+                let index: UInt32
+                let named: Bool
+                if listedHead < listed.count {
+                    index = listed[listedHead]
+                    listedHead += 1
+                    named = true
+                } else if sweepNext < sweepEnd {
+                    index = sweepNext
+                    sweepNext += 1
+                    named = false
+                } else {
+                    return nil
+                }
+
+                if sent.contains(Int(index)) {
+                    // Past what the acknowledgement could name, nothing is known
+                    // about a chunk that has already gone out, so it is left
+                    // alone until the other end's list reaches it and says.
+                    if !named { continue }
+                    // Named, but sent too recently for this acknowledgement to
+                    // have seen it: it is in flight, not lost. Skipped for one
+                    // round only — the mark moves up at the next acknowledgement,
+                    // and if it really was lost it is asked for again and goes
+                    // out then. Without this, a link with any latency at all
+                    // sends its own in-flight chunks a second time, every round.
+                    if Int(index) > settled { continue }
+                }
+
+                sent.insert(Int(index))
+                highestSent = max(highestSent, Int(index))
+                sentSinceAck += 1
+                return index
+            }
         }
 
-        func chunk(_ index: UInt32) -> ArraySlice<UInt8> {
-            let start = Int(index) * Bulk.chunkSize
-            return bytes[start..<(start + Bulk.chunkLength(size: bytes.count, index: index))]
+        func chunk(_ index: UInt32) -> ArraySlice<UInt8>? {
+            body.chunk(index)
         }
 
         func result(_ outcome: BulkOutcome) -> BulkResult {
@@ -848,15 +1534,14 @@ final class BulkChannel: @unchecked Sendable {
         let hash: [UInt8]
         let description: String
 
-        private var buffer: [UInt8]
-        private var have: [Bool]
+        private let sink: BulkStore
+        private var have: ChunkMap
 
-        private(set) var haveCount: UInt32 = 0
         var hashFailures = 0
         var lastActivity = Date.distantPast
         var lastAckAt = Date.distantPast
 
-        init(offer: BulkOffer) {
+        init(offer: BulkOffer, storage: BulkStorage) throws {
             transferID = offer.transferID
             kind = offer.kind
             format = offer.format
@@ -864,31 +1549,46 @@ final class BulkChannel: @unchecked Sendable {
             chunkCount = offer.chunkCount
             hash = offer.hash
             description = offer.description
-            buffer = [UInt8](repeating: 0, count: Int(offer.size))
-            have = [Bool](repeating: false, count: Int(offer.chunkCount))
+            have = ChunkMap(count: Int(offer.chunkCount))
+            switch storage {
+            case .memory:
+                sink = MemoryStore(size: Int(offer.size))
+            case .file(let directory):
+                sink = try FileStore(
+                    directory: directory, transferID: offer.transferID, size: Int(offer.size)
+                )
+            }
         }
 
-        var isComplete: Bool { haveCount == chunkCount }
+        var haveCount: UInt32 { UInt32(have.present) }
+        var isComplete: Bool { have.isComplete }
 
-        func store(index: UInt32, data: [UInt8]) {
+        /// Takes one chunk. A throw means the object cannot be assembled here at
+        /// all — the disk said no — and the transfer is given up rather than
+        /// retried: the map is left claiming a chunk that is not on disk,
+        /// because nothing is going to ask it again.
+        func store(index: UInt32, data: [UInt8]) throws {
             guard index < chunkCount else { return }
             // A chunk of the wrong length cannot be part of this object, whatever
-            // else it is. Taking it would corrupt the buffer in a way only the
+            // else it is. Taking it would corrupt the object in a way only the
             // hash would catch.
             guard data.count == Bulk.chunkLength(size: Int(size), index: index) else { return }
-            guard !have[Int(index)] else { return }
+            // The bitmap answers «is this new» and marks it in one step, which is
+            // what keeps the cost of a duplicate down to nothing — and a
+            // duplicate must not be written twice, because on disk the second
+            // write would land in the middle of somebody else's flush.
+            guard have.insert(Int(index)) else { return }
 
-            let start = Int(index) * Bulk.chunkSize
-            buffer.replaceSubrange(start..<(start + data.count), with: data)
-            have[Int(index)] = true
-            haveCount += 1
+            try sink.write(data, at: Int(index) * Bulk.chunkSize)
         }
 
-        func verify() -> Bool { Array(SHA256.hash(data: buffer)) == hash }
+        func digest() throws -> [UInt8] { try sink.digest() }
+
+        func take() throws -> BulkPayload { try sink.take() }
 
         func forget() {
-            for i in have.indices { have[i] = false }
-            haveCount = 0
+            have.removeAll()
+            sink.restart()
         }
 
         /// The first hole, then up to 256 more. When nothing is missing the
@@ -896,26 +1596,19 @@ final class BulkChannel: @unchecked Sendable {
         /// no other way to say «ничего не нужно», and the sender reads anything at
         /// or past the count as «жду BULK_DONE».
         func buildAck(accepted: Bool) -> BulkAck {
-            var first = chunkCount
-            var listed = [UInt32]()
-            listed.reserveCapacity(Bulk.maxMissingListed)
-
-            for i in 0..<chunkCount where !have[Int(i)] {
-                if first == chunkCount {
-                    first = i
-                    continue
-                }
-                if listed.count == Bulk.maxMissingListed { break }
-                listed.append(i)
-            }
-
-            return BulkAck(transferID: transferID, accepted: accepted, firstMissing: first, missing: listed)
+            let holes = have.missing(limit: Bulk.maxMissingListed + 1)
+            return BulkAck(
+                transferID: transferID,
+                accepted: accepted,
+                firstMissing: holes.first.map(UInt32.init) ?? chunkCount,
+                missing: holes.dropFirst().map(UInt32.init)
+            )
         }
 
-        func delivery() -> BulkDelivery {
+        func delivery(payload: BulkPayload) -> BulkDelivery {
             BulkDelivery(
                 transferID: transferID, kind: kind, format: format,
-                bytes: buffer, hash: hash, description: description
+                payload: payload, hash: hash, description: description
             )
         }
     }
@@ -923,14 +1616,17 @@ final class BulkChannel: @unchecked Sendable {
 
 enum BulkError: Error, CustomStringConvertible {
     case empty
-    case tooLarge(Int)
+    case tooLarge(limit: Int)
+    case noRoom
 
     var description: String {
         switch self {
         case .empty:
             return L.t("bulk.error.empty")
-        case .tooLarge:
-            return L.t("bulk.error.tooLarge")
+        case .tooLarge(let limit):
+            return L.t("bulk.error.tooLarge", L.sizeLimit(limit))
+        case .noRoom:
+            return L.t("files.error.noRoom")
         }
     }
 }

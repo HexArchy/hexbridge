@@ -74,6 +74,20 @@ struct Config: Codable {
     /// stops being shown (§10.2).
     var paired: Bool?
 
+    /// How fast files and the clipboard may be pushed, in blocks a second — a
+    /// block being the 1024 bytes docs/PROTOCOL.md fixes, so 1024 of them is
+    /// about a megabyte a second.
+    ///
+    /// Absent or zero means no ceiling of our own, which is the default and is
+    /// not the same thing as "as fast as a loop can spin": with no ceiling the
+    /// channel finds the speed by growing while everything arrives and cutting
+    /// back when it does not. The setting is for the case where the link is
+    /// shared with something HexBridge cannot see and has to be left room.
+    ///
+    /// Optional for the same reason as `gamepad`: a config written before this
+    /// existed must still decode.
+    var sendRate: Int?
+
     /// Look for a new version once a day (docs/UPDATES.md). Optional for the
     /// same reason as `gamepad`: a config written before this existed must not
     /// fail to decode, and a failed decode silently loses the key and the
@@ -84,6 +98,14 @@ struct Config: Codable {
     var autoUpdate: Bool?
 
     var streamsMicrophone: Bool { microphone ?? true }
+
+    /// The ceiling handed to the reliable channel, in blocks a second, or nil
+    /// when there is none. Zero and absent mean the same thing here — a picker
+    /// that has to encode "no limit" has to encode it as something.
+    var bulkRateCeiling: Double? {
+        guard let sendRate, sendRate > 0 else { return nil }
+        return Double(sendRate)
+    }
 
     /// On unless asked otherwise. Off means no request leaves the machine.
     var checksForUpdates: Bool { autoUpdate ?? true }
@@ -166,6 +188,7 @@ struct Config: Codable {
         peerName = try values.decodeIfPresent(String.self, forKey: .peerName)
         paired = try values.decodeIfPresent(Bool.self, forKey: .paired)
         autoUpdate = try values.decodeIfPresent(Bool.self, forKey: .autoUpdate)
+        sendRate = try values.decodeIfPresent(Int.self, forKey: .sendRate)
     }
 
     init() {}

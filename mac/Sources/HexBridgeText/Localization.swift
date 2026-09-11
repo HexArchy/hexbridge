@@ -195,8 +195,27 @@ public enum L {
 
     /// A size in binary units, the way a clipboard object is described.
     public static func bytes(_ count: Int) -> String {
+        if count >= 1024 * 1024 * 1024 { return t("unit.gb", number(Double(count) / (1024 * 1024 * 1024))) }
         if count >= 1024 * 1024 { return t("unit.mb", number(Double(count) / (1024 * 1024))) }
         if count >= 1024 { return t("unit.kb", number(Double(count) / 1024)) }
+        return t("unit.bytes", integer(count))
+    }
+
+    /// A size written the way a ceiling is written: in whole units, in the
+    /// largest one it fits into.
+    ///
+    /// Apart from ``bytes(_:)`` because the two are read differently. A size
+    /// describes something that exists and has earned its decimal; a ceiling is
+    /// a round number somebody is meant to compare their own file against, and
+    /// «4 GB» is that number where «4096 MB» and «3.9 GB» are both a puzzle.
+    public static func sizeLimit(_ count: Int) -> String {
+        if count >= 1024 * 1024 * 1024 {
+            return t("unit.gb", number(Double(count) / (1024 * 1024 * 1024), decimals: 0))
+        }
+        if count >= 1024 * 1024 {
+            return t("unit.mb", number(Double(count) / (1024 * 1024), decimals: 0))
+        }
+        if count >= 1024 { return t("unit.kb", number(Double(count) / 1024, decimals: 0)) }
         return t("unit.bytes", integer(count))
     }
 

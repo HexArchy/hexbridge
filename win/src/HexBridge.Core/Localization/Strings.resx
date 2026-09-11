@@ -100,6 +100,9 @@
   <data name="Unit_Mebibytes" xml:space="preserve">
     <value>{0} MiB</value>
   </data>
+  <data name="Unit_Gibibytes" xml:space="preserve">
+    <value>{0} GiB</value>
+  </data>
   <data name="Unit_FramesPerSecond" xml:space="preserve">
     <value>{0}/s</value>
   </data>
@@ -618,7 +621,7 @@
     <value>Drop a file here</value>
   </data>
   <data name="Files_Drop_Hint" xml:space="preserve">
-    <value>One file at a time, up to {0} MiB</value>
+    <value>One file at a time, up to {0}</value>
   </data>
   <data name="Files_Button_Pick" xml:space="preserve">
     <value>Choose a file</value>
@@ -773,6 +776,21 @@
   </data>
   <data name="Settings_Caption_Files" xml:space="preserve">
     <value>A file that arrives is written to the Downloads folder under a name of its own — nothing there is ever written over.</value>
+  </data>
+  <data name="Settings_Label_Speed" xml:space="preserve">
+    <value>Speed limit</value>
+  </data>
+  <data name="Settings_Caption_Speed" xml:space="preserve">
+    <value>Files and the clipboard share one channel, and this limits both. Without a limit HexBridge speeds up while everything is getting through and slows down as soon as chunks start going missing, so it settles on what the link carries.</value>
+  </data>
+  <data name="Settings_Speed_Unlimited" xml:space="preserve">
+    <value>No limit</value>
+  </data>
+  <data name="Settings_Speed_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="Settings_Speed_Custom" xml:space="preserve">
+    <value>{0} KiB/s</value>
   </data>
   <data name="Settings_Section_Capture" xml:space="preserve">
     <value>SOUND IN</value>
@@ -1707,7 +1725,7 @@
     <value>nothing to carry: the item is empty</value>
   </data>
   <data name="Err_Bulk_TooBig" xml:space="preserve">
-    <value>the item is over {1} MiB ({0})</value>
+    <value>the item is over {1} ({0})</value>
   </data>
   <data name="Err_Bulk_NotRunning" xml:space="preserve">
     <value>there is nowhere to send it while HexBridge is stopped</value>
@@ -1865,6 +1883,12 @@
   </data>
   <data name="Log_Bulk_Unwanted" xml:space="preserve">
     <value>transfers: turned down — nothing here is waiting for {0}</value>
+  </data>
+  <data name="Log_Bulk_NoRoom" xml:space="preserve">
+    <value>transfers: {0} is too large to hold and there is nowhere to write it</value>
+  </data>
+  <data name="Log_Bulk_WriteFailed" xml:space="preserve">
+    <value>transfers: the item could not be written to disk — {0}</value>
   </data>
   <data name="Log_Bulk_Tick" xml:space="preserve">
     <value>transfers: {0}</value>

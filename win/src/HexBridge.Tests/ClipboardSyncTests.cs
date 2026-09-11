@@ -294,6 +294,9 @@ public class ClipboardSyncTests
             while (_arrivals.Count > 0)
             {
                 var delivery = _arrivals.Dequeue();
+                // The clipboard's lane stages nothing, so its objects always arrive in
+                // hand — the feature makes the same check for the same reason.
+                Assert.NotNull(delivery.Bytes);
                 Sync.Apply(new ClipboardItem(delivery.Format, delivery.Bytes));
             }
 

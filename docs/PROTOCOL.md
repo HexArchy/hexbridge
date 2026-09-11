@@ -396,15 +396,18 @@ and heard nothing back, repeats the last chunk every 500 ms as a nudge.
 
 | | |
 |---|---|
-| Object size | from 1 byte to 64 MiB; an empty object is rejected |
+| Object size | 1 byte to 64 MiB for a clipboard, to 4 GiB − 1 for a file; empty is rejected |
 | Description | at most 256 bytes, truncated on a UTF-8 boundary |
-| Send rate | at most 1500 chunks per second |
+| Send rate | no fixed ceiling; see "How big, and how fast" |
 | Sender silence | 15 s — the receiver forgets the transfer |
 | Idle incoming transfer | 30 s |
 
-The rate limit is not politeness: 64 MiB is around 65 000 packets, and without a cap
-one image would blow through the relay's limit of 2000 packets per second and take
-voice and input down with it.
+The send rate used to be fixed at 1500 chunks a second, which was there so that one
+clipboard image could not blow through a relay's limit and take voice and input down
+with it. It is not fixed any more, because a file is not one image: a ceiling low
+enough to be safe for a relay made a gigabyte take eleven minutes. What replaced it
+is the loss response above — the rate finds the path instead of guessing at it — and
+the reserve that keeps voice and input out of the bulk budget.
 
 Reusing a transfer id with a different hash counts as a new transfer, not a
 continuation of the old one.

@@ -82,11 +82,26 @@ let package = Package(
             name: "HexBridgeFiles",
             path: "Sources/HexBridgeFiles"
         ),
+        // The bookkeeping a four-gigabyte transfer turns on: which chunks have
+        // arrived, which holes are left, and how fast the next ones may go out.
+        // Same argument as the three targets above, with one more on top — the
+        // interesting failures here are the ones that only show at four million
+        // chunks, and pushing four gigabytes through the app to find them is not
+        // a test anybody would run twice.
+        .target(
+            name: "HexBridgeBulk",
+            path: "Sources/HexBridgeBulk"
+        ),
         .executableTarget(
             name: "HexBridge",
-            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeDiscovery", "HexBridgeFiles", "HexBridgePairing", "HexBridgeText", "Sparkle"],
+            dependencies: ["COpusShim", "MenuBarExtraAccess", "HexBridgeBulk", "HexBridgeDiscovery", "HexBridgeFiles", "HexBridgePairing", "HexBridgeText", "Sparkle"],
             path: "Sources/HexBridge",
             linkerSettings: [.unsafeFlags(["-Xlinker", "\(opusPrefix)/lib/libopus.a"])]
+        ),
+        .testTarget(
+            name: "HexBridgeBulkTests",
+            dependencies: ["HexBridgeBulk"],
+            path: "Tests/HexBridgeBulkTests"
         ),
         .testTarget(
             name: "HexBridgeDiscoveryTests",

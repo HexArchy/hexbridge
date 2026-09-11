@@ -125,6 +125,12 @@ final class BridgeRuntime: @unchecked Sendable {
         bulk.rebind { [weak sender] type, payload in
             sender?.sendBulk(type: type, payload: payload)
         }
+        // Both of these are read by the channel and not pushed to it, so a
+        // direct path coming up mid-transfer, or the user moving the control in
+        // settings, takes effect on the next tick rather than on the next
+        // restart.
+        bulk.relayInPath = { [weak sender] in sender?.throughRelay ?? false }
+        applySendRate()
         sender.onBulkPacket = { [weak self] type, payload in
             self?.bulk.handle(type: type, payload: payload)
         }
@@ -196,6 +202,12 @@ final class BridgeRuntime: @unchecked Sendable {
     /// Live: the audio thread reads the field on the next 20 ms frame.
     func setGain(_ gain: Double) {
         capture?.gain = Float(gain)
+    }
+
+    /// Live: the reliable channel reads the ceiling on its next tick. Nothing
+    /// here has to be rebuilt for it, so this is not a restart-required setting.
+    func applySendRate() {
+        bulk.configuredCeiling = config.bulkRateCeiling
     }
 
     // MARK: - Telemetry

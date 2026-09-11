@@ -55,8 +55,12 @@ public sealed partial class FilesViewModel : ObservableObject
 
     public bool HasArrived => Arrived.Count > 0;
 
-    /// <summary>The ceiling, spelled from the constant so the two cannot drift apart.</summary>
-    public string DropHint => Loc.F(Strings.Files_Drop_Hint, Bulk.MaxObjectSize / (1024 * 1024));
+    /// <summary>
+    /// The ceiling, said in the round number rather than the exact one. A file's limit is
+    /// what the format's own <c>u32</c> can count — one byte short of four gigabytes — and
+    /// «up to 4 GiB less one byte» is a sentence written for the format, not for a person.
+    /// </summary>
+    public string DropHint => Loc.F(Strings.Files_Drop_Hint, Loc.F(Strings.Unit_Gibibytes, 4));
 
     /// <summary>The feature this page drives. Set once, at startup, by the catalog.</summary>
     public void Attach(FilesFeature feature) => _feature = feature;

@@ -124,8 +124,25 @@ public class FilesFeatureTests
         Assert.Equal(contents, delivery.Bytes);
     }
 
+    /// <summary>
+    /// The two ceilings are the two kinds, and the message has to name the right one:
+    /// telling somebody their file is over 64 MiB when the limit it hit is four gigabytes
+    /// sends them looking for a setting that does not exist.
+    /// </summary>
     [Fact]
-    public void AFileOverTheCeilingIsRefusedWithTheLimitInTheMessage()
+    public void EachKindIsRefusedWithItsOwnCeilingInTheMessage()
+    {
+        Assert.Contains("4\u00a0ГиБ", BulkChannel.TooBig(BulkKind.File, 5L * 1024 * 1024 * 1024), StringComparison.Ordinal);
+        Assert.Contains("64\u00a0МиБ", BulkChannel.TooBig(BulkKind.Clipboard, 70L * 1024 * 1024), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The old ceiling was 64 MiB because both ends held the object in memory. Neither does
+    /// any more, so a file past it is offered like any other — the refusal that is left is
+    /// «нечего отправлять», because this feature is not running in this test.
+    /// </summary>
+    [Fact]
+    public void AFileOverTheOldCeilingIsNoLongerRefusedForItsSize()
     {
         using var folder = new TempDownloads();
         var feature = new FilesFeature(new BulkHost(), () => folder.Path);
@@ -133,15 +150,15 @@ public class FilesFeatureTests
         var path = Path.Combine(folder.Path, "huge.bin");
         using (var file = new FileStream(path, FileMode.CreateNew))
         {
-            // Length without content: the point is that the refusal comes off the
-            // directory entry, before anything is read into memory to be refused.
-            file.SetLength(Bulk.MaxObjectSize + 1L);
+            // Length without content: nothing reads it, and the point is that the size is
+            // taken off the directory entry rather than by opening it.
+            file.SetLength(Bulk.MaxClipboardSize + 1L);
         }
 
         var error = feature.Send(path);
 
         Assert.NotNull(error);
-        Assert.Contains("64", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("64", error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -156,7 +173,61 @@ public class FilesFeatureTests
         Assert.Contains("gone.txt", error, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A run that ended without being able to clear up after itself — a machine switched
+    /// off mid-transfer — leaves a half-written file in the folder arriving files land in.
+    /// The next start takes it away, and takes nothing else with it.
+    /// </summary>
+    [Fact]
+    public async Task WhatAnInterruptedRunLeftBehindIsSweptWhenTheFeatureStarts()
+    {
+        using var folder = new TempDownloads();
+        var stray = Path.Combine(folder.Path, Bulk.PartialName(0x1234));
+        File.WriteAllBytes(stray, new byte[16]);
+        var theirs = Path.Combine(folder.Path, "не трогать.txt");
+        File.WriteAllText(theirs, "чужой файл");
+
+        var feature = new FilesFeature(new BulkHost(), () => folder.Path);
+        feature.Start(Context());
+        await feature.StopAsync();
+
+        Assert.False(File.Exists(stray));
+        Assert.True(File.Exists(theirs));
+    }
+
+    /// <summary>
+    /// The setting and the relay, each able to hold the rate down and neither able to
+    /// raise it. A machine that dials a relay has no way to ask what that relay allows, so
+    /// the contract's own number is what it assumes until somebody says otherwise.
+    /// </summary>
+    [Fact]
+    public void TheSpeedCeilingComesFromTheSettingAndFromWhetherThereIsARelay()
+    {
+        Assert.Equal(Bulk.MaxChunksPerSecond, BulkHost.CeilingFor(new ReceiverConfig()));
+        Assert.Equal(5120, BulkHost.CeilingFor(new ReceiverConfig { SendRate = 5120 }));
+
+        var relayed = new ReceiverConfig { Relay = "203.0.113.7:47702" };
+        Assert.Equal(Bulk.RelayPacketsPerSecond - Bulk.RelayReserve, BulkHost.CeilingFor(relayed));
+
+        // A relay somebody started with a higher limit than the contract's, said here
+        // because this end cannot ask it.
+        relayed.RelayPacketsPerSecond = 20_000;
+        Assert.Equal(20_000 - Bulk.RelayReserve, BulkHost.CeilingFor(relayed));
+
+        // And the setting still wins when it is the lower of the two.
+        relayed.SendRate = 2048;
+        Assert.Equal(2048, BulkHost.CeilingFor(relayed));
+    }
+
     // MARK: - Harness
+
+    /// <summary>Enough of a context to start a feature that touches nothing but a folder.</summary>
+    private static FeatureContext Context() => new(
+        new ReceiverConfig(),
+        (_, _) => { },
+        (_, _, _) => { },
+        () => false,
+        _ => { });
 
     /// <summary>A Downloads folder of this test's own, emptied when it ends.</summary>
     private sealed class TempDownloads : IDisposable

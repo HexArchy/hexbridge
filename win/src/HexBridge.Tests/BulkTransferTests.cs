@@ -30,7 +30,7 @@ public class BulkTransferTests
     public void TheConstantsMatchTheContract()
     {
         Assert.Equal(1024, Bulk.ChunkSize);
-        Assert.Equal(64 * 1024 * 1024, Bulk.MaxObjectSize);
+        Assert.Equal(64 * 1024 * 1024, Bulk.MaxClipboardSize);
         Assert.Equal(256, Bulk.MaxMissingListed);
         Assert.Equal(10, Bulk.MaxOfferAttempts);
         Assert.Equal(TimeSpan.FromSeconds(1), Bulk.OfferInterval);
@@ -94,7 +94,7 @@ public class BulkTransferTests
         Assert.True(BulkCodec.TryReadChunk(chunk, out var id, out var index, out var read));
         Assert.Equal(4u, id);
         Assert.Equal(5u, index);
-        Assert.Equal(data, read);
+        Assert.Equal(data, read.ToArray());
 
         var done = BulkCodec.WriteDone(0xDEADBEEF);
         Assert.Equal(4, done.Length);
@@ -159,7 +159,7 @@ public class BulkTransferTests
         Assert.Equal(1u, Bulk.ChunkCountFor(1));
         Assert.Equal(1u, Bulk.ChunkCountFor(1024));
         Assert.Equal(2u, Bulk.ChunkCountFor(1025));
-        Assert.Equal(65536u, Bulk.ChunkCountFor(Bulk.MaxObjectSize));
+        Assert.Equal(65536u, Bulk.ChunkCountFor(Bulk.MaxClipboardSize));
 
         Assert.Equal(1024, Bulk.ChunkLength(2500, 0));
         Assert.Equal(1024, Bulk.ChunkLength(2500, 1));
@@ -372,7 +372,7 @@ public class BulkTransferTests
     }
 
     [Fact]
-    public void MoreHolesThanFitInOneAckMakeTheSenderStartOverFromTheFirst()
+    public void MoreHolesThanFitInOneAckAreAllFilledInTheEnd()
     {
         var pair = new Pair();
         var random = new Random(13);
@@ -384,6 +384,41 @@ public class BulkTransferTests
         pair.Run(seconds: 60);
 
         Assert.Equal(payload, Assert.Single(pair.DeliveredAtB).Bytes);
+    }
+
+    /// <summary>
+    /// An ack with a full list says «there may be more», and the answer to it must not be
+    /// to send the object again. One chunk lost early costs one chunk sent twice — not a
+    /// second pass over everything behind it, which on a four-gigabyte object would be four
+    /// gigabytes every 200 ms.
+    /// </summary>
+    [Fact]
+    public void AFullMissingListDoesNotMakeTheWholeObjectGoOutAgain()
+    {
+        var pair = new Pair();
+        var dropped = false;
+        pair.Drop = (toB, type, payload) =>
+        {
+            if (!toB || type != PacketType.BulkChunk || dropped || Index(payload) != 3) return false;
+            dropped = true;
+            return true;
+        };
+
+        // Long enough that every ack until the very end has a full list: until the last
+        // chunk is on the wire, everything past the frontier is a hole the ack has no room
+        // to name.
+        var payload = Payload(2000 * Bulk.ChunkSize, seed: 30);
+        pair.A.Offer(BulkKind.Clipboard, BulkFormat.Png, payload, "снимок", pair.Now, out _);
+        pair.Run(seconds: 20);
+
+        Assert.Equal(payload, Assert.Single(pair.DeliveredAtB).Bytes);
+        Assert.True(dropped);
+        // Measured on this harness: 2281 chunks the way it works now against 3021 for the
+        // literal reading of «start over from the first missing chunk». The threshold sits
+        // between the two, because what is being pinned is the strategy and not the exact
+        // number — the rest of the excess is holes named while their chunks were still in
+        // the air, which no strategy can tell from a loss.
+        Assert.True(pair.ChunksSentToB < 2500, $"{pair.ChunksSentToB} chunks for an object of 2000");
     }
 
     // MARK: - Offers
@@ -481,19 +516,19 @@ public class BulkTransferTests
     {
         var pair = new Pair();
 
-        var ok = pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, new byte[Bulk.MaxObjectSize], "предел", pair.Now, out var okError);
+        var ok = pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, new byte[Bulk.MaxClipboardSize], "предел", pair.Now, out var okError);
         Assert.NotNull(ok);
         Assert.Null(okError);
 
-        var tooBig = pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, new byte[Bulk.MaxObjectSize + 1], "перебор", pair.Now, out var error);
+        var tooBig = pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, new byte[Bulk.MaxClipboardSize + 1], "перебор", pair.Now, out var error);
         Assert.Null(tooBig);
-        Assert.Contains("64 МиБ", error);
+        Assert.Contains("64\u00a0МиБ", error);
 
         // The one that fits is offered with the chunk count the contract implies.
         var offer = pair.SentToB.Single(p => p.type == PacketType.BulkOffer);
         Assert.True(BulkCodec.TryReadOffer(offer.payload, out var read));
         Assert.Equal(65536u, read.ChunkCount);
-        Assert.Equal((uint)Bulk.MaxObjectSize, read.Size);
+        Assert.Equal((uint)Bulk.MaxClipboardSize, read.Size);
     }
 
     [Fact]
@@ -501,7 +536,7 @@ public class BulkTransferTests
     {
         var pair = new Pair();
         var lies = BulkCodec.WriteOffer(new BulkOffer(
-            1, BulkKind.Clipboard, BulkFormat.Opaque, (uint)Bulk.MaxObjectSize + 1, 16385, new byte[32], "ложь"));
+            1, BulkKind.Clipboard, BulkFormat.Opaque, (uint)Bulk.MaxClipboardSize + 1, 16385, new byte[32], "ложь"));
 
         pair.B.OnPacket(PacketType.BulkOffer, lies, pair.Now);
         pair.Run(seconds: 1);
@@ -598,6 +633,328 @@ public class BulkTransferTests
         Assert.Empty(pair.B.Progress());
     }
 
+    // MARK: - Files, and the four gigabytes the format allows them
+
+    [Fact]
+    public void TheCeilingsAreTheOnesTheContractGivesEachKind()
+    {
+        Assert.Equal(64L * 1024 * 1024, Bulk.MaxSizeFor(BulkKind.Clipboard));
+        Assert.Equal(uint.MaxValue, Bulk.MaxSizeFor(BulkKind.File));
+
+        // 4 194 304 chunks, and the count still fits the u32 the offer carries.
+        Assert.Equal(4_194_304u, Bulk.ChunkCountFor(Bulk.MaxFileSize));
+    }
+
+    /// <summary>
+    /// The object is larger than the ceiling both ends used to hold in memory, which is the
+    /// whole point: neither end holds it at all. It is read off one disk a chunk at a time
+    /// and written to the other at each chunk's own offset, and what comes out is a file
+    /// with the hash it was offered under.
+    /// </summary>
+    [Fact]
+    public void AFileLargerThanTheClipboardCeilingCrossesIntact()
+    {
+        using var here = new TempFolder();
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+
+        // A few chunks past the old 64 MiB ceiling. Bigger would prove no more and cost
+        // the suite a minute.
+        var path = here.Write("big.bin", Bulk.MaxClipboardSize + 3000, seed: 21);
+        pair.A.Offer(BulkKind.File, BulkFormat.Opaque, BulkSource.FromFile(path), "big.bin", pair.Now, out var error);
+        Assert.Null(error);
+
+        pair.Run(seconds: 30);
+
+        var delivery = Assert.Single(pair.DeliveredAtB);
+        // Not held: this is the assertion that the streaming path was the one taken, and
+        // it is a better one than any number a test could read off the heap.
+        Assert.Null(delivery.Bytes);
+        Assert.NotNull(delivery.Path);
+        Assert.Equal(Hash(path), Hash(delivery.Path));
+        Assert.Equal(delivery.Hash, Hash(path));
+        Assert.Equal(BulkOutcome.Delivered, Assert.Single(pair.FinishedAtA).Outcome);
+    }
+
+    /// <summary>
+    /// Half-way through, the object is on disk and nowhere else — a file of its full length
+    /// under a name that says it is not finished, and not one byte of it in the channel.
+    /// </summary>
+    [Fact]
+    public void AFileBeingAssembledIsOnDiskRatherThanInMemory()
+    {
+        using var here = new TempFolder();
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+        // The last chunk never arrives, so the transfer stays half-finished for as long as
+        // the test wants to look at it.
+        pair.Drop = (toB, type, payload) => toB && type == PacketType.BulkChunk && Index(payload) == 99;
+
+        var path = here.Write("half.bin", 100 * Bulk.ChunkSize, seed: 22);
+        pair.A.Offer(BulkKind.File, BulkFormat.Opaque, BulkSource.FromFile(path), "half.bin", pair.Now, out _);
+        pair.Run(seconds: 2);
+
+        Assert.Empty(pair.DeliveredAtB);
+        var partial = Assert.Single(Directory.GetFiles(there.Path, "*" + Bulk.PartialExtension));
+        // Its full length from the moment it was created: a disk with no room for the
+        // object says so at the offer rather than at ninety-nine per cent.
+        Assert.Equal(100L * Bulk.ChunkSize, new FileInfo(partial).Length);
+
+        var incoming = Assert.Single(pair.B.Progress());
+        Assert.Equal(99u, incoming.ChunksDone);
+        Assert.Equal(100u, incoming.ChunkCount);
+    }
+
+    /// <summary>
+    /// Chunks arriving backwards and twice over: the bitmap has to answer «this one is
+    /// already here» the second time, and the hash — taken as the object fills — has to
+    /// come out the same as if they had arrived in order.
+    /// </summary>
+    [Fact]
+    public void AFileSurvivesItsChunksArrivingBackwardsAndTwiceOver()
+    {
+        using var here = new TempFolder();
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+        pair.Duplicate = (toB, type, _) => toB && type == PacketType.BulkChunk;
+        pair.Reverse = true;
+
+        var path = here.Write("jumbled.bin", (300 * Bulk.ChunkSize) + 17, seed: 23);
+        pair.A.Offer(BulkKind.File, BulkFormat.Opaque, BulkSource.FromFile(path), "jumbled.bin", pair.Now, out _);
+        pair.Run(seconds: 10);
+
+        var delivery = Assert.Single(pair.DeliveredAtB);
+        Assert.Equal(Hash(path), Hash(delivery.Path!));
+    }
+
+    [Fact]
+    public void AnAbandonedTransferTakesItsHalfWrittenFileWithIt()
+    {
+        using var here = new TempFolder();
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+        pair.Drop = (toB, type, _) => toB && type == PacketType.BulkChunk;
+
+        var path = here.Write("gone.bin", 50 * Bulk.ChunkSize, seed: 24);
+        pair.A.Offer(BulkKind.File, BulkFormat.Opaque, BulkSource.FromFile(path), "gone.bin", pair.Now, out _);
+        pair.Run(seconds: 2);
+        Assert.NotEmpty(Directory.GetFiles(there.Path, "*" + Bulk.PartialExtension));
+
+        // Nothing for thirty seconds: the transfer is forgotten, and what it was writing
+        // into must not be left in somebody's Downloads folder under a name they have
+        // never seen.
+        pair.Run(seconds: 31);
+        Assert.Empty(Directory.GetFiles(there.Path));
+    }
+
+    [Fact]
+    public void ResetTakesTheHalfWrittenFileWithItToo()
+    {
+        using var here = new TempFolder();
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+        pair.Drop = (toB, type, _) => toB && type == PacketType.BulkChunk;
+
+        var path = here.Write("dropped.bin", 50 * Bulk.ChunkSize, seed: 25);
+        pair.A.Offer(BulkKind.File, BulkFormat.Opaque, BulkSource.FromFile(path), "dropped.bin", pair.Now, out _);
+        pair.Run(seconds: 2);
+        Assert.NotEmpty(Directory.GetFiles(there.Path, "*" + Bulk.PartialExtension));
+
+        pair.B.Reset();
+        Assert.Empty(Directory.GetFiles(there.Path));
+    }
+
+    /// <summary>
+    /// The clipboard shares the channel and keeps its own arrangement: held in memory, at
+    /// most 64 MiB, and nothing of it on disk even while a folder is configured for files.
+    /// </summary>
+    [Fact]
+    public void TheClipboardStillArrivesInMemoryOnTheSameChannel()
+    {
+        using var there = new TempFolder();
+
+        var pair = new Pair();
+        pair.StageFilesAt(there.Path);
+
+        var payload = Payload(40_000, seed: 26);
+        pair.A.Offer(BulkKind.Clipboard, BulkFormat.Png, payload, "снимок", pair.Now, out _);
+        pair.Run(seconds: 3);
+
+        var delivery = Assert.Single(pair.DeliveredAtB);
+        Assert.Equal(payload, delivery.Bytes);
+        Assert.Null(delivery.Path);
+        Assert.Empty(Directory.GetFiles(there.Path));
+    }
+
+    /// <summary>
+    /// An object too large to hold, offered to a kind with nowhere to stream it, is not
+    /// answered at all: the alternative is allocating gigabytes in order to throw them away.
+    /// </summary>
+    [Fact]
+    public void AnObjectTooBigToHoldWithNowhereToStreamItIsNotAnswered()
+    {
+        var pair = new Pair();
+        var size = (uint)Bulk.MaxClipboardSize + 1024;
+        var lies = BulkCodec.WriteOffer(new BulkOffer(
+            1, BulkKind.File, BulkFormat.Opaque, size, Bulk.ChunkCountFor(size), new byte[32], "огромный"));
+
+        pair.B.OnPacket(PacketType.BulkOffer, lies, pair.Now);
+        pair.Run(seconds: 1);
+
+        Assert.Empty(pair.SentToA);
+    }
+
+    // MARK: - Pacing
+
+    [Fact]
+    public void TheCeilingIsTheLowestOfTheConfiguredOneAndTheRelaysOwn()
+    {
+        Assert.Equal(Bulk.MaxChunksPerSecond, Bulk.CeilingFor(0, null));
+        Assert.Equal(4000, Bulk.CeilingFor(4000, null));
+
+        // The relay carries 2000 packets a second and the call and the gamepad on it are
+        // not ours to take.
+        Assert.Equal(2000 - Bulk.RelayReserve, Bulk.CeilingFor(0, 2000));
+        Assert.Equal(1000, Bulk.CeilingFor(1000, 2000));
+        Assert.Equal(2000 - Bulk.RelayReserve, Bulk.CeilingFor(4000, 2000));
+
+        // A relay configured absurdly low makes transfers slow, not impossible.
+        Assert.Equal(Bulk.MinChunksPerSecond, Bulk.CeilingFor(0, 100));
+    }
+
+    /// <summary>
+    /// The loop the contract asks for: faster while everything is landing, slower the
+    /// moment the missing lists say it is not, and faster again once they stop.
+    /// </summary>
+    [Fact]
+    public void TheRateClimbsWhileChunksLandFallsOnLossAndClimbsBackAfterwards()
+    {
+        var pair = new Pair();
+        // A low ceiling so the object is still going when the third phase starts, and so
+        // the numbers a person reading this test has to hold are small.
+        pair.A.ChunkRateCeiling = 1000;
+
+        pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, Payload(20_000 * Bulk.ChunkSize, seed: 27), "большой", pair.Now, out _);
+
+        pair.Run(seconds: 2);
+        var climbed = pair.A.ChunksPerSecond;
+        Assert.Equal(1000, climbed);
+
+        // Every third chunk is lost. The holes come back in the acks, which is the only
+        // signal the format has, and the rate has to come down on it.
+        //
+        // Sampled as it goes rather than read at the end: a cut and the climb after it are
+        // a sawtooth, and where the last tick happens to fall on that tooth is not what
+        // this test is about.
+        var random = new Random(28);
+        pair.Drop = (toB, type, _) => toB && type == PacketType.BulkChunk && random.Next(3) == 0;
+        var backedOff = climbed;
+        for (var sample = 0; sample < 30; sample++)
+        {
+            pair.RunSteps(5);
+            backedOff = Math.Min(backedOff, pair.A.ChunksPerSecond);
+        }
+        Assert.True(backedOff <= climbed / 2, $"{backedOff} never came down from {climbed}");
+
+        pair.Drop = (_, _, _) => false;
+        pair.Run(seconds: 4);
+        Assert.True(pair.A.ChunksPerSecond > backedOff, $"{pair.A.ChunksPerSecond} did not climb back from {backedOff}");
+    }
+
+    /// <summary>
+    /// Pacing is a ceiling and not a promise of speed, so the one thing that must always
+    /// hold is that nothing goes out faster than the ceiling says.
+    /// </summary>
+    [Fact]
+    public void NothingGoesOutFasterThanTheCeiling()
+    {
+        var pair = new Pair();
+        pair.A.ChunkRateCeiling = 500;
+        pair.A.Offer(BulkKind.Clipboard, BulkFormat.Opaque, Payload(20_000 * Bulk.ChunkSize, seed: 29), "большой", pair.Now, out _);
+
+        pair.Run(seconds: 4);
+
+        // Four seconds at 500 a second, and the first of them was spent on the offer and
+        // the first ack. A margin of one tick's worth, because a token bucket may hand out
+        // a tick of credit it saved.
+        Assert.True(pair.ChunksSentToB <= 4 * 500 + 25, $"{pair.ChunksSentToB} chunks in four seconds");
+    }
+
+    // MARK: - The bitmap under it
+
+    [Fact]
+    public void TheBitmapAnswersTheQuestionsAnAckAsks()
+    {
+        var map = new ChunkBitmap(100);
+
+        Assert.Equal(0u, map.FirstMissing());
+        Assert.False(map.IsFull);
+
+        Assert.True(map.Add(0));
+        // The same chunk twice is the wire repeating itself, not a second chunk.
+        Assert.False(map.Add(0));
+        Assert.Equal(1u, map.Have);
+        Assert.Equal(1u, map.FirstMissing());
+
+        for (uint i = 1; i < 100; i++) map.Add(i);
+        Assert.True(map.IsFull);
+        // One past the last chunk, which is the contract's «ничего не нужно».
+        Assert.Equal(100u, map.FirstMissing());
+
+        map.Clear();
+        Assert.Equal(0u, map.Have);
+        Assert.Equal(0u, map.FirstMissing());
+    }
+
+    [Fact]
+    public void TheBitmapNamesHolesInOrderAndNoMoreThanAskedFor()
+    {
+        var map = new ChunkBitmap(1000);
+        for (uint i = 0; i < 1000; i++)
+        {
+            if (i is not (7 or 9 or 500 or 999)) map.Add(i);
+        }
+
+        Assert.Equal(7u, map.FirstMissing());
+
+        Span<uint> listed = stackalloc uint[Bulk.MaxMissingListed];
+        var count = map.ListMissing(7, listed);
+        Assert.Equal(3, count);
+        Assert.Equal(new uint[] { 9, 500, 999 }, listed[..count].ToArray());
+
+        // And never more than the caller has room for, which is what caps the ack.
+        Span<uint> two = stackalloc uint[2];
+        Assert.Equal(2, map.ListMissing(7, two));
+    }
+
+    /// <summary>
+    /// A count that is not a multiple of 64 leaves bits in the last word that belong to no
+    /// chunk. Counting them as holes would put a chunk number past the end of the object in
+    /// every ack, and the other end would spend the transfer being asked for it.
+    /// </summary>
+    [Fact]
+    public void TheBitmapDoesNotInventHolesPastTheLastChunk()
+    {
+        var map = new ChunkBitmap(70);
+        for (uint i = 0; i < 70; i++) map.Add(i);
+
+        Assert.True(map.IsFull);
+        Assert.Equal(70u, map.FirstMissing());
+
+        Span<uint> listed = stackalloc uint[Bulk.MaxMissingListed];
+        Assert.Equal(0, map.ListMissing(0, listed));
+    }
+
     // MARK: - Harness
 
     private static byte[] Payload(int size, int seed)
@@ -605,6 +962,48 @@ public class BulkTransferTests
         var bytes = new byte[size];
         new Random(seed).NextBytes(bytes);
         return bytes;
+    }
+
+    private static byte[] Hash(string path)
+    {
+        using var file = File.OpenRead(path);
+        return SHA256.HashData(file);
+    }
+
+    /// <summary>The chunk number inside a BULK_CHUNK payload, for a test that drops one.</summary>
+    private static uint Index(byte[] payload) => BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4));
+
+    /// <summary>A folder of this test's own, and whatever it wrote in it, gone at the end.</summary>
+    private sealed class TempFolder : IDisposable
+    {
+        public TempFolder()
+        {
+            Path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "hexbridge-bulk", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public string Path { get; }
+
+        /// <summary>A file of <paramref name="size"/> bytes nobody could guess the contents of.</summary>
+        public string Write(string name, int size, int seed)
+        {
+            var path = System.IO.Path.Combine(Path, name);
+            File.WriteAllBytes(path, Payload(size, seed));
+            return path;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A temporary directory that outlives the run is not a failed test.
+            }
+        }
     }
 
     /// <summary>
@@ -624,6 +1023,12 @@ public class BulkTransferTests
         public Func<bool, PacketType, byte[], bool> Drop { get; set; } = (_, _, _) => false;
         public Func<bool, PacketType, byte[], bool> Duplicate { get; set; } = (_, _, _) => false;
         public Func<bool, PacketType, byte[], byte[]> Mangle { get; set; } = (_, _, bytes) => bytes;
+
+        /// <summary>
+        /// Hands each batch to the other end backwards. Not something a link does on
+        /// purpose, but it is the shortest way to a hole that is filled from behind.
+        /// </summary>
+        public bool Reverse { get; set; }
 
         public List<BulkDelivery> DeliveredAtB { get; } = [];
         public List<BulkResult> FinishedAtA { get; } = [];
@@ -651,11 +1056,22 @@ public class BulkTransferTests
             B.Note += NotesAtB.Add;
         }
 
+        /// <summary>
+        /// Files arriving at B are streamed into <paramref name="folder"/>, which is what
+        /// the files feature does with the folder they are going to land in. Every other
+        /// kind stays in memory, which is what the clipboard needs.
+        /// </summary>
+        public void StageFilesAt(string folder) =>
+            B.Staging = kind => kind == BulkKind.File ? folder : null;
+
         /// <summary>Runs the virtual clock in 20 ms steps, the same cadence the app ticks at.</summary>
-        public void Run(int seconds)
+        public void Run(int seconds) => RunSteps(seconds * 50);
+
+        /// <summary>The same, counted in ticks, for a test that wants to look in between.</summary>
+        public void RunSteps(int steps)
         {
             Deliver();
-            for (var step = 0; step < seconds * 50; step++)
+            for (var step = 0; step < steps; step++)
             {
                 Now = Now.AddMilliseconds(20);
                 A.Tick(Now);
@@ -672,6 +1088,7 @@ public class BulkTransferTests
             {
                 var batch = _inFlight.ToArray();
                 _inFlight.Clear();
+                if (Reverse) Array.Reverse(batch);
 
                 foreach (var (toB, type, payload) in batch)
                 {

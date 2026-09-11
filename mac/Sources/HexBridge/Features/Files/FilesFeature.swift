@@ -83,10 +83,23 @@ final class FilesFeature: Feature {
         running = true
         failure = nil
 
+        // A run that was killed mid-transfer cannot have cleaned up after
+        // itself. Done here rather than on every arrival: it is a sweep of a
+        // folder, and once per switch-on is as often as it is worth.
+        inbox.discardLeftovers(prefix: Bulk.partialPrefix, suffix: Bulk.partialSuffix)
+
         let bulk = host.runtime.bulk
         // Called from the socket queue, so both hop to the main actor before
         // they touch anything on this class.
-        deliveryToken = bulk.observeDeliveries(of: .file) { [weak self] delivery in
+        //
+        // `.file` storage, and it is the whole of what makes a four-gigabyte
+        // file possible: the object is written straight into Downloads under a
+        // hidden name as it arrives, so nothing here ever holds it. The
+        // directory is Downloads rather than a temporary one so that the last
+        // step is a rename and not a second copy of the whole thing.
+        deliveryToken = bulk.observeDeliveries(
+            of: .file, storage: .file(directory: FileInbox.downloads)
+        ) { [weak self] delivery in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.accept(delivery) }
             }
@@ -149,10 +162,13 @@ final class FilesFeature: Feature {
         }
 
         let bulk = host.runtime.bulk
-        let limit = Bulk.maxObjectSize
+        let limit = Bulk.maxObjectSize(of: .file)
 
-        // Off the main thread: 64 MiB read from a network volume or a sleeping
-        // disk is not something to do while the popover waits to be drawn.
+        // Off the main thread. The file is not read into memory any more, but
+        // the hash in the offer still means one pass over the whole of it before
+        // the first block moves, and four gigabytes off a network volume or a
+        // sleeping disk is not something to do while the popover waits to be
+        // drawn.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let problem = Self.offer(url, to: bulk, limit: limit)
             DispatchQueue.main.async {
@@ -171,16 +187,13 @@ final class FilesFeature: Feature {
     /// The reading and the size check, off the main actor. Returns the sentence
     /// to show when it did not happen, or nil when the object is on its way.
     nonisolated private static func offer(_ url: URL, to bulk: BulkChannel, limit: Int) -> String? {
-        let ceiling = L.t("unit.mb", L.number(Double(limit) / (1024 * 1024), decimals: 0))
+        let ceiling = L.sizeLimit(limit)
         do {
             let values = try url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
             if values.isDirectory == true { return L.t("files.error.folder") }
-            // Asked of the directory entry before the file is read, so a 4 GB
-            // disk image is refused rather than pulled into memory first.
+            // Asked of the directory entry first, so something past the
+            // format's own ceiling is refused before it is opened and hashed.
             if let size = values.fileSize, size > limit { return L.t("files.error.tooLarge", ceiling) }
-
-            let data = try Data(contentsOf: url)
-            guard data.count <= limit else { return L.t("files.error.tooLarge", ceiling) }
 
             try bulk.offer(
                 kind: .file,
@@ -189,7 +202,10 @@ final class FilesFeature: Feature {
                 // and turning it into clipboard text on the other side would be
                 // a surprise. PROTOCOL.md says so in as many words.
                 format: .opaque,
-                bytes: [UInt8](data),
+                // By path, not by bytes. The channel reads each block off disk
+                // as it goes, including when the other end asks for one again,
+                // so nothing here is ever held whole.
+                file: url,
                 // The description is the name and nothing else, capped by the
                 // contract at 256 bytes with the extension kept.
                 description: SafeFileName.shortened(
@@ -224,7 +240,13 @@ final class FilesFeature: Feature {
     // MARK: - In
 
     private func accept(_ delivery: BulkDelivery) {
-        inbox.save(delivery.bytes, as: delivery.description) { [weak self] result in
+        // This feature registered for file storage, so an arrival is always a
+        // file on disk. A `.bytes` payload would mean the channel had assembled
+        // somebody else's object into ours; there is nothing sensible to do with
+        // it and nothing to be gained by guessing.
+        guard case .file(let temporary) = delivery.payload else { return }
+
+        inbox.adopt(temporary, as: delivery.description) { [weak self] result in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 switch result {

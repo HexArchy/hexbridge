@@ -100,6 +100,9 @@
   <data name="Unit_Mebibytes" xml:space="preserve">
     <value>{0} МиБ</value>
   </data>
+  <data name="Unit_Gibibytes" xml:space="preserve">
+    <value>{0} ГиБ</value>
+  </data>
   <data name="Unit_FramesPerSecond" xml:space="preserve">
     <value>{0} пак/с</value>
   </data>
@@ -618,7 +621,7 @@
     <value>Перетащите сюда файл</value>
   </data>
   <data name="Files_Drop_Hint" xml:space="preserve">
-    <value>По одному файлу, до {0} МиБ</value>
+    <value>По одному файлу, до {0}</value>
   </data>
   <data name="Files_Button_Pick" xml:space="preserve">
     <value>Выбрать файл</value>
@@ -773,6 +776,21 @@
   </data>
   <data name="Settings_Caption_Files" xml:space="preserve">
     <value>Пришедший файл попадает в папку загрузок под собственным именем — ничего в ней не перезаписывается.</value>
+  </data>
+  <data name="Settings_Label_Speed" xml:space="preserve">
+    <value>Ограничение скорости</value>
+  </data>
+  <data name="Settings_Caption_Speed" xml:space="preserve">
+    <value>Файлы и буфер обмена идут по одному каналу, и ограничение действует на оба. Без ограничения HexBridge разгоняется, пока всё доходит, и сбрасывает скорость, как только куски начинают теряться, — так он сам находит то, что линия тянет.</value>
+  </data>
+  <data name="Settings_Speed_Unlimited" xml:space="preserve">
+    <value>Без ограничения</value>
+  </data>
+  <data name="Settings_Speed_Format" xml:space="preserve">
+    <value>{0} МБ/с</value>
+  </data>
+  <data name="Settings_Speed_Custom" xml:space="preserve">
+    <value>{0} КиБ/с</value>
   </data>
   <data name="Settings_Section_Capture" xml:space="preserve">
     <value>ЗАХВАТ ЗВУКА</value>
@@ -1707,7 +1725,7 @@
     <value>нечего передавать: объект пуст</value>
   </data>
   <data name="Err_Bulk_TooBig" xml:space="preserve">
-    <value>объект больше {1} МиБ ({0})</value>
+    <value>объект больше {1} ({0})</value>
   </data>
   <data name="Err_Bulk_NotRunning" xml:space="preserve">
     <value>пока HexBridge остановлен, отправлять некуда</value>
@@ -1865,6 +1883,12 @@
   </data>
   <data name="Log_Bulk_Unwanted" xml:space="preserve">
     <value>передачи: отклонено — {0} здесь никто не ждёт</value>
+  </data>
+  <data name="Log_Bulk_NoRoom" xml:space="preserve">
+    <value>передачи: {0} слишком велик, чтобы держать его в памяти, а записать некуда</value>
+  </data>
+  <data name="Log_Bulk_WriteFailed" xml:space="preserve">
+    <value>передачи: объект не удалось записать на диск — {0}</value>
   </data>
   <data name="Log_Bulk_Tick" xml:space="preserve">
     <value>передачи: {0}</value>

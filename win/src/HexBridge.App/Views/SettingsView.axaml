@@ -170,6 +170,23 @@
                  questions somebody asks once, before they switch this on. -->
             <TextBlock Classes="caption" TextWrapping="Wrap"
                        Text="{l:Tr Settings_Caption_Files}" />
+
+            <!-- The speed limit sits with files because that is what anybody looking for
+                 it will have been watching, even though it holds the clipboard to the
+                 same number: the two share one channel and one socket. -->
+            <StackPanel Spacing="6">
+              <TextBlock Classes="label" Text="{l:Tr Settings_Label_Speed}" />
+              <ComboBox ItemsSource="{Binding Speeds}" SelectedItem="{Binding Speed}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SpeedOption">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="{l:Tr Settings_Caption_Speed}" />
+            </StackPanel>
           </StackPanel>
         </Border>
 
