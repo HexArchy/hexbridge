@@ -122,13 +122,13 @@ public sealed class ReceiverConfig
 
     /// <summary>
     /// What the relay carries from one address before it starts dropping, in packets per
-    /// second. Zero means the number in docs/PROTOCOL.md, which is 2000.
+    /// second. Zero means the relay's own default, <see cref="Bulk.RelayPacketsPerSecond"/>.
     ///
     /// <para>
     /// Read only when a relay is configured, and only to keep transfers underneath it: what
     /// a relay drops comes back as a hole and is sent again, so aiming above its limit makes
-    /// a transfer slower rather than faster. A relay started with a higher limit than the
-    /// contract's is worth saying so here — this end has no way to ask it.
+    /// a transfer slower rather than faster. A relay somebody started with a limit of their
+    /// own is worth saying so here — this end has no way to ask it.
     /// </para>
     /// </summary>
     public int RelayPacketsPerSecond { get; set; }
