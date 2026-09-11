@@ -264,7 +264,7 @@ An offer to transfer an object. Repeated until a `BULK_ACK` arrives with
 ```
 | off | size | field                                        |
 |  0  |  4   | transfer id, LE u32                          |
-|  4  |  1   | kind: 1=clipboard                            |
+|  4  |  1   | kind: 1=clipboard, 2=file                    |
 |  5  |  1   | format: 1=UTF-8 text, 2=PNG, 3=arbitrary     |
 |  6  |  4   | total size in bytes, LE u32                  |
 | 10  |  4   | number of chunks, LE u32                     |
@@ -273,8 +273,27 @@ An offer to transfer an object. Repeated until a `BULK_ACK` arrives with
 | 48  |  N   | description for the UI, UTF-8                |
 ```
 
-The size is capped at 64 MiB. Anything bigger is file transfer, which will get a
-kind of its own.
+The size is capped at 64 MiB, in both directions and for both kinds.
+
+### Files, kind 2
+
+A file is the same object as anything else on this channel, with two rules on top.
+
+* **`format` is 3, arbitrary.** Not the text or image formats — a `.txt` is a file
+  because somebody dropped a file, and turning it back into clipboard text on the
+  other side would be a surprise.
+* **`description` is the file's name and nothing else.** No path, no directory, just
+  `notes.txt`. It is capped at 256 bytes like every other description, so a longer
+  name is trimmed before it is sent, keeping the extension.
+
+**The name is not to be trusted.** It crossed a network, and the side that receives
+it writes to disk with it. Before that it is stripped of everything but its own last
+component, and of any character the local filesystem gives meaning to — a name that
+is empty, or is `.`, or `..`, after that becomes `file`. A received name never
+decides which directory is written to, only what the file inside it is called.
+
+Files land in the user's Downloads folder. A name already taken gets ` (2)`, ` (3)`
+and so on before the extension, so nothing is ever written over.
 
 The hash is not only for verification: on receiving a `BULK_OFFER` whose hash
 matches something it already has, the receiver answers `accepted = 0` and does not
