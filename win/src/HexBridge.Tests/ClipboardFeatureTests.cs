@@ -15,18 +15,10 @@ namespace HexBridge.Tests;
 /// </summary>
 public class ClipboardFeatureTests
 {
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
-    }
 
     private static ReceiverConfig Config(bool clipboard = true) => new()
     {
-        Listen = $"127.0.0.1:{FreePort()}",
+        Listen = $"127.0.0.1:{Ports.Free()}",
         Psk = ReceiverConfig.GenerateKey(),
         Output = "null",
         Gamepad = false,

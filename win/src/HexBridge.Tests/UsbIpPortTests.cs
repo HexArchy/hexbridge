@@ -47,19 +47,11 @@ public class UsbIpPortTests
         return IPEndPoint.Parse(state.ServerListen);
     }
 
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
-    }
 
     [Fact]
     public void TheFeatureStartsEvenWhenItsPortIsHeld()
     {
-        var wanted = FreePort();
+        var wanted = Ports.Free();
         using var squatter = Squat(wanted);
 
         var feature = new DevicesFeature();
@@ -86,7 +78,7 @@ public class UsbIpPortTests
     [Fact]
     public void AFreePortIsTakenAsAsked()
     {
-        var wanted = FreePort();
+        var wanted = Ports.Free();
 
         var feature = new DevicesFeature();
         feature.Start(Context(wanted));

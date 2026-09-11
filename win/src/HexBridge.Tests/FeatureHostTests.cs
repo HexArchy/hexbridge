@@ -13,22 +13,14 @@ namespace HexBridge.Tests;
 /// </summary>
 public class FeatureHostTests
 {
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
-    }
 
     private static ReceiverConfig Config() => new()
     {
-        Listen = $"127.0.0.1:{FreePort()}",
+        Listen = $"127.0.0.1:{Ports.Free()}",
         Psk = ReceiverConfig.GenerateKey(),
         Output = "null",
         Gamepad = true,
-        UsbIpListen = $"127.0.0.1:{FreePort()}",
+        UsbIpListen = $"127.0.0.1:{Ports.Free()}",
         UsbIpAutoAttach = false,
     };
 

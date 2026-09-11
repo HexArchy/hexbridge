@@ -171,7 +171,7 @@ public class BridgeLoopbackTests
         // features, a different config. Nothing here is a second process, because the
         // product is one executable and this is the thing that has to survive.
         var psk = ReceiverConfig.GenerateKey();
-        var port = FreePort();
+        var port = Ports.Free();
 
         await using var host = new ReceiverService(
             new MicrophoneFeature(),
@@ -257,7 +257,7 @@ public class BridgeLoopbackTests
         public static async Task<Link> OpenAsync(bool muted = false, bool gamepad = false)
         {
             var psk = ReceiverConfig.GenerateKey();
-            var port = FreePort();
+            var port = Ports.Free();
             var log = new List<string>();
 
             void Note(string side, LogEntry entry)
@@ -273,7 +273,7 @@ public class BridgeLoopbackTests
                 Output = "null",
                 Clipboard = true,
                 Gamepad = gamepad,
-                UsbIpListen = $"127.0.0.1:{FreePort()}",
+                UsbIpListen = $"127.0.0.1:{Ports.Free()}",
                 UsbIpAutoAttach = false,
                 // A short buffer so the test does not spend a quarter of a second priming one.
                 JitterMs = 40,
@@ -352,12 +352,4 @@ public class BridgeLoopbackTests
         }
     }
 
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
-    }
 }
