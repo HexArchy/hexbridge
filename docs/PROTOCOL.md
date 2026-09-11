@@ -273,7 +273,37 @@ An offer to transfer an object. Repeated until a `BULK_ACK` arrives with
 | 48  |  N   | description for the UI, UTF-8                |
 ```
 
-The size is capped at 64 MiB, in both directions and for both kinds.
+### How big, and how fast
+
+The wire format does not change for either of these. `size` is `u32`, so **4 GiB less
+one byte** is the ceiling the format itself imposes, and the chunk count of such an
+object — 4 194 304 — still fits its own `u32`. The ack already copes: it names the
+first missing chunk and up to 256 more, and "exactly 256" already means "there are
+more, start again from the first".
+
+The caps are per kind, because the two kinds are not alike:
+
+| kind | cap | why |
+|---|---|---|
+| clipboard | 64 MiB | it is held in memory at both ends, and a clipboard that large is a mistake rather than a use |
+| file | 4 GiB − 1 | the format's own limit |
+
+**A file is never held whole in memory.** The side sending it reads each chunk off
+disk as it goes, which it can do because it still has the file; the side receiving it
+writes each chunk straight into a temporary file at that chunk's offset and remembers
+which have landed in a bitmap — 512 KB for a full-size object, against four gigabytes
+for the obvious implementation. The hash is checked when the last hole fills, and only
+then does the file get its real name.
+
+**Pacing is a local decision, not a contract.** Each side may send as fast as it likes;
+nothing in the format says otherwise. What the format does say is what happens when it
+sends too fast — the missing lists come back longer — and that is the signal a sender
+is expected to slow down on. A sender that ignores it will go slower overall, not
+faster, because every chunk it loses it sends twice.
+
+A relay in the path has its own per-endpoint limit and drops what exceeds it. Dropped
+chunks come back as holes, so aiming above a relay's limit is a way of making a
+transfer slower. A sender that knows it is talking through a relay should not try.
 
 ### Files, kind 2
 
