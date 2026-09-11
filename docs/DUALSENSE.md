@@ -52,10 +52,18 @@ Check it before installing:
 
 ### Nothing has to be disabled
 
-The drivers are **signed by Microsoft**: attestation signing since `0.9.7.2`, and
-WHLK certification for x64 since `0.9.7.5` via [OSSign](https://github.com/OSSign).
-The release notes say it in as many words: *"The installer and all binaries are
-signed by Microsoft"* and *"Windows Test Signing Mode activation is not required"*.
+The drivers are **signed by Microsoft**, through [OSSign](https://github.com/OSSign).
+Checked on a machine with 0.9.8.0 installed rather than taken from the release
+notes: `pnputil /enum-drivers` reports the signer as *Microsoft Windows Hardware
+Compatibility Publisher*, which is the attestation-signing chain, for both
+architectures. An earlier version of this document claimed WHLK certification for
+x64; that is not what the shipped catalog says, and the distinction matters — WHLK
+means the driver passed the hardware lab, attestation means Microsoft signed what
+it was handed.
+
+Either way the practical answer is the same, and the release notes put it in as
+many words: *"The installer and all binaries are signed by Microsoft"* and
+*"Windows Test Signing Mode activation is not required"*.
 
 | Requirement | Needed? |
 |---|---|
