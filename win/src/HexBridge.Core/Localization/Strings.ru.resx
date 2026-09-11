@@ -97,6 +97,9 @@
   <data name="Unit_Megabytes" xml:space="preserve">
     <value>{0} МБ</value>
   </data>
+  <data name="Unit_MegabytesPerSecond" xml:space="preserve">
+    <value>{0} МБ/с</value>
+  </data>
   <data name="Unit_Mebibytes" xml:space="preserve">
     <value>{0} МиБ</value>
   </data>
@@ -1739,6 +1742,9 @@
   <data name="Err_Files_NoName" xml:space="preserve">
     <value>свободного имени рядом с {0} не осталось</value>
   </data>
+  <data name="Err_Files_Fast_Broken" xml:space="preserve">
+    <value>{0} оборвался на полпути и до другой машины не дошёл</value>
+  </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>порт {0} занят другой службой — {1}</value>
   </data>
@@ -1907,6 +1913,42 @@
   </data>
   <data name="Log_Files_WriteFailed" xml:space="preserve">
     <value>файлы: файл не записан — {0}</value>
+  </data>
+  <data name="Log_Files_Fast_On" xml:space="preserve">
+    <value>файлы: быстрый путь слушает порт {0}</value>
+  </data>
+  <data name="Log_Files_Fast_Off" xml:space="preserve">
+    <value>файлы: порт {0} занят, поэтому файлы пойдут только медленным путём — {1}</value>
+  </data>
+  <data name="Log_Files_Fast_Sent" xml:space="preserve">
+    <value>файлы: {0} дошёл до другой машины по быстрому пути — {1}, {2}</value>
+  </data>
+  <data name="Log_Files_Fast_Received" xml:space="preserve">
+    <value>файлы: {0} пришёл по быстрому пути — {1}, {2}</value>
+  </data>
+  <data name="Log_Files_Fast_Fallback" xml:space="preserve">
+    <value>файлы: по быстрому пути никто не ответил, поэтому {0} пойдёт медленным</value>
+  </data>
+  <data name="Log_Files_Fast_Unsealed" xml:space="preserve">
+    <value>файлы: соединение по быстрому пути сброшено — его первая запись не запечатана общим ключом</value>
+  </data>
+  <data name="Log_Files_Fast_Cut" xml:space="preserve">
+    <value>файлы: файл, шедший по быстрому пути, оборвался, и ничего не сохранено — {0}</value>
+  </data>
+  <data name="Log_Files_Fast_Damaged" xml:space="preserve">
+    <value>файлы: {0} пришёл по быстрому пути повреждённым и не сохранён</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Silent" xml:space="preserve">
+    <value>другая машина замолчала</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Short" xml:space="preserve">
+    <value>соединение оборвалось на полпути</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Unsealed" xml:space="preserve">
+    <value>пришедшее не запечатано общим ключом</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Long" xml:space="preserve">
+    <value>пришло больше, чем было предложено</value>
   </data>
   <data name="Log_Clip_On" xml:space="preserve">
     <value>буфер обмена: включён — содержимое буфера уходит на другую машину</value>

@@ -133,6 +133,21 @@ public static class Loc
                 : Fill(scope, Of("Unit_Duration_Seconds", scope), span.Seconds);
     }
 
+    /// <summary>
+    /// «370 MB/s» — how fast something actually moved.
+    ///
+    /// <para>
+    /// Rounded to whole megabytes a second and floored at a millisecond, because the one
+    /// question it answers is «почему это вдруг так быстро» and neither a decimal place nor a
+    /// division by zero helps with that.
+    /// </para>
+    /// </summary>
+    public static string Throughput(long bytes, TimeSpan over, LanguageScope? language = null) =>
+        Unit(
+            "Unit_MegabytesPerSecond",
+            Number(bytes / (1024.0 * 1024.0) / Math.Max(over.TotalSeconds, 0.001), "F0", language),
+            language);
+
     /// <summary>A size in whichever unit keeps it to one or two significant digits.</summary>
     public static string Size(long bytes, LanguageScope? language = null) => bytes >= 1024 * 1024
         ? Unit("Unit_Megabytes", Number(bytes / (1024.0 * 1024.0), "F1", language), language)

@@ -94,6 +94,15 @@ final class BridgeRuntime: @unchecked Sendable {
         set { sender?.muted = newValue }
     }
 
+    /// True while what leaves here is going through a relay rather than straight
+    /// at the other machine.
+    ///
+    /// Asked by file transfer before it tries the fast path: a relay forwards
+    /// datagrams and that path is a stream, so the three seconds spent finding
+    /// out would buy a fact that is already known. The reliable channel asks the
+    /// same question for its own reasons — see `Sender.throughRelay`.
+    var throughRelay: Bool { sender?.throughRelay ?? false }
+
     /// Validates the config and brings the whole pipeline up. Throws with a
     /// user-readable `description` for every failure mode.
     func start() throws {

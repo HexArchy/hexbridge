@@ -551,6 +551,16 @@ TCP already delivers every byte, in order, once, with the kernel's own congestio
 control, and one write hands over a megabyte instead of a kilobyte. There is no offer,
 no acknowledgement, no bitmap and no pacing on this path.
 
+### When it is not even tried
+
+A link known to run through a relay skips the stream and goes straight to the UDP
+path. The contract already says a relay cannot carry one, so spending the three-second
+deadline discovering that on every file is three seconds wasted each time.
+
+Falling back happens on a failure to connect, and only then. A stream that breaks
+part-way reports a failure instead — re-sending gigabytes down a path that has just
+died is not a recovery.
+
 ### Making the connection
 
 The machine that would receive listens on **data port + 2** — 47704 beside the usual
@@ -567,6 +577,19 @@ opening AES-256-GCM, nonce = 0, sealing: name length LE u16, name UTF-8, size LE
 records AES-256-GCM, nonce = record number, 1…65536 bytes of plaintext each
 end     a record whose plaintext is empty
 ```
+
+Every record — the opening one, each data record, and the empty one that ends the
+stream — is preceded by **LE u32 giving the length of `ciphertext || tag`**. Something
+has to say where a record ends, and a sealed 64 KiB record is 65 552 bytes, which does
+not fit in two. The nonce is the record number written **little-endian across all
+twelve bytes**, so that a reader padding a u32 and a reader padding a u64 arrive at the
+same value. No record carries associated data. The opening record is number 0, data
+records follow from 1, and the empty record takes the number after the last of them.
+The name is cut to 255 bytes, extension kept, before it is sealed.
+
+None of that is interesting, and all of it is the kind of thing two implementations
+settle differently and discover months later, so it is written down rather than left to
+whoever writes the second one.
 
 The magic and the room travel in the clear, exactly as they do in the UDP header and
 for the same reason: something has to be readable before there is a key to read with.

@@ -73,7 +73,13 @@ public static class Wire
     public const int MaxPacket = 1400;
     public const byte Version = 1;
 
-    private static ReadOnlySpan<byte> Magic => "MBG1"u8;
+    /// <summary>
+    /// The four bytes every datagram starts with — and, since the fast path for files
+    /// exists, every stream too. Public so that there is one of them: two copies of a magic
+    /// number are two things that can drift apart, and the copy that drifted would show up
+    /// as a connection from the other platform being dropped without a word.
+    /// </summary>
+    public static ReadOnlySpan<byte> Magic => "MBG1"u8;
 
     /// <summary>Room ids let the relay pair endpoints without ever holding the PSK.</summary>
     public static ulong RoomId(byte[] psk)

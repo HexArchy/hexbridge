@@ -323,8 +323,27 @@ enum CLI {
         }
         guard runtime.snapshot().pong != nil else { fail(L.t("send.noAnswer")) }
 
-        let bulk = runtime.bulk
         let name = url.lastPathComponent
+
+        // The fast path first, exactly as the interface does it, because this is
+        // the command the speed is measured with and measuring the path nobody
+        // uses is worse than not measuring at all. A relay cannot carry a stream
+        // (docs/PROTOCOL.md), so with one in the way this does not even try.
+        if !runtime.throughRelay, let plan = FileStreamPlan(config: config) {
+            switch FileFastPath.send(file: url, named: name, over: plan) {
+            case .sent(let seconds, let bytes):
+                print(L.t(
+                    "files.fast.sent", name, FileFastPath.speedText(bytes: bytes, seconds: seconds)
+                ))
+                exit(0)
+            case .noConnection(let reason):
+                print(L.t("files.fast.slow", name, reason))
+            case .broke(let reason):
+                fail(L.t("files.fast.broke", name, reason))
+            }
+        }
+
+        let bulk = runtime.bulk
         var outcome: BulkOutcome?
 
         bulk.observeFinished { result in

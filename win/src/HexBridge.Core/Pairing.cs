@@ -37,6 +37,14 @@ public sealed record PairingPayload
     /// </summary>
     public static int ExchangePort(int dataPort) => (dataPort + 1) & 0xFFFF;
 
+    /// <summary>
+    /// Where a file crosses when it does not have to be cut into datagrams: two above the
+    /// data port, 47704 beside the usual 47702. Wrapped rather than checked for the same
+    /// reason <see cref="ExchangePort"/> is — a data port at the very top of the range has
+    /// to come out as a connection nobody answers, not as a crash on the way to making one.
+    /// </summary>
+    public static int FastPathPort(int dataPort) => (dataPort + 2) & 0xFFFF;
+
     /// <summary>Address the Mac should send to. Never a wildcard — the Mac cannot dial 0.0.0.0.</summary>
     public required string Host { get; init; }
 

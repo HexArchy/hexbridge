@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace HexBridge;
 
 /// <summary>
@@ -67,7 +69,8 @@ public sealed class FeatureContext(
     Action<LogLevel, string> log,
     Action<PacketType, ReadOnlyMemory<byte>, PacketFlags> send,
     Func<bool> readMuted,
-    Action<bool> writeMuted)
+    Action<bool> writeMuted,
+    Func<IPEndPoint?>? readPeer = null)
 {
     public ReceiverConfig Config { get; } = config;
 
@@ -76,6 +79,21 @@ public sealed class FeatureContext(
 
     /// <summary>Safe to call from any thread.</summary>
     public void Log(LogLevel level, string message) => log(level, message);
+
+    /// <summary>
+    /// Where the other machine is, as of the last packet that decrypted, or null while
+    /// nobody has been heard from.
+    ///
+    /// <para>
+    /// A feature must not need this to send — <see cref="Send"/> aims itself. It is here for
+    /// the one thing that cannot go through the shared socket at all: the fast path for
+    /// files opens a TCP connection of its own, and a connection has to be aimed at an
+    /// address. It is deliberately the address an authenticated packet last came from rather
+    /// than anything out of the config, because in the receiving role the config does not
+    /// name the other machine at all.
+    /// </para>
+    /// </summary>
+    public IPEndPoint? Peer => readPeer?.Invoke();
 
     /// <summary>
     /// Seals a payload and sends it to the current peer, in whichever direction this role

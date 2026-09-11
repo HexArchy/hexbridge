@@ -466,6 +466,22 @@
 "files.error.notDelivered" = "%@ did not get to the gaming PC.";
 "files.error.refused" = "“%@” was turned down: file transfer is switched off on the other machine";
 
+/* The fast path: docs/PROTOCOL.md, «The fast path for files (TCP, data port + 2)».
+   All of these are log lines rather than screen text. They exist because a file
+   that suddenly crosses in three seconds instead of six minutes is a change
+   somebody will want explained, and because the day it stops being fast the
+   reason has to be findable without a debugger. */
+
+"files.fast.sent" = "“%@” went across on the fast path at %@ — one stream, rather than a kilobyte at a time.";
+"files.fast.arrived" = "“%@” arrived on the fast path at %@.";
+"files.fast.slow" = "the fast path did not open for “%@” — %@. Going the slow way.";
+"files.fast.broke" = "the fast path broke while “%@” was crossing — %@";
+"files.fast.damaged" = "“%@” arrived damaged on the fast path and was not kept.";
+"files.fast.cutShort" = "the connection ended before the file did";
+"files.fast.overlong" = "more bytes arrived than the file said it holds";
+"files.fast.ready" = "the fast path for files is listening on port %@";
+"files.fast.notListening" = "the fast path could not take port %@ — %@. Files will take the slow way.";
+
 /* MARK: - Devices */
 
 "dev.title" = "Devices";

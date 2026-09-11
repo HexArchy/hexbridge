@@ -97,6 +97,9 @@
   <data name="Unit_Megabytes" xml:space="preserve">
     <value>{0} MB</value>
   </data>
+  <data name="Unit_MegabytesPerSecond" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
   <data name="Unit_Mebibytes" xml:space="preserve">
     <value>{0} MiB</value>
   </data>
@@ -1739,6 +1742,9 @@
   <data name="Err_Files_NoName" xml:space="preserve">
     <value>there is no free name left beside {0}</value>
   </data>
+  <data name="Err_Files_Fast_Broken" xml:space="preserve">
+    <value>{0} stopped part-way and did not reach the other machine</value>
+  </data>
   <data name="Err_Port_Busy" xml:space="preserve">
     <value>port {0} is held by another service — {1}</value>
   </data>
@@ -1907,6 +1913,42 @@
   </data>
   <data name="Log_Files_WriteFailed" xml:space="preserve">
     <value>files: the file was not written — {0}</value>
+  </data>
+  <data name="Log_Files_Fast_On" xml:space="preserve">
+    <value>files: the fast path is listening on port {0}</value>
+  </data>
+  <data name="Log_Files_Fast_Off" xml:space="preserve">
+    <value>files: port {0} is taken, so files can only cross the slow way — {1}</value>
+  </data>
+  <data name="Log_Files_Fast_Sent" xml:space="preserve">
+    <value>files: {0} reached the other machine over the fast path — {1}, {2}</value>
+  </data>
+  <data name="Log_Files_Fast_Received" xml:space="preserve">
+    <value>files: {0} came over the fast path — {1}, {2}</value>
+  </data>
+  <data name="Log_Files_Fast_Fallback" xml:space="preserve">
+    <value>files: nothing answered on the fast path, so {0} goes the slow way</value>
+  </data>
+  <data name="Log_Files_Fast_Unsealed" xml:space="preserve">
+    <value>files: a connection on the fast path was dropped — its opening record was not sealed with the pairing key</value>
+  </data>
+  <data name="Log_Files_Fast_Cut" xml:space="preserve">
+    <value>files: a file arriving over the fast path was cut off and nothing was kept — {0}</value>
+  </data>
+  <data name="Log_Files_Fast_Damaged" xml:space="preserve">
+    <value>files: {0} arrived over the fast path damaged and was not kept</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Silent" xml:space="preserve">
+    <value>the other machine went quiet</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Short" xml:space="preserve">
+    <value>the connection ended part-way</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Unsealed" xml:space="preserve">
+    <value>what arrived was not sealed with the pairing key</value>
+  </data>
+  <data name="Log_Files_Fast_Why_Long" xml:space="preserve">
+    <value>more arrived than was offered</value>
   </data>
   <data name="Log_Clip_On" xml:space="preserve">
     <value>clipboard: on — what is copied here goes to the other machine</value>

@@ -104,14 +104,23 @@ $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 # для него открыт UDP. Три минуты в момент связывания — всё, что этот порт живёт.
 $exchangePort = [int]$port + 1
 
+# Файлы едут по TCP на порт+2, а не кусками по UDP: между Mac и Windows на одной
+# виртуальной сети чанкованный UDP-канал давал 2,8 МБ/с, а обычный TCP-поток — 370 МБ/с.
+# Без этого правила файл всё равно дойдёт — он откатится на UDP, — но будет идти в сто
+# с лишним раз дольше, и никто не свяжет это с брандмауэром.
+$fastPort = [int]$port + 2
+
 if ($admin) {
-    Say "открываю UDP/$port и TCP/$exchangePort в брандмауэре"
+    Say "открываю UDP/$port, TCP/$exchangePort и TCP/$fastPort в брандмауэре"
     Remove-NetFirewallRule -DisplayName "HexBridge" -ErrorAction SilentlyContinue
     Remove-NetFirewallRule -DisplayName "HexBridge (связывание)" -ErrorAction SilentlyContinue
+    Remove-NetFirewallRule -DisplayName "HexBridge (файлы)" -ErrorAction SilentlyContinue
     New-NetFirewallRule -DisplayName "HexBridge" -Direction Inbound -Protocol UDP `
         -LocalPort $port -Action Allow -Profile Any | Out-Null
     New-NetFirewallRule -DisplayName "HexBridge (связывание)" -Direction Inbound -Protocol TCP `
         -LocalPort $exchangePort -Action Allow -Profile Any | Out-Null
+    New-NetFirewallRule -DisplayName "HexBridge (файлы)" -Direction Inbound -Protocol TCP `
+        -LocalPort $fastPort -Action Allow -Profile Any | Out-Null
 } else {
     Warn "не администратор — правило брандмауэра пропущено."
     Warn "если звук не пойдёт, перезапустите скрипт от администратора."

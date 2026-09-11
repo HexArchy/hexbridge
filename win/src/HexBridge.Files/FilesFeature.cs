@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Sockets;
 
 using HexBridge.Localization;
 
@@ -9,10 +11,19 @@ namespace HexBridge.Files;
 /// sent from there lands in this user's Downloads folder.
 ///
 /// <para>
-/// It owns no transport. Everything rides the file lane of <see cref="BulkHost"/> — the same
-/// reliable channel the clipboard uses, which is the whole reason the kind exists in the
-/// contract — so this class does two things the channel must not know about: it decides what
-/// a received name is allowed to become on this disk, and it reads the file being sent.
+/// Two paths carry a file, and this owns one of them. The normal one is the fast path — a
+/// TCP stream on data port + 2, which moved a file at 370 MB/s between the two machines the
+/// chunked channel managed 2.8 MB/s on. The other is the file lane of
+/// <see cref="BulkHost"/>, the same reliable channel the clipboard uses, and it is not
+/// going anywhere: it is what a file falls back to when no connection can be made, and it is
+/// all a pair who can only reach each other through a relay ever has.
+/// </para>
+///
+/// <para>
+/// Either way this class does the two things no transport may know about: it decides what a
+/// received name is allowed to become on this disk, and it reads the file being sent. Both
+/// paths hand a finished file to the same queue, so which one carried it stops mattering the
+/// moment it has landed.
 /// </para>
 ///
 /// <para>
@@ -34,9 +45,39 @@ public sealed class FilesFeature : IFeature
     private BlockingCollection<BulkDelivery>? _arrivals;
     private Thread? _worker;
     private FeatureContext? _context;
+    private FastPathListener? _fast;
+    private FastPathFlight? _flight;
+
+    /// <summary>
+    /// Cancelled when the feature stops, so a file already streaming out on the fast path
+    /// goes with it. Never disposed: the send it is cancelling holds the token, and taking
+    /// the source away underneath it would turn an ordinary shutdown into a transfer the
+    /// user is told broke.
+    /// </summary>
+    private CancellationTokenSource? _sending;
     private string? _fault;
     private long _sent;
     private long _received;
+
+    /// <summary>
+    /// Where the fast path dials and waits, worked out once when the feature starts.
+    ///
+    /// <para>
+    /// One number for both, and it comes from this machine's own data port. Both ends take
+    /// the data port from the same pairing payload, so both arrive at the same number — and
+    /// in the receiving role there is nothing else to go on anyway: the config does not name
+    /// the other machine, and the port a datagram arrived from is an ephemeral one that says
+    /// nothing about where that machine listens.
+    /// </para>
+    /// </summary>
+    private int _fastPort = PairingPayload.FastPathPort(PairingPayload.DefaultPort);
+
+    /// <summary>
+    /// The pairing key, taken once at start. The fast path seals with it directly rather than
+    /// through the shared socket, which is the one thing on this path the transport cannot do
+    /// on a feature's behalf.
+    /// </summary>
+    private byte[] _key = [];
 
     public FilesFeature(BulkHost bulk) : this(bulk, FileNames.Downloads) { }
 
@@ -71,14 +112,20 @@ public sealed class FilesFeature : IFeature
             Name = "hexbridge.files",
         };
 
+        context.Config.TryGetKey(out var key, out _);
+
         lock (_gate)
         {
             _context = context;
             _arrivals = arrivals;
             _worker = worker;
             _fault = null;
+            _flight = null;
             _sent = 0;
             _received = 0;
+            _key = key;
+            _fastPort = FastPortFor(context.Config);
+            _sending = new CancellationTokenSource();
             _arrived.Clear();
         }
 
@@ -93,10 +140,19 @@ public sealed class FilesFeature : IFeature
 
         worker.Start();
         context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_On, _folder()));
+
+        // After the queue exists, because this is the second thing that fills it.
+        OpenFastPath(context, key);
     }
 
     public Task StopAsync()
     {
+        // First, and outside the lock: nothing new may arrive once the queue is being
+        // closed, and the port has to be back before anything tries to claim it again — a
+        // feature switched off and on again in the settings would otherwise find its own
+        // socket still holding it.
+        CloseFastPath();
+
         _lane.Delivered -= OnDelivered;
         _lane.Finished -= OnFinished;
         _lane.Reset();
@@ -110,6 +166,7 @@ public sealed class FilesFeature : IFeature
             _arrivals = null;
             _worker = null;
             _context = null;
+            _flight = null;
         }
 
         // Completing the queue is what ends the worker's wait; whatever is still in it is
@@ -131,6 +188,7 @@ public sealed class FilesFeature : IFeature
         bool running;
         long sent, received;
         ArrivedFile[] arrived;
+        FastPathFlight? fast;
 
         lock (_gate)
         {
@@ -139,6 +197,7 @@ public sealed class FilesFeature : IFeature
             sent = _sent;
             received = _received;
             arrived = [.. _arrived];
+            fast = _flight;
         }
 
         var folder = Folder();
@@ -154,17 +213,21 @@ public sealed class FilesFeature : IFeature
             };
         }
 
-        var flight = _lane.Progress().FirstOrDefault();
+        // Two paths, one progress bar. The page does not say which one is carrying the file
+        // — that belongs in the log — but it has to say that one of them is: a four-gigabyte
+        // file crossing in silence looks exactly like nothing happening.
+        var slow = _lane.Progress().FirstOrDefault();
+        var moving = fast is not null || slow is not null;
         var moved = sent + received;
 
         return new FilesState
         {
             Status = fault is not null ? FeatureStatus.Failed
-                : flight is not null ? FeatureStatus.Live
+                : moving ? FeatureStatus.Live
                 : moved == 0 ? FeatureStatus.Waiting
                 : FeatureStatus.Live,
             Headline = fault is not null ? Strings.Feature_Files_Failed
-                : flight is not null ? Strings.Feature_Files_Transferring
+                : moving ? Strings.Feature_Files_Transferring
                 : moved == 0 ? Strings.Feature_Files_Waiting
                 : Strings.Feature_Files_Live,
             Detail = fault ?? (arrived.Length == 0
@@ -175,9 +238,9 @@ public sealed class FilesFeature : IFeature
             Sent = sent,
             Received = received,
             Arrived = arrived,
-            TransferDescription = flight?.Description,
-            TransferDirection = flight?.Direction,
-            Progress = flight?.Fraction ?? 0,
+            TransferDescription = fast?.Name ?? slow?.Description,
+            TransferDirection = fast?.Direction ?? slow?.Direction,
+            Progress = fast?.Fraction ?? slow?.Fraction ?? 0,
         };
     }
 
@@ -217,11 +280,29 @@ public sealed class FilesFeature : IFeature
             // The contract's own rule for kind 2: the description is the name and nothing
             // else, and it is trimmed before it is sent rather than by whoever receives it.
             var name = FileNames.Sanitise(Path.GetFileName(path));
-            _lane.Offer(BulkFormat.Opaque, BulkSource.FromFile(path), name, DateTime.UtcNow, out var error);
-            if (error is not null) return error;
 
+            // Said before either path is tried rather than after one succeeded: the fast
+            // path can hold this thread for as long as a gigabyte takes, and a log that says
+            // nothing until it is over is a log somebody reads while wondering whether their
+            // drop registered at all.
             context?.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Sending, name, Loc.Size(file.Length)));
-            return null;
+
+            switch (TryFastPath(context, path, name, file.Length))
+            {
+                case FastPathOutcome.Sent:
+                    return null;
+
+                case FastPathOutcome.Broken:
+                    // Not retried on the slow path: the other machine deleted what it had,
+                    // so this would move the whole file again — minutes, at the speeds that
+                    // make the fast path worth having in the first place.
+                    var broken = Loc.F(Strings.Err_Files_Fast_Broken, name);
+                    lock (_gate) _fault = broken;
+                    return broken;
+            }
+
+            _lane.Offer(BulkFormat.Opaque, BulkSource.FromFile(path), name, DateTime.UtcNow, out var error);
+            return error;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -270,6 +351,173 @@ public sealed class FilesFeature : IFeature
             context = _context;
         }
         context?.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Sent, result.Description));
+    }
+
+    // MARK: - The fast path
+
+    /// <summary>
+    /// Claims data port + 2, which is where a file arrives when it does not have to be cut
+    /// into datagrams.
+    ///
+    /// <para>
+    /// A port somebody else holds is a warning and nothing more. Files still cross on the UDP
+    /// channel, more slowly, and that is a great deal better than a feature that refuses to
+    /// start; the likeliest holder of the port is this machine's other half, since both roles
+    /// are meant to be able to run here at once.
+    /// </para>
+    /// </summary>
+    private void OpenFastPath(FeatureContext context, byte[] key)
+    {
+        // No usable pairing key means no transport either, so there is nothing to listen for.
+        if (key.Length == 0) return;
+
+        int port;
+        lock (_gate) port = _fastPort;
+
+        var listener = new FastPathListener(BindFor(context.Config), port, key, Folder);
+        listener.Landed += OnDelivered;
+        listener.Moving += OnMoving;
+        listener.Note += context.Log;
+
+        try
+        {
+            listener.Start();
+        }
+        catch (Exception ex) when (ex is SocketException or IOException)
+        {
+            listener.Dispose();
+            context.Log(LogLevel.Warning, Loc.F(Strings.Log_Files_Fast_Off, port, ex.Message));
+            return;
+        }
+
+        lock (_gate) _fast = listener;
+        context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Fast_On, listener.Port));
+    }
+
+    /// <summary>Gives the port back and stops whatever is still going out on it.</summary>
+    private void CloseFastPath()
+    {
+        FastPathListener? listener;
+        CancellationTokenSource? sending;
+        lock (_gate)
+        {
+            listener = _fast;
+            sending = _sending;
+            _fast = null;
+            _sending = null;
+        }
+
+        sending?.Cancel();
+        listener?.Dispose();
+    }
+
+    /// <summary>
+    /// Tries the stream, and answers what happened so the caller can decide between «done»,
+    /// «go the slow way» and «tell the user».
+    /// </summary>
+    private FastPathOutcome TryFastPath(FeatureContext? context, string path, string name, long size)
+    {
+        if (context is null) return FastPathOutcome.Unreachable;
+
+        // An empty file is refused, and it is refused in one place: the channel's own check,
+        // which both kinds go through. Streaming it here would make «empty» mean one thing
+        // for a file and another for everything else.
+        if (size <= 0) return FastPathOutcome.Unreachable;
+
+        byte[] key;
+        int port;
+        FastPathListener? ours;
+        CancellationToken token;
+        lock (_gate)
+        {
+            key = _key;
+            port = _fastPort;
+            ours = _fast;
+            token = _sending?.Token ?? new CancellationToken(canceled: true);
+        }
+
+        if (key.Length == 0) return FastPathOutcome.Unreachable;
+        if (context.Peer is not { } peer) return FastPathOutcome.Unreachable;
+
+        var where = new IPEndPoint(peer.Address, port);
+
+        // Never this machine's own listener. Both roles can run here at once — that is what
+        // the sending role's ephemeral data port is for — and on loopback the address the
+        // dialling half would aim at is the address the waiting half is bound to. Without
+        // this, a file dropped on one of them would land in this machine's own Downloads
+        // folder while the other machine got nothing at all.
+        if (ours is not null && ours.Port == where.Port && IPAddress.IsLoopback(where.Address))
+        {
+            return FastPathOutcome.Unreachable;
+        }
+
+        var started = DateTime.UtcNow;
+        var outcome = FastPathSend.Send(where, key, path, name, OnMoving, token);
+
+        switch (outcome)
+        {
+            case FastPathOutcome.Sent:
+                lock (_gate)
+                {
+                    _sent++;
+                    _fault = null;
+                }
+                // Somebody who wonders why a gigabyte took three seconds gets an answer
+                // rather than a mystery: which path carried it, and how fast it went.
+                context.Log(LogLevel.Info, Loc.F(
+                    Strings.Log_Files_Fast_Sent,
+                    name,
+                    Loc.Size(size),
+                    Loc.Throughput(size, DateTime.UtcNow - started)));
+                break;
+
+            case FastPathOutcome.Unreachable:
+                context.Log(LogLevel.Info, Loc.F(Strings.Log_Files_Fast_Fallback, name));
+                break;
+
+            case FastPathOutcome.Broken:
+                // The sentence the user reads is the caller's to write; it is the caller
+                // that knows this was a file somebody dropped rather than a line in a log.
+                break;
+        }
+
+        return outcome;
+    }
+
+    /// <summary>What the fast path has on the wire, in either direction. Null means nothing.</summary>
+    private void OnMoving(FastPathFlight? flight)
+    {
+        lock (_gate) _flight = flight;
+    }
+
+    /// <summary>
+    /// Which address the listener binds, which is the one the data channel was told to wait
+    /// on. Binding everything when the config named one interface would be this feature
+    /// quietly reaching further than the rest of the program does.
+    /// </summary>
+    private static IPAddress BindFor(ReceiverConfig config)
+    {
+        try
+        {
+            return ReceiverConfig.ParseEndpoint(config.Listen, PairingPayload.DefaultPort).Address;
+        }
+        catch (Exception)
+        {
+            return IPAddress.Any;
+        }
+    }
+
+    private static int FastPortFor(ReceiverConfig config)
+    {
+        try
+        {
+            return PairingPayload.FastPathPort(
+                ReceiverConfig.ParseEndpoint(config.Listen, PairingPayload.DefaultPort).Port);
+        }
+        catch (Exception)
+        {
+            return PairingPayload.FastPathPort(PairingPayload.DefaultPort);
+        }
     }
 
     // MARK: - Receiving

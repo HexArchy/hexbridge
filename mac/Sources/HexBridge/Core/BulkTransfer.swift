@@ -455,7 +455,11 @@ private final class FileBody: BulkBody {
 /// regular file is allowed to move less than it was asked for, and treating
 /// that as the end of the file — or as a completed write — is the kind of bug
 /// that only shows up on somebody else's disk.
-private enum PosixFile {
+///
+/// Visible to the rest of the target rather than to this file alone, because the
+/// fast path reads a file the same way and for the same reason. Nothing about
+/// the block channel changes with it.
+enum PosixFile {
 
     static func read(_ descriptor: Int32, into buffer: inout [UInt8], count: Int, at offset: Int) throws -> Int {
         guard count > 0 else { return 0 }

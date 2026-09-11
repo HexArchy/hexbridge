@@ -229,31 +229,6 @@ public class FilesFeatureTests
         () => false,
         _ => { });
 
-    /// <summary>A Downloads folder of this test's own, emptied when it ends.</summary>
-    private sealed class TempDownloads : IDisposable
-    {
-        public TempDownloads()
-        {
-            Path = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(), "hexbridge-files", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Path);
-        }
-
-        public string Path { get; }
-
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A temporary directory that outlives the run is not a failed test.
-            }
-        }
-    }
-
     /// <summary>
     /// A live receiver on loopback and a bulk channel talking to it over a real socket, so
     /// the sealing, the routing, the shared channel and both features are the real ones.

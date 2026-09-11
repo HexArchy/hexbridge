@@ -423,7 +423,8 @@ public sealed class ReceiverService : IAsyncDisposable
                 (level, message) => _owner.Emit(level, message),
                 SendToPeer,
                 () => _owner.Muted,
-                muted => _owner.Muted = muted);
+                muted => _owner.Muted = muted,
+                () => Volatile.Read(ref _peer));
 
             foreach (var feature in features)
             {
