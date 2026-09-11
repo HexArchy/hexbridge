@@ -533,6 +533,56 @@ A forged introduction costs a few probe packets aimed at an address that will no
 answer. It cannot make either side accept data, because accepting still requires a
 packet that decrypts.
 
+## The fast path for files (TCP, data port + 2)
+
+Measured between a Mac and a Windows VM on one virtual network: the chunked UDP
+channel above moved a file at **2.8 MB/s**, and a plain TCP stream between the same
+two machines moved one at **370 MB/s**. The reason is not the encryption or the disk.
+Every byte of a file on that channel travels in a 1024-byte piece inside its own
+datagram, so 50 MB/s would need fifty thousand datagrams a second, each of them
+sealed, framed and handed to the kernel one at a time.
+
+So a file does not use it when it does not have to. The reliable UDP channel stays
+exactly as it is — it is what the clipboard uses, and it is the fallback for a file
+when no connection can be made — but the normal case for a file is a TCP stream.
+
+Nothing here replaces the UDP channel's guarantees; it sidesteps the need for them.
+TCP already delivers every byte, in order, once, with the kernel's own congestion
+control, and one write hands over a megabyte instead of a kilobyte. There is no offer,
+no acknowledgement, no bitmap and no pacing on this path.
+
+### Making the connection
+
+The machine that would receive listens on **data port + 2** — 47704 beside the usual
+47702. The machine that would send connects, and if it cannot within **three seconds**
+it falls back to the UDP channel and the transfer happens the slow way rather than not
+at all.
+
+### What crosses it
+
+```
+magic   "MBG1", 4 bytes, then version 1
+room    LE u64, the same room the UDP header carries
+opening AES-256-GCM, nonce = 0, sealing: name length LE u16, name UTF-8, size LE u32, SHA-256
+records AES-256-GCM, nonce = record number, 1…65536 bytes of plaintext each
+end     a record whose plaintext is empty
+```
+
+The magic and the room travel in the clear, exactly as they do in the UDP header and
+for the same reason: something has to be readable before there is a key to read with.
+Everything after is sealed under the pairing key, so a connection from somebody who
+does not hold it fails at the opening record and is dropped without a byte of the file
+being written.
+
+The nonce is the record number, and a record number is never reused on a connection —
+one connection carries one file. The receiving side hashes as it writes and compares
+at the end; a mismatch means the file is deleted rather than renamed, the same as on
+the other path.
+
+**A relay cannot carry this.** It forwards datagrams, and this is a stream. Two
+machines that can only reach each other through a relay keep the UDP path, which is
+why that path is not going anywhere.
+
 ## The short-code exchange
 
 A twelve-character code cannot carry a 32-byte key, so it is a one-time ticket. The PC
