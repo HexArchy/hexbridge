@@ -77,7 +77,7 @@ final class AppModel: FeatureHost {
     private var uiTimer: Timer?
     private var saveTimer: Timer?
     private var muteSignal: DispatchSourceSignal?
-    private var deviceRefreshTick = 0
+    private var lastDeviceRefresh = Date.distantPast
     private var retryTick = 0
     /// Seconds between start attempts; doubles on each failure, capped at 15 minutes.
     private var retryEvery = 15
@@ -126,10 +126,7 @@ final class AppModel: FeatureHost {
             guard newValue != config.appLanguage else { return }
             config.language = newValue.rawValue
             L.select(newValue)
-            // The microphone can be stalled on a permission while the bridge itself
-        // is up and carrying everything else.
-        runtime.retryCaptureIfStalled()
-        for feature in features { feature.refresh() }
+            for feature in features { feature.refresh() }
             // The verdict and the six rows were worded in the old language and
             // nothing will re-run the check on its own.
             linkCheck.clear()
@@ -396,12 +393,19 @@ final class AppModel: FeatureHost {
         for feature in features { feature.refresh() }
         logSummaryIfChanged()
         retryPipelineIfStalled()
+        // The microphone can be stalled on a permission while the bridge itself
+        // is up and carrying everything else. Cheap: it is a date comparison
+        // until the moment it is not, and the attempt itself leaves this thread.
+        runtime.retryCaptureIfStalled()
 
-        // CoreAudio enumeration is not free; once a second is plenty for a
-        // device list that only changes when someone plugs something in.
-        deviceRefreshTick += 1
-        if deviceRefreshTick >= 20 {
-            deviceRefreshTick = 0
+        // CoreAudio enumeration is not free, and it blocks this thread while it
+        // runs. Counted in seconds and not in ticks: a tick is a twentieth of a
+        // second while the popover is open, so «every twenty ticks» meant every
+        // twenty seconds with it shut and every single second with it open —
+        // one blocking enumeration a second, on the main thread, exactly while
+        // somebody is looking at the window it draws.
+        if Date().timeIntervalSince(lastDeviceRefresh) >= 20 {
+            lastDeviceRefresh = Date()
             refreshDevices()
         }
     }

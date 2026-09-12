@@ -98,7 +98,7 @@ final class ClipboardFeature: Feature {
 
     func stop() {
         guard running else {
-            status = derive()
+            setStatus(derive())
             return
         }
         running = false
@@ -118,13 +118,13 @@ final class ClipboardFeature: Feature {
         finishToken = nil
         bulk.reset(kind: .clipboard)
         flight = nil
-        status = derive()
+        setStatus(derive())
     }
 
     func refresh() {
         guard isEnabled else {
             if running { stop() }
-            status = derive()
+            setStatus(derive())
             return
         }
         if !running { start() }
@@ -147,7 +147,7 @@ final class ClipboardFeature: Feature {
             pollClipboard()
         }
 
-        status = derive()
+        setStatus(derive())
     }
 
     // MARK: - The two directions
@@ -186,7 +186,7 @@ final class ClipboardFeature: Feature {
         lastDescription = item.describe
         lastDirection = .incoming
         lastAt = Date()
-        status = derive()
+        setStatus(derive())
     }
 
     private func finish(_ result: BulkResult) {
@@ -203,7 +203,7 @@ final class ClipboardFeature: Feature {
             lastDirection = .outgoing
             lastAt = Date()
         }
-        status = derive()
+        setStatus(derive())
     }
 
     /// The peer restarted. Half-transferred objects belong to a session that is
@@ -214,6 +214,17 @@ final class ClipboardFeature: Feature {
     }
 
     // MARK: - State machine
+    /// Writes the status only when it would draw differently.
+    ///
+    /// The shell polls twenty times a second while the popover is open, and
+    /// Observation fires on the assignment and not on the difference: an
+    /// identical status rewritten fifty times a second rebuilt the whole
+    /// popover that often, and the window opened late and then froze.
+    private func setStatus(_ next: FeatureStatus) {
+        guard next != status else { return }
+        status = next
+    }
+
 
     private func derive() -> FeatureStatus {
         guard isEnabled else {

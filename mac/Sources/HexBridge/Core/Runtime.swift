@@ -104,12 +104,18 @@ final class BridgeRuntime: @unchecked Sendable {
     /// Nil both when it is running and when nobody asked for it.
     private(set) var captureFailure: String?
 
-    /// The backoff on retrying a capture. Every attempt at a denied microphone
-    /// puts another TCC prompt on screen, and a prompt storm is what doubling
-    /// this is for; the first interval is in seconds of UI ticks.
-    private static let firstCaptureRetry = 15
-    private var captureRetryTick = 0
+    /// The backoff on retrying a capture, in seconds of wall clock.
+    ///
+    /// Every attempt at a denied microphone puts another TCC prompt on screen,
+    /// which is what doubling this is for. Seconds and not ticks: the shell calls
+    /// in twenty times a second, and counting ticks turned «fifteen seconds»
+    /// into three quarters of one.
+    private static let firstCaptureRetry: TimeInterval = 15
+    private var captureRetryAt: Date?
     private var captureRetryEvery = firstCaptureRetry
+    /// True from the moment an attempt is handed to a background queue until it
+    /// comes back, so that twenty ticks a second cannot pile them up.
+    private var captureAttemptRunning = false
     var inputFormatDescription: String { capture?.inputFormatDescription ?? "—" }
 
     var muted: Bool {
@@ -176,7 +182,7 @@ final class BridgeRuntime: @unchecked Sendable {
         // travel on. It is started here when it is wanted, and its failure is
         // recorded rather than thrown.
         captureFailure = nil
-        captureRetryTick = 0
+        captureRetryAt = nil
         captureRetryEvery = Self.firstCaptureRetry
         if config.streamsMicrophone { attemptCapture() }
 
@@ -324,12 +330,28 @@ final class BridgeRuntime: @unchecked Sendable {
     // MARK: - Private
 
     /// Tries the microphone and remembers how it went.
+    ///
+    /// Never on the main thread. Starting a capture touches CoreAudio and can
+    /// block on the TCC prompt for as long as nobody answers it, and a menu bar
+    /// that stops drawing for that long looks exactly like a crash — which is
+    /// what it looked like, because this used to be called straight from the
+    /// twenty-times-a-second UI tick.
     private func attemptCapture() {
-        do {
-            try startCapture()
-            captureFailure = nil
-        } catch {
-            captureFailure = "\(error)"
+        guard !captureAttemptRunning else { return }
+        captureAttemptRunning = true
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var failure: String?
+            do {
+                try self.startCapture()
+            } catch {
+                failure = "\(error)"
+            }
+            DispatchQueue.main.async {
+                self.captureFailure = failure
+                self.captureAttemptRunning = false
+            }
         }
     }
 
@@ -341,11 +363,20 @@ final class BridgeRuntime: @unchecked Sendable {
     /// restarted by hand.
     func retryCaptureIfStalled() {
         guard sender != nil, config.streamsMicrophone, capture == nil else { return }
+        guard !captureAttemptRunning else { return }
 
-        captureRetryTick += 1
-        guard captureRetryTick >= captureRetryEvery else { return }
-        captureRetryTick = 0
+        let now = Date()
+        guard let due = captureRetryAt else {
+            // First call after the bridge came up: start the clock rather than
+            // trying again straight away, since the attempt that failed was a
+            // moment ago.
+            captureRetryAt = now.addingTimeInterval(captureRetryEvery)
+            return
+        }
+        guard now >= due else { return }
+
         captureRetryEvery = min(captureRetryEvery * 2, 900)
+        captureRetryAt = now.addingTimeInterval(captureRetryEvery)
         attemptCapture()
     }
 
@@ -354,7 +385,7 @@ final class BridgeRuntime: @unchecked Sendable {
     func wantsMicrophone(_ wanted: Bool) {
         guard sender != nil else { return }
         if wanted {
-            captureRetryTick = 0
+            captureRetryAt = nil
             captureRetryEvery = Self.firstCaptureRetry
             if capture == nil { attemptCapture() }
         } else {

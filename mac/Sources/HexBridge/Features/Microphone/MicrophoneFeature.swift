@@ -94,9 +94,14 @@ final class MicrophoneFeature: Feature {
         rttMs = snapshot.rtt
         remoteReceived = snapshot.received
         remoteLost = snapshot.lost
-        hostAlive = snapshot.pong.map { Date().timeIntervalSince($0) < 5 } ?? false
-        isMuted = runtime.muted
-        deviceName = runtime.deviceName
+        // Written only when they change. Observation fires on the assignment
+        // rather than on the difference, and these three change once in a
+        // session while this runs twenty times a second: rewriting them
+        // invalidated every view that reads them, on every tick, for nothing.
+        let alive = snapshot.pong.map { Date().timeIntervalSince($0) < 5 } ?? false
+        if hostAlive != alive { hostAlive = alive }
+        if isMuted != runtime.muted { isMuted = runtime.muted }
+        if deviceName != runtime.deviceName { deviceName = runtime.deviceName }
 
         if runtime.isCapturing {
             if startedAt == nil { startedAt = Date() }
@@ -113,21 +118,26 @@ final class MicrophoneFeature: Feature {
             lastRateSample = Date()
         }
 
+        // Into a local first, and written only if it differs: the branches below
+        // run on every tick and most of them write what is already there.
+        var nextFailure = failure
         if let transport = snapshot.error {
-            failure = transport
+            nextFailure = transport
         } else if let capture = runtime.captureFailure {
             // The bridge is up and the microphone is not, which is now a state
             // this app can be in: say which of the two is the one that failed.
-            failure = capture
+            nextFailure = capture
         } else if runtime.isCapturing {
-            failure = nil
+            nextFailure = nil
         }
+        if failure != nextFailure { failure = nextFailure }
         // The TCC denial is what turns a dead end into a button (§10.3), and it
         // is asked for as a fact rather than recognised in a sentence: the
         // sentence is now translated, and matching a translation is a bug
         // waiting for the next language.
-        deniedAccess = runtime.microphoneDenied
-            || (failure?.contains("560557673") ?? false)
+        let denied = runtime.microphoneDenied
+            || (nextFailure?.contains("560557673") ?? false)
+        if deniedAccess != denied { deniedAccess = denied }
 
         historyTick += 1
         if historyTick >= 10 {
@@ -136,7 +146,7 @@ final class MicrophoneFeature: Feature {
             if history.count > 120 { history.removeFirst(history.count - 120) }
         }
 
-        status = derive()
+        setStatus(derive())
     }
 
     // MARK: - State machine (§7.2)
@@ -148,6 +158,17 @@ final class MicrophoneFeature: Feature {
     private static func isHostUnreachable(_ failure: String) -> Bool {
         ["error 50", "error 51", "error 64", "error 65"].contains { failure.contains($0) }
     }
+    /// Writes the status only when it would draw differently.
+    ///
+    /// The shell polls twenty times a second while the popover is open, and
+    /// Observation fires on the assignment and not on the difference: an
+    /// identical status rewritten fifty times a second rebuilt the whole
+    /// popover that often, and the window opened late and then froze.
+    private func setStatus(_ next: FeatureStatus) {
+        guard next != status else { return }
+        status = next
+    }
+
 
     private func derive() -> FeatureStatus {
         guard isEnabled else {
@@ -281,7 +302,7 @@ final class MicrophoneFeature: Feature {
     func toggleMute() {
         host.runtime.muted.toggle()
         isMuted = host.runtime.muted
-        status = derive()
+        setStatus(derive())
     }
 
     // MARK: - Views

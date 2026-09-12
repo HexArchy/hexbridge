@@ -13,7 +13,7 @@ import SwiftUI
 ///                   ▼
 ///                 error ──(fixed)──▶ starting
 /// ```
-enum FeatureState: String, Sendable {
+enum FeatureState: String, Sendable, Equatable {
     /// Switched off by the user. Not a problem, and never shown as one.
     case off
     /// Up to 10 s, then it becomes an error.
@@ -27,7 +27,7 @@ enum FeatureState: String, Sendable {
 /// The colour family a state is drawn in. Separate from `FeatureState` because
 /// mute is a `live` substate painted `warn` (§4.1), and because a feature may
 /// want `warn` while technically working (packet loss).
-enum Tone: Sendable {
+enum Tone: Sendable, Equatable {
     case ok, warn, bad, off, neutral
 
     func foreground(_ palette: Palette) -> Color {
@@ -110,7 +110,7 @@ struct FeatureAction: Identifiable {
 /// `notAvailable` are the two that do not follow from `FeatureState` on their
 /// own — the first is a `live` substate, the second is a thing this platform
 /// cannot do at all and must never be shown as a switch somebody could flip.
-enum StateWord: String, Sendable {
+enum StateWord: String, Sendable, Equatable {
     case off, starting, waiting, working, muted, notWorking, unavailable
 }
 
@@ -119,7 +119,29 @@ enum StateWord: String, Sendable {
 /// The shell renders a list of these and never names one. There is no
 /// `if feature is MicrophoneFeature` anywhere, which is what makes adding a
 /// third feature a matter of appending to `AppModel.features`.
-struct FeatureStatus {
+struct FeatureStatus: Equatable {
+
+    /// Two statuses are the same when they would draw the same.
+    ///
+    /// The shell refreshes up to twenty times a second while the popover is
+    /// open, and Observation fires on the assignment rather than on the
+    /// difference — so rewriting an identical status rebuilt the popover fifty
+    /// times a second, which is what «the window opens late and then freezes»
+    /// was. The action is compared by what it says and what it does, never by
+    /// its `id`: that is a fresh UUID on every `derive()`, so comparing it would
+    /// make every status different from every other one and this pointless.
+    static func == (a: Self, b: Self) -> Bool {
+        a.state == b.state
+            && a.tone == b.tone
+            && a.headline == b.headline
+            && a.detail == b.detail
+            && a.alert == b.alert
+            && a.wordOverride == b.wordOverride
+            && a.primaryAction?.title == b.primaryAction?.title
+            && a.primaryAction?.togglesFeature == b.primaryAction?.togglesFeature
+            && (a.primaryAction == nil) == (b.primaryAction == nil)
+    }
+
     var state: FeatureState = .off
     var tone: Tone = .off
     /// The single sentence that answers "does it work or not" (§7.0).
@@ -180,7 +202,10 @@ protocol Feature: AnyObject, Identifiable where ID == String {
     /// block: features start their own work asynchronously.
     func start()
     func stop()
-    /// Once a second, from the shell's poll. Cheap by contract.
+    /// From the shell's poll: once a second with the popover closed, twenty
+    /// times a second while it is open. Cheap by contract — and, just as
+    /// importantly, it must write only what has actually changed, or every call
+    /// invalidates every view that reads it.
     func refresh()
 
     /// The block inside the menu bar popover. Collapses to a single row with a

@@ -131,7 +131,7 @@ final class FilesFeature: Feature {
         }
 
         startFastPath()
-        status = derive()
+        setStatus(derive())
     }
 
     /// Brings up the listener on the data port plus two.
@@ -189,7 +189,7 @@ final class FilesFeature: Feature {
 
     func stop() {
         guard running else {
-            status = derive()
+            setStatus(derive())
             return
         }
         running = false
@@ -205,13 +205,13 @@ final class FilesFeature: Feature {
         listening = nil
         fastProgress.clearAll()
         flight = nil
-        status = derive()
+        setStatus(derive())
     }
 
     func refresh() {
         guard isEnabled else {
             if running { stop() }
-            status = derive()
+            setStatus(derive())
             return
         }
         if !running { start() }
@@ -226,7 +226,7 @@ final class FilesFeature: Feature {
         // running before there is a key — the pairing window is inside the same
         // app. This is where it catches up.
         startFastPath()
-        status = derive()
+        setStatus(derive())
     }
 
     // MARK: - Out
@@ -240,7 +240,7 @@ final class FilesFeature: Feature {
             // Offering into a dead socket would burn ten retries and then report
             // a failure the user cannot do anything about.
             failure = L.t("files.error.noLink")
-            status = derive()
+            setStatus(derive())
             return
         }
 
@@ -392,7 +392,7 @@ final class FilesFeature: Feature {
             failure = L.t("files.error.notDelivered", result.description)
             print("hexbridge: \(result.description) did not get across")
         }
-        status = derive()
+        setStatus(derive())
     }
 
     // MARK: - In
@@ -462,7 +462,7 @@ final class FilesFeature: Feature {
     /// Dismisses the sentence about one file that did not make it.
     func clearFailure() {
         failure = nil
-        status = derive()
+        setStatus(derive())
     }
 
     func reveal(_ arrival: Arrival) {
@@ -470,6 +470,17 @@ final class FilesFeature: Feature {
     }
 
     // MARK: - State machine
+    /// Writes the status only when it would draw differently.
+    ///
+    /// The shell polls twenty times a second while the popover is open, and
+    /// Observation fires on the assignment and not on the difference: an
+    /// identical status rewritten fifty times a second rebuilt the whole
+    /// popover that often, and the window opened late and then froze.
+    private func setStatus(_ next: FeatureStatus) {
+        guard next != status else { return }
+        status = next
+    }
+
 
     private func derive() -> FeatureStatus {
         guard isEnabled else {

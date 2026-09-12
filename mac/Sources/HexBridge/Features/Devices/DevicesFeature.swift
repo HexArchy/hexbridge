@@ -70,7 +70,7 @@ final class DevicesFeature: Feature {
         outputBlocked = forwarded.contains { device in
             device.outputsForbidden || (device.outputsRejected > 0 && device.outputsApplied == 0)
         }
-        status = derive()
+        setStatus(derive())
     }
 
     /// Balanced with `endObservation`. Called by the views that draw a device or
@@ -121,6 +121,17 @@ final class DevicesFeature: Feature {
     }
 
     // MARK: - State machine (§7.3)
+    /// Writes the status only when it would draw differently.
+    ///
+    /// The shell polls twenty times a second while the popover is open, and
+    /// Observation fires on the assignment and not on the difference: an
+    /// identical status rewritten fifty times a second rebuilt the whole
+    /// popover that often, and the window opened late and then froze.
+    private func setStatus(_ next: FeatureStatus) {
+        guard next != status else { return }
+        status = next
+    }
+
 
     private func derive() -> FeatureStatus {
         let chosen = selection
