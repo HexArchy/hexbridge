@@ -29,3 +29,8 @@ relay/hexbridge-relay
 
 # Go build output: `go build ./...` drops the binary next to its source.
 /relay/relay
+
+# Android TV: сборочные каталоги Gradle и локальный путь к SDK.
+tv/**/build/
+tv/.gradle/
+tv/local.properties
