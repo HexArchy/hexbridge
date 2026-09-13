@@ -34,17 +34,43 @@ version, because the current Android plugin does not run on the newest Gradle.
 
 ```
 cd tv
-./gradlew :core:test            # the protocol core, no SDK needed
-./gradlew :app:assembleDebug    # the APK
+./gradlew :core:test              # the protocol core, no SDK needed
+./gradlew :app:assembleRelease    # the APK
 ```
 
-The APK lands in `app/build/outputs/apk/debug/`.
+The APK lands in `app/build/outputs/apk/release/`.
+
+### Signing
+
+The release build is signed with a keystore at `~/.hexbridge/tv-release.jks`,
+with its passwords in `~/.gradle/gradle.properties` as `hexbridgeStorePassword`
+and `hexbridgeKeyPassword`. Neither is in the repository and neither is
+regenerated: Android refuses to install an update signed by a different key, so
+a keystore made fresh on every build machine would mean uninstalling the app to
+update it. That is also why CI does not build the release APK — it has no key —
+and why the APK is uploaded to each release by hand:
+
+```
+gh release upload <tag> app/build/outputs/apk/release/app-release.apk#HexBridge-AndroidTV.apk
+```
+
+Without the keystore, `assembleRelease` produces an unsigned APK that will not
+install; use `assembleDebug` instead.
 
 ## Installing and setting it up
 
+The built APK is one short link away, served from our own VPS rather than from
+GitHub — the box under the television has to be able to reach it:
+
+```
+https://game.hexarch.me/tv          # and /mac, /win for the other two
+```
+
+Or from a checkout:
+
 ```
 adb connect <адрес приставки>:5555
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
 Typing forty-four characters of base64 with a remote control is nobody's idea of

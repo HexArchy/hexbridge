@@ -18,9 +18,30 @@ android {
         versionName = "1.0.0"
     }
 
+    // Signed with a key that lives outside both repositories — never in git, and
+    // never regenerated. Android refuses to install an update signed by a
+    // different key, so a keystore made fresh on every build machine would mean
+    // uninstalling the app to update it. Passwords come from
+    // ~/.gradle/gradle.properties; without them the release build is unsigned and
+    // `assembleDebug` is the one to use.
+    val keystore = File(System.getProperty("user.home"), ".hexbridge/tv-release.jks")
+    val storePassword = providers.gradleProperty("hexbridgeStorePassword").orNull
+
+    signingConfigs {
+        if (keystore.exists() && storePassword != null) {
+            create("release") {
+                storeFile = keystore
+                this.storePassword = storePassword
+                keyAlias = "hexbridge"
+                keyPassword = providers.gradleProperty("hexbridgeKeyPassword").orNull ?: storePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
