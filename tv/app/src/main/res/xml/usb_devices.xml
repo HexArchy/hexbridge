@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DualSense and DualSense Edge. Decimal, because that is the only thing
+         this file accepts: 0x054C and 0x0CE6 / 0x0DF2. -->
+    <usb-device vendor-id="1356" product-id="3302" />
+    <usb-device vendor-id="1356" product-id="3570" />
+</resources>

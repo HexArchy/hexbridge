@@ -31,11 +31,30 @@ object DeviceChannel {
      */
     val REQUIRED_FEATURE_REPORTS = intArrayOf(0x20, 0x09, 0x05)
 
+    /**
+     * How long each of those reports is **with its number counted in**, which is
+     * the length the block ends up being.
+     *
+     * This is the seam where two implementations drift apart without either of
+     * them looking wrong. macOS hands back a feature report with the report
+     * number already in byte zero, and the Mac puts that buffer into the block
+     * untouched. A USB control `GET_REPORT` does not return the number at all —
+     * it travelled in `wValue`, and the host is expected to know it. So a client
+     * reading over USB must ask for one byte less and let [attach] put the number
+     * back, or Windows hands games a report one byte too long with its first byte
+     * repeated, and nothing anywhere reports an error.
+     */
+    val FEATURE_REPORT_SIZES = mapOf(0x20 to 64, 0x09 to 20, 0x05 to 41)
+
     class Descriptors(
         val device: ByteArray,
         val configuration: ByteArray,
         val hidReport: ByteArray,
         /** Report number to its contents, for the snapshot blocks. */
+        /**
+         * Report number to its contents **without** the number, which [attach]
+         * puts back. See [FEATURE_REPORT_SIZES].
+         */
         val featureReports: Map<Int, ByteArray>,
     )
 

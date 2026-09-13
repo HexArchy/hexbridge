@@ -134,3 +134,39 @@ class DeviceChannelTest {
         assertEquals(10 + 255, hello.size)
     }
 }
+
+/**
+ * The one place a client reading over USB and a client reading over IOKit will
+ * disagree without either of them looking wrong. Split out so that the number it
+ * pins is impossible to change by accident.
+ */
+class FeatureReportSizeTest {
+
+    @Test
+    fun `a block is as long as the report, number counted in`() {
+        val descriptors = DeviceChannel.Descriptors(
+            device = ByteArray(18),
+            configuration = ByteArray(227),
+            hidReport = ByteArray(273),
+            featureReports = DeviceChannel.REQUIRED_FEATURE_REPORTS.associateWith { report ->
+                ByteArray(DeviceChannel.FEATURE_REPORT_SIZES.getValue(report) - 1)
+            },
+        )
+
+        val attach = DeviceChannel.attach(0, descriptors)
+
+        var offset = 2
+        val lengths = LinkedHashMap<Int, Int>()
+        repeat(attach[1].toInt()) {
+            val type = attach[offset].toInt()
+            val length = ByteBuffer.wrap(attach, offset + 1, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt()
+            if (type == DeviceChannel.Block.FEATURE_REPORT) {
+                lengths[attach[offset + 3].toInt() and 0xFF] = length
+            }
+            offset += 3 + length
+        }
+
+        // The lengths the Mac produces from IOKit, which Windows already accepts.
+        assertEquals(mapOf(0x20 to 64, 0x09 to 20, 0x05 to 41), lengths)
+    }
+}

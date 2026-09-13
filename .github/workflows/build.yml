@@ -101,6 +101,25 @@ jobs:
           path: HexBridge-Windows.zip
           if-no-files-found: error
 
+  # Клиент для телевизора. Собирается только протокольное ядро: оно на чистом
+  # JVM и без единого Android-класса — именно поэтому его можно гонять на любом
+  # раннере, без SDK. Само приложение требует Android SDK и собирается вручную;
+  # проверять здесь его нечем — USB-контроллера у раннера всё равно нет.
+  tv:
+    name: Android TV core
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Tests
+        working-directory: tv
+        run: ./gradlew :core:test --console=plain
+
   relay:
     name: Relay
     runs-on: ubuntu-24.04
